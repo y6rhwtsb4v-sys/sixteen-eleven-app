@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sixteen Eleven — Privacy</title>
+<style>
+ @font-face{font-family:'EB Garamond';font-weight:400 600;font-display:swap;
+   src:url(assets/fonts/eb-garamond.woff2) format('woff2')}
+ body{margin:0;background:#F4EEE5;color:#1D1814;
+   font:17px/1.65 "EB Garamond","Iowan Old Style",Palatino,Cambria,"Noto Serif",Georgia,serif}
+ main{max-width:44rem;margin:0 auto;padding:40px 22px 80px}
+ h1{font-size:30px;letter-spacing:-.02em;margin:0 0 6px}
+ h2{font-size:19px;margin:32px 0 8px}
+ .sub{color:#554A40;margin:0 0 28px;font-size:14px}
+ ul{padding-left:20px} li{margin-bottom:7px}
+ code{background:#EAE1D4;padding:1px 5px;border-radius:4px;font-size:14px}
+ a{color:#9A2B22}
+</style>
+</head>
+<body><main>
+<p><a href="index.html">← Back to the app</a></p>
+<h1>Privacy</h1>
+<p class="sub">Sixteen Eleven — last updated 29 September 2026</p>
+
+<h2>The short version</h2>
+<p>Sixteen Eleven does not collect anything about you. There are no accounts, no
+analytics, no advertising, no tracking, and no server that receives your
+activity. Everything you create stays on your own device.</p>
+
+<h2>What is stored, and where</h2>
+<p>These are kept in your browser's own storage on your device:</p>
+<ul>
+  <li>Highlights, notes and your own cross references</li>
+  <li>Study sheets and any entries you add or edit</li>
+  <li>Which chapters you have marked read</li>
+  <li>Your reading position and display settings</li>
+  <li>Recent search terms</li>
+  <li>Any books you import, which never leave the device</li>
+  <li>Automatic restore points, if you leave that setting on</li>
+</ul>
+<p>None of it is transmitted. Clearing the app's site data erases all of it,
+which is why the app lets you download a backup file you control.</p>
+
+<h2>Network requests</h2>
+<p>The app and the whole Bible come with it, so it works offline. A few things
+reach the network, and only when you use them:</p>
+<ul>
+  <li><b>The narrated Bible.</b> Narrated chapters are streamed from Cloudflare
+      when you listen. Cloudflare sees an ordinary request for an audio file,
+      including your IP address, and keeps standard server logs. The narration
+      is an AI rendering, made with Chatterbox, of the narrator’s own voice,
+      and carries an inaudible watermark saying so.</li>
+  <li><b>The neural read-aloud voice.</b> If you turn it on, the model is
+      downloaded once from a public CDN (jsDelivr and Hugging Face) and cached.
+      Your text is never sent anywhere; speech is made on your device.</li>
+</ul>
+<p>Importing an EPUB, PDF or text book happens entirely on your device; the
+file is never uploaded.</p>
+
+<h2>Purchases</h2>
+<p>In the App Store and Google Play versions, subscriptions and one-time
+purchases are handled by Apple or Google. We never see your name or payment
+details. To know what you have bought, the app uses RevenueCat, which receives
+a random identifier made by the app, the products bought and when, and your
+device’s platform and country
+(<a href="https://www.revenuecat.com/privacy">RevenueCat’s privacy policy</a>).
+It is not used for advertising or tracking.</p>
+
+<h2>Children</h2>
+<p>The app has no accounts, no messaging, no user-generated content shared with
+anyone, and no advertising. It collects no personal information from anyone,
+including children.</p>
+
+<h2>Permissions</h2>
+<p>The app requests no device permissions. It does not use the camera,
+microphone, contacts, or location. Saving a backup or a verse image opens your
+device’s own share sheet; nothing is sent unless you choose where.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, the date above changes with it.</p>
+
+<h2>Contact</h2>
+<p>Questions about privacy, or anything else: <a href="mailto:scribe@sixteeneleven.bible">scribe@sixteeneleven.bible</a></p>
+</main></body>
+</html>

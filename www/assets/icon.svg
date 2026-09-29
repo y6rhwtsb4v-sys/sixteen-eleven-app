@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img"
+ aria-label="Sixteen Eleven">
+  <defs><linearGradient id="p" x1="0" y1="0" x2="0.62" y2="1">
+    <stop offset="0" stop-color="#2E2723"/><stop offset=".7" stop-color="#110F0E"/>
+  </linearGradient></defs>
+  <rect width="512" height="512" rx="115" fill="url(#p)"/>
+  <g fill="#DCCDB6" font-family="'EB Garamond',Georgia,'Times New Roman',serif"
+     font-size="110" text-anchor="middle" letter-spacing="9">
+    <text x="261" y="228">XVI</text>
+    <text x="261" y="368">XI</text>
+  </g>
+  <rect x="192" y="252" width="128" height="7" rx="3" fill="#C9483C"/>
+</svg>

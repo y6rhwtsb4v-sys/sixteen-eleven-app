@@ -1,0 +1,89 @@
+# Builds the Android App Bundle (.aab) for Google Play.
+# Run it from the Actions tab (Run workflow).
+#
+# Signing (safe in a public repository):
+#   1. First add a secret ANDROID_KEY_PASSWORD: a long password you make up and
+#      keep in a password manager. It never leaves GitHub's secret store.
+#   2. Run the workflow. The first run makes your upload key, signs with it, and
+#      attaches it to the run as "upload-key": ANDROID_KEYSTORE_B64.txt, the key
+#      ENCRYPTED with your password, so the file is useless to anyone else.
+#   3. Copy that file's text into a secret ANDROID_KEYSTORE_B64. Every later
+#      build is signed with the same key, as Play requires.
+#
+# Optional: PLAY_SERVICE_ACCOUNT_JSON (a Play Console service account) uploads
+# each build to the internal testing track. The very first upload must be done
+# by hand in the Play Console.
+name: Android bundle
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version name (e.g. 1.0.0)'
+        required: true
+        default: '1.0.0'
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      APP_VERSION: ${{ github.event.inputs.version }}
+      BUILD_NUMBER: ${{ github.run_number }}
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - run: npm install
+      - run: bash scripts/prepare.sh android
+      - name: Build the bundle
+        run: cd android && ./gradlew --no-daemon bundleRelease
+      - name: Sign it
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KS_PASS" ]; then
+            echo "::error::Add the ANDROID_KEY_PASSWORD secret first (see the top of this file)."; exit 1
+          fi
+          mkdir -p upload-key
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d | openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:KS_PASS \
+              -out upload.jks
+          else
+            keytool -genkeypair -keystore upload.jks -alias upload -keyalg RSA -keysize 4096 \
+              -validity 10000 -storepass "$KS_PASS" -keypass "$KS_PASS" \
+              -dname "CN=Sixteen Eleven, O=Sixteen Eleven, C=US"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:KS_PASS -in upload.jks \
+              | base64 -w0 > upload-key/ANDROID_KEYSTORE_B64.txt
+            echo "NEW_KEY=1" >> "$GITHUB_ENV"
+          fi
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          jarsigner -keystore upload.jks -storepass "$KS_PASS" -keypass "$KS_PASS" \
+            -sigalg SHA256withRSA -digestalg SHA-256 "$AAB" upload
+          rm -f upload.jks
+          mkdir -p dist && cp "$AAB" "dist/sixteen-eleven-${APP_VERSION}-${BUILD_NUMBER}.aab"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-bundle-${{ github.run_number }}
+          path: dist/*.aab
+      - uses: actions/upload-artifact@v4
+        if: env.NEW_KEY == '1'
+        with:
+          name: upload-key
+          path: upload-key/ANDROID_KEYSTORE_B64.txt
+          retention-days: 7
+      - name: Send to internal testing
+        if: env.PLAY_JSON != ''
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.sixteeneleven.bible
+          releaseFiles: dist/*.aab
+          track: internal
+          status: draft

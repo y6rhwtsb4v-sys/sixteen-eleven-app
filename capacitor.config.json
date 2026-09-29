@@ -1,0 +1,18 @@
+{
+  "appId": "com.sixteeneleven.bible",
+  "appName": "Sixteen Eleven",
+  "webDir": "www",
+  "backgroundColor": "#171412",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#171412",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "android": {
+    "backgroundColor": "#171412",
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

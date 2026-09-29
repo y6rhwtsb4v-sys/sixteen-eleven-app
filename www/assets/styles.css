@@ -1,0 +1,2542 @@
+
+/* ================= THE TYPE =================
+   EB Garamond with Instrument Sans, the pairing the redesign asks for. Both
+   are shipped with the app rather than fetched from Google, so the reader
+   still gets them on a plane. Variable files, one per style. */
+@font-face{font-family:'EB Garamond';font-style:normal;font-weight:400 600;
+  font-display:swap;src:url(fonts/eb-garamond.woff2) format('woff2')}
+@font-face{font-family:'EB Garamond';font-style:italic;font-weight:400 600;
+  font-display:swap;src:url(fonts/eb-garamond-italic.woff2) format('woff2')}
+@font-face{font-family:'Instrument Sans';font-style:normal;font-weight:400 600;
+  font-display:swap;src:url(fonts/instrument-sans.woff2) format('woff2')}
+:root{
+  --noteink:#9A2B22; --warnink:#8A6D1F; --warnbg:#FFF4DA; --stripe:#FAFBFC; --pill:#F1F2F6; --pillink:#655649;
+  --capbg:#FFF5F5; --offbg:#F1F2F6; --offink:#A2958A;
+
+  /* ---- design tokens ----
+     Spacing, radius and motion as named steps rather than numbers scattered
+     through the file, so the whole interface can be retuned in one place. */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+  --r1:8px;  --r2:12px; --r3:16px; --r4:22px;
+  --t-fast:.12s; --t-mid:.2s; --ease:cubic-bezier(.2,.7,.3,1);
+  --tap:44px;                 /* the smallest thing worth tapping */
+
+  /* Oceanic blue on warm paper. Pure white reads clinical on a phone and
+     pure black reads as a void, so the neutrals are tinted: a warm off-white
+     ground, a near-black with a trace of blue in it, and an accent deepened
+     from the old bright #E0776A so it carries authority rather than urgency.
+     Brass picks up the hilt in the app icon and marks the small labels. */
+  --blue:#9A2B22; --blue2:#B8362B; --blue-l:#EAE1D4; --blue-d:#7E211A;
+  --brass:#8A6228; --brass-l:#F1E8D8;
+  --bg:#F4EEE5; --card:#FFFDF9; --ink:#1D1915; --ink2:#6E6A63;
+  --line:rgba(60,40,25,.12); --ok:#4E8A63; --amber:#D9A93F; --rose:#C06A78;
+  --r:14px; --rs:10px;
+  --disp:'Instrument Sans',-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  /* Nothing is downloaded. This stack reaches for the faces a Cambridge Bible
+     would actually be set in, in order of preference: Iowan Old Style ships on
+     iOS and macOS and was drawn for exactly this kind of text, Cambria is on
+     every Windows machine, Noto Serif covers Android. */
+  --serif:'EB Garamond',"Iowan Old Style","Palatino Linotype",Palatino,"Palatino LT STD",
+          Charter,"Bitstream Charter",Cambria,"Libre Baskerville",Baskerville,
+          "Noto Serif","Times New Roman",Georgia,"Times",serif;
+  --paper:#FBF6EC; --ink-dark:#241F17; --ink-mid:#6B5F4C;
+  --text:'Instrument Sans',-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  /* shadows warmed to match the paper rather than sitting grey on it */
+  --shadow:0 1px 2px rgba(40,32,20,.05),0 1px 3px rgba(40,32,20,.06);
+  --shadow2:0 4px 16px rgba(40,32,20,.09);
+  --card:#FBF8F3;
+  --ink:#1D1814;
+  --ink2:#554A40;
+  --blue2:#B8362B;
+  --blue-l:#EAE1D4;
+  --blue-d:#7E211A;
+  --brass-l:#EFE6D8;
+  --ink-dark:#1D1814;
+  --ink-mid:#6A5B4D;
+  --rose:#A3281E;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:#E8E3DA}
+body{font-family:var(--text);color:var(--ink);font-size:15px;line-height:1.5;
+  -webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;padding:0}
+input{font:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- device shell ---------- */
+#phone{max-width:430px;margin:0 auto;background:var(--bg);
+  height:100vh;height:100dvh;overflow:hidden;
+  position:relative;display:flex;flex-direction:column;
+  box-shadow:0 0 0 1px rgba(32,28,24,.06),0 18px 50px rgba(32,28,24,.14)}
+@media(min-width:900px){#phone{min-height:100vh}}
+
+/* ---------- top bar ---------- */
+.top{position:-webkit-sticky;position:sticky;top:0;z-index:30;background:var(--card);
+  border-bottom:1px solid var(--line);padding:12px 16px calc(12px);
+  padding-top:calc(12px + env(safe-area-inset-top));
+  display:flex;align-items:center;gap:12px;min-height:56px}
+.top h1{font-family:var(--disp);font-size:19px;font-weight:700;margin:0;letter-spacing:-.02em;flex:1}
+.top .ver{font-family:var(--disp);font-size:15px;font-weight:600;flex:1;text-align:center}
+.icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--ink2);flex:none}
+.icon:hover{background:var(--bg);color:var(--blue)}
+.icon svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- scroll body ---------- */
+/* each side of the screen is a .pane holding a top bar and its scroller; a
+   phone has one */
+.pane{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
+#paneB,#divider{display:none}
+.pv{flex:1;overflow-y:auto;padding:16px 16px 96px;-webkit-overflow-scrolling:touch}
+
+/* ---------- bottom nav ---------- */
+#nav{position:-webkit-sticky;position:sticky;bottom:0;z-index:30;background:var(--card);
+  border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);
+  padding-bottom:env(safe-area-inset-bottom)}
+#nav button{padding:9px 0 8px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:var(--ink2);font-size:12px;font-weight:500;letter-spacing:-.01em}
+#nav button svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+#nav button[aria-selected="true"]{color:var(--blue)}
+
+/* ---------- generic ---------- */
+.h2{font-family:var(--disp);font-size:17px;font-weight:700;margin:22px 0 10px;letter-spacing:-.01em}
+.h2:first-child{margin-top:2px}
+.sub{color:var(--ink2);font-size:13px;margin:-6px 0 12px}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:14px;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:12px}
+.spacer{flex:1;min-width:0}
+
+.search{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:11px 13px;box-shadow:var(--shadow);margin-bottom:14px}
+.search svg{width:17px;height:17px;stroke:var(--ink2);fill:none;stroke-width:2}
+.search input{border:none;outline:none;flex:1;font-size:15px;background:none;color:var(--ink)}
+.search input::placeholder{color:#B2A59A}
+
+.btn{background:var(--blue);color:#fff;border-radius:999px;padding:13px 20px;font-weight:600;
+  font-size:14px;text-align:center;display:block;width:100%;letter-spacing:.01em}
+.btn:hover{background:var(--blue-d)}
+.btn.sec{background:var(--blue-l);color:var(--blue)}
+.btn.gh{background:none;color:var(--blue);border:1px solid var(--line)}
+
+.seg{display:flex;background:var(--blue-l);border-radius:999px;padding:3px;margin-bottom:16px}
+.seg button{flex:1;padding:9px 6px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--blue)}
+.seg button[aria-selected="true"]{background:var(--blue);color:#fff;box-shadow:var(--shadow)}
+
+.chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:9px;margin-bottom:4px;
+  scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:7px 13px;border-radius:999px;font-size:12.5px;font-weight:600;
+  background:var(--blue-l);color:var(--blue)}
+.chip[aria-selected="true"]{background:var(--blue);color:#fff}
+
+/* ---------- hero verse ---------- */
+.hero{border-radius:18px;padding:20px 18px 18px;color:#fff;margin-bottom:14px;position:relative;
+  overflow:hidden;background:linear-gradient(155deg,#2E2723 0%,#181412 70%)}
+.hero::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;opacity:.5;
+  background:radial-gradient(120% 80% at 80% -10%,rgba(255,255,255,.28),transparent 60%)}
+.hero .tag{position:relative;font-size:12.5px;font-weight:700;letter-spacing:.1em;
+  background:rgba(255,255,255,.2);padding:4px 9px;border-radius:6px;display:inline-block}
+.hero .v{display:block;position:relative;font-family:var(--disp);font-size:19px;line-height:1.42;
+  font-weight:600;margin-top:12px;letter-spacing:-.01em}
+.hero .r{display:block;position:relative;font-size:12.5px;opacity:.85;margin-top:9px;font-weight:500}
+
+/* ---------- list rows ---------- */
+.item{display:flex;align-items:flex-start;gap:12px;background:var(--card);border-radius:var(--r);
+  padding:13px;margin-bottom:8px;box-shadow:var(--shadow);width:100%;text-align:left}
+.item:hover{box-shadow:var(--shadow2)}
+.item .ic{width:34px;height:34px;border-radius:9px;background:var(--blue-l);display:grid;
+  place-items:center;flex:none;color:var(--blue)}
+.item .ic svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+.item .tt{display:block;font-weight:600;font-size:14.5px;letter-spacing:-.01em}
+.item .dd{display:block;color:var(--ink2);font-size:12.5px;line-height:1.45;margin-top:3px}
+.item .go{color:#D4CBC3;flex:none;align-self:center}
+.item .go svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* ---------- book grid ---------- */
+.bgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bk{background:var(--card);border-radius:var(--r);padding:12px;box-shadow:var(--shadow);
+  text-align:left;position:relative;overflow:hidden}
+.bk::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--bc,var(--blue))}
+.bk:hover{box-shadow:var(--shadow2)}
+.bk .n{display:block;font-family:var(--disp);font-weight:700;font-size:14.5px;padding-left:7px;letter-spacing:-.01em}
+.bk .m{display:block;color:var(--ink2);font-size:13px;margin-top:3px;padding-left:7px}
+
+/* ---------- era band ---------- */
+.era{background:var(--card);border-radius:var(--r);margin-bottom:8px;box-shadow:var(--shadow);
+  overflow:hidden;width:100%;text-align:left;display:block}
+.era .hd{display:flex;gap:12px;padding:13px;align-items:stretch}
+.era .swatch{width:5px;border-radius:3px;flex:none}
+.era .nm{display:block;font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:-.01em}
+.era .sp{display:block;color:var(--ink2);font-size:13px;margin-top:2px;font-weight:500}
+.era .cp{display:block;font-size:12.5px;color:#655649;margin-top:7px;line-height:1.45}
+.era .cnt{display:block;font-size:12.5px;color:var(--blue);font-weight:600;margin-top:7px}
+.era .body{padding:0 13px 14px 30px;border-top:1px solid var(--line);margin-top:2px;padding-top:12px}
+
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px}
+.kv dt{color:var(--ink2);font-size:13px;font-weight:600;padding-top:2px}
+.kv dd{margin:0}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.pills span{font-size:13px;background:var(--pill);color:var(--pillink);padding:4px 9px;border-radius:999px}
+
+/* ---------- book page ---------- */
+.bhead{margin-bottom:14px}
+.bhead h2{font-family:var(--disp);font-size:27px;font-weight:800;margin:0;letter-spacing:-.025em}
+.bhead .full{color:var(--ink2);font-size:12.5px;margin-top:4px}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto;
+  scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{padding:9px 0 10px;font-size:13.5px;font-weight:600;color:var(--ink2);
+  border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--blue);border-bottom-color:var(--blue)}
+.lab{font-size:12.5px;font-weight:700;color:var(--brass);letter-spacing:.08em;
+  text-transform:uppercase;margin-bottom:8px}
+.tick{list-style:none;margin:0;padding:0}
+.tick li{position:relative;padding-left:15px;margin-bottom:8px;font-size:13.5px;line-height:1.5;color:#4F4339}
+.tick li:last-child{margin-bottom:0}
+.tick li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;
+  background:var(--blue)}
+.tick.law li::before{background:var(--ok)}
+.cap{background:var(--capbg);border-left:3px solid var(--rose);border-radius:0 var(--rs) var(--rs) 0;
+  padding:12px 13px;margin-bottom:10px}
+.cap .lab{color:#B4405A}
+.cap p{margin:0;font-size:13.5px;color:#7A2E42;line-height:1.5}
+
+/* ---------- timeline ---------- */
+.tl{position:relative;padding-left:22px}
+.tl::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.tl-i{position:relative;margin-bottom:16px}
+.tl-i:last-child{margin-bottom:0}
+.tl-i::before{content:"";position:absolute;left:-21px;top:5px;width:12px;height:12px;border-radius:50%;
+  background:var(--card);border:2.5px solid var(--blue)}
+.tl-r{font-size:12.5px;font-weight:700;color:var(--blue);letter-spacing:.04em;text-transform:uppercase}
+.tl-t{font-family:var(--disp);font-weight:700;font-size:15px;margin-top:2px;letter-spacing:-.01em}
+.tl-n{color:var(--ink2);font-size:13px;margin-top:3px;line-height:1.45}
+
+/* ---------- chapters ---------- */
+.chg{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px;margin-bottom:14px}
+.chb{background:var(--card);border-radius:var(--rs);padding:10px 0;text-align:center;font-size:13px;
+  font-weight:600;color:var(--ink2);box-shadow:var(--shadow)}
+.chb.rich{color:var(--ink)}
+.chb.read{background:var(--brass-l);color:var(--brass)}
+.chb.read::before{content:"\2713";display:block;font-size:12px;line-height:1;margin-bottom:1px}
+.chb.rich::after{content:"";display:block;width:3px;height:3px;border-radius:50%;opacity:.5;
+  background:var(--blue);margin:3px auto 0}
+.chb[aria-selected="true"]{background:var(--blue);color:#fff}
+.chb[aria-selected="true"]::after{background:#fff}
+.chd .num{font-family:var(--disp);font-size:30px;font-weight:800;color:var(--blue);line-height:1}
+.chd .mv{font-size:12.5px;font-weight:700;color:var(--ink2);letter-spacing:.05em;
+  text-transform:uppercase;margin-top:7px}
+.chd .tx{margin-top:9px;font-size:14.5px;line-height:1.6;color:#4F4339}
+
+/* ---------- facts ---------- */
+.fact{background:var(--card);border-radius:var(--r);padding:14px;margin-bottom:9px;
+  box-shadow:var(--shadow);border-left:4px solid var(--amber)}
+.fact .k{font-size:12.5px;font-weight:800;color:#9A7B0A;letter-spacing:.1em;text-transform:uppercase}
+.fact h4{font-family:var(--disp);font-size:15px;font-weight:700;margin:7px 0;letter-spacing:-.01em}
+.fact p{margin:0;font-size:13.5px;color:#655649;line-height:1.55}
+.fact .c{font-size:13px;color:var(--ink2);margin-top:9px;font-weight:600}
+
+/* ---------- reader ---------- */
+.rd{font-size:var(--rdsize,17px);line-height:1.70;color:var(--ink)}
+.rd .v sup{font-size:.68em}
+.rd .v{display:block;margin-bottom:10px;padding-left:26px;position:relative;
+  border-radius:6px;transition:background .12s}
+.rd .v sup{position:absolute;left:0;top:3px;font-size:12.5px;font-weight:700;color:var(--blue);
+  font-feature-settings:"tnum"}
+.rd .v.hl{background:#FEF6D0}
+.rdbar{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.rdbar .pos{flex:1;text-align:center;font-size:13px;font-weight:600;color:var(--ink2)}
+.rdbar button{width:38px;height:38px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);
+  display:grid;place-items:center;color:var(--blue)}
+.rdbar button:disabled{color:#D4CBC3}
+.rdbar button svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+.chnote{background:var(--blue-l);border-radius:var(--rs);padding:12px 13px;margin-bottom:16px;
+  font-size:13.5px;line-height:1.55;color:var(--noteink)}
+
+/* ---------- drawer ---------- */
+.scrim{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(32,28,24,.42);z-index:60;opacity:0;pointer-events:none;
+  transition:opacity .18s}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:min(320px,84vw);background:var(--card);z-index:61;
+  transform:translateX(-100%);transition:transform .2s ease;display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.drawer .dh{padding:calc(16px + env(safe-area-inset-top)) 16px 14px;border-bottom:1px solid var(--line);
+  font-family:var(--disp);font-weight:700;font-size:15px}
+.drawer .dl{overflow-y:auto;flex:1;padding-bottom:24px}
+.drawer .dl button{display:block;width:100%;text-align:left;padding:11px 16px;font-size:14px;
+  border-bottom:1px solid var(--line)}
+.drawer .dl button:nth-child(even){background:var(--stripe)}
+.drawer .dl button:hover{background:var(--blue-l);color:var(--blue)}
+.drawer .dl .sec{padding:12px 16px 6px;font-size:12.5px;font-weight:800;color:var(--ink2);
+  letter-spacing:.08em;text-transform:uppercase;background:var(--bg)}
+.drawer .dl button{display:flex;align-items:center;gap:8px}
+.drawer .dl .dn{margin-left:auto;font-size:12.5px;color:#BCB1A8;font-weight:600}
+.drawer .dback{padding:0!important;border:none!important;background:none!important;
+  font-size:12.5px;font-weight:800;color:var(--blue);letter-spacing:.06em;text-transform:uppercase}
+.drawer .dtitle{padding:12px 16px 4px;font-family:var(--disp);font-size:17px;font-weight:700;
+  display:flex;align-items:baseline;gap:8px}
+.drawer .dtitle span{font-family:var(--text);font-size:13px;font-weight:500;color:var(--ink2)}
+.dchg{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:10px 16px 20px}
+.dch{padding:10px 0;border-radius:9px;background:var(--bg);font-size:13px;font-weight:600;
+  color:var(--ink2);border:none!important}
+.dch:hover{background:var(--blue);color:#fff}
+.dch.rich{color:var(--ink)}
+.dch.rich::after{content:"";display:block;width:4px;height:4px;border-radius:50%;
+  background:var(--blue);margin:3px auto 0}
+.dch.rich:hover::after{background:#fff}
+
+/* ---------- search results ---------- */
+.res{display:block;width:100%;text-align:left;background:var(--card);border-radius:var(--rs);
+  padding:12px 13px;margin-bottom:7px;box-shadow:var(--shadow)}
+.res .r{display:block;font-size:12.5px;font-weight:700;color:var(--blue);letter-spacing:.04em;text-transform:uppercase}
+.res .t{display:block;font-size:13.5px;color:#4F4339;margin-top:4px;line-height:1.5}
+.res mark{background:#FEF08A;color:inherit;padding:0 2px;border-radius:3px}
+.empty{text-align:center;color:var(--ink2);font-size:13.5px;padding:34px 10px}
+
+/* ---------- profile ---------- */
+.prof{text-align:center;padding:12px 0 18px}
+.prof .av{width:76px;height:76px;border-radius:50%;margin:0 auto 11px;
+  background:linear-gradient(150deg,var(--blue2),var(--blue));display:grid;place-items:center;
+  color:#fff;font-family:var(--disp);font-size:24px;font-weight:800;letter-spacing:.02em}
+.prof .nm{display:block;font-family:var(--disp);font-weight:700;font-size:17px}
+.prof .em{display:block;color:var(--ink2);font-size:12.5px;margin-top:2px}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat div{background:var(--card);border-radius:var(--rs);padding:12px 6px;text-align:center;
+  box-shadow:var(--shadow)}
+.stat b{display:block;font-family:var(--disp);font-size:19px;font-weight:800;color:var(--blue)}
+.stat span{display:block;font-size:12.5px;color:var(--ink2)}
+.about p{font-size:13.5px;color:#655649;line-height:1.6;margin:0 0 10px}
+
+/* ---------- study sheets ---------- */
+.sq{background:var(--card);border-radius:var(--r);padding:13px;margin-bottom:9px;
+  box-shadow:var(--shadow)}
+.sqh{display:flex;gap:9px;align-items:baseline}
+.sqn{font-family:var(--disp);font-size:12px;font-weight:800;color:var(--blue);flex:none;
+  min-width:20px}
+.sqq{font-size:14.5px;font-weight:600;line-height:1.4;letter-spacing:-.01em}
+.reflist{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.ref{font-size:12px;font-weight:600;background:var(--blue-l);color:var(--blue);
+  padding:6px 10px;border-radius:999px;white-space:nowrap}
+.ref.off{background:var(--offbg);color:var(--offink);font-weight:500}
+.ref.approx{background:var(--warnbg);color:var(--warnink)}
+button.ref.approx:hover{background:#E0A93C;color:#fff}
+button.ref:hover{background:var(--blue);color:#fff}
+.snote{font-size:13.5px;color:#4F4339;margin-top:9px;line-height:1.5}
+.sqf{display:flex;gap:14px;margin-top:11px}
+.sqf button{font-size:12px;font-weight:600;color:var(--blue)}
+.sqf button.del{color:var(--rose)}
+.sbox2{width:100%;border:1px solid var(--line);border-radius:var(--rs);padding:12px;
+  font-family:var(--text);font-size:15px;color:var(--ink);outline:none;margin-bottom:10px;
+  background:var(--card)}
+.sbox2:focus{border-color:var(--blue)}
+.back{display:inline-block;font-size:12.5px;font-weight:600;color:var(--ink2);margin-bottom:12px}
+.back:hover{color:var(--blue)}
+.rd .v.jump{box-shadow:0 0 0 2px var(--blue);border-radius:8px}
+
+
+/* ---------- library: dark shelf room ---------- */
+.libwrap{position:relative;margin:-16px -16px -96px;padding:18px 16px 110px;
+  min-height:calc(100vh - 56px);background:#181512}
+/* the photograph carries the library; a dark veil over it keeps the covers
+   and the type readable against the brighter patches of sky */
+.libwrap::before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;z-index:0;
+  background-image:url(library-bg.jpg);background-size:cover;background-position:50% 30%;
+  background-attachment:scroll}
+.libwrap::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;z-index:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(13,11,9,.34) 0%,rgba(13,11,9,.58) 55%,rgba(13,11,9,.86) 100%)}
+.libwrap > *{position:relative;z-index:1}
+.libhead{position:relative;margin-bottom:14px}
+.libhead h2{font-family:var(--disp);font-size:26px;font-weight:800;color:#fff;margin:0;
+  letter-spacing:-.02em}
+.libhead p{margin:5px 0 0;font-size:13px;color:#B8AA9D;line-height:1.5;max-width:34ch}
+.cats{position:relative;margin-bottom:14px}
+.cats .chip{background:rgba(255,255,255,.07);color:#D3CAC3;font-weight:600;
+  border:1px solid rgba(255,255,255,.06)}
+.cats .chip.on{background:var(--blue);color:#fff;border-color:transparent}
+
+@media(max-width:360px){.covers{grid-template-columns:repeat(2,1fr)}}
+
+.cover:hover{transform:translateY(-3px);
+  box-shadow:0 4px 8px rgba(0,0,0,.4),0 16px 30px rgba(0,0,0,.35)}
+.cover:focus-visible{transform:translateY(-3px);
+  box-shadow:0 4px 8px rgba(0,0,0,.4),0 16px 30px rgba(0,0,0,.35)}
+
+
+
+
+
+
+/* the Apocrypha: red board, black lettering */
+.cover.isapoc{background:linear-gradient(160deg,#9B1622,#4E0A11)}
+.cover.isapoc .art svg{color:rgba(0,0,0,.55)}
+.cover.isapoc .ct{color:#140305;text-shadow:0 1px 0 rgba(255,255,255,.18)}
+.cover.isapoc .cn{color:rgba(0,0,0,.55)}
+.cover.isapoc::after{border-color:rgba(0,0,0,.35)}
+.apocrow{position:relative;display:flex;gap:12px;width:100%;text-align:left;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+  border-radius:12px;padding:12px;margin-bottom:9px}
+.apocrow:hover{background:rgba(255,255,255,.09)}
+.ar{width:40px;height:56px;border-radius:3px 6px 6px 3px;flex:none;display:grid;place-items:center;
+  background:linear-gradient(160deg,#9B1622,#4E0A11)}
+.ar svg{width:60%;color:rgba(0,0,0,.55)}
+.aw{flex:1;min-width:0}
+.an{display:block;font-family:var(--disp);font-weight:700;font-size:15px;color:#fff}
+.am{display:block;font-size:12.5px;color:#BBADA0;margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
+.as{display:block;font-size:12.5px;color:#D3CAC3;line-height:1.5;margin-top:6px}
+
+/* ---------- floating nav ---------- */
+#nav{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(12px + env(safe-area-inset-bottom));
+  width:min(398px,calc(100% - 28px));
+  background:rgba(255,253,249,.92);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid rgba(40,32,20,.08);border-radius:999px;
+  box-shadow:0 8px 30px rgba(40,32,20,.16),0 2px 6px rgba(40,32,20,.09);
+  display:grid;grid-template-columns:repeat(5,1fr);padding:7px 8px;z-index:40;overflow:visible}
+#nav button{padding:6px 0 5px;display:flex;flex-direction:column;align-items:center;gap:3px;
+  color:#8C877E;font-size:12px;font-weight:600;letter-spacing:-.01em;border-radius:999px}
+#nav button svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round}
+#nav button[aria-selected="true"]{color:var(--blue)}
+#nav button.mid{position:relative}
+#nav button.mid .bub{width:50px;height:50px;border-radius:50%;margin-top:-26px;margin-bottom:1px;
+  background:linear-gradient(150deg,#9A2B22,#9A2B22);color:#fff;display:grid;place-items:center;
+  box-shadow:0 6px 16px rgba(154,43,34,.40),0 0 0 5px rgba(255,253,249,.94)}
+#nav button.mid .bub svg{width:23px;height:23px;stroke-width:1.9}
+#nav button.mid[aria-selected="true"] .bub{box-shadow:0 6px 18px rgba(154,43,34,.55),0 0 0 5px rgba(255,253,249,.94)}
+.pv{padding-bottom:116px}
+
+/* ---------- read aloud ---------- */
+.sbar{display:flex;align-items:center;gap:11px;background:var(--card);border-radius:var(--r);
+  padding:10px 12px;box-shadow:var(--shadow);margin-bottom:10px}
+.sbar .play{width:42px;height:42px;border-radius:50%;background:var(--blue);color:#fff;
+  display:grid;place-items:center;flex:none;box-shadow:0 3px 10px rgba(224,119,106,.35)}
+.sbar .play svg{width:19px;height:19px;stroke:currentColor;fill:currentColor;stroke-width:1.5;
+  stroke-linejoin:round}
+.sbar .play svg path[d^="M8 5"]{fill:none;stroke-width:2.4;stroke-linecap:round}
+.sinfo{flex:1;min-width:0}
+.sinfo .st1{display:block;font-size:14px;font-weight:600;letter-spacing:-.01em}
+.sinfo .st2{display:block;font-size:12px;color:var(--ink2);margin-top:1px}
+.sbar .sbtn{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  color:var(--ink2);flex:none}
+.sbar .sbtn:hover{background:var(--bg);color:var(--blue)}
+.sbar .sbtn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;
+  stroke-linecap:round}
+.voicerow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:var(--card);border-radius:var(--r);padding:11px 13px;margin-bottom:10px;
+  box-shadow:var(--shadow)}
+.voicerow svg{width:19px;height:19px;stroke:var(--ink2);fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;flex:none}
+.voicerow.neural svg{stroke:var(--blue)}
+.vlab{flex:1;min-width:0}
+.vk{display:block;font-size:12.5px;font-weight:700;color:var(--ink2);letter-spacing:.07em;
+  text-transform:uppercase}
+.vv{display:block;font-size:14px;font-weight:600;margin-top:2px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.vch{font-size:12.5px;font-weight:600;color:var(--blue);flex:none}
+.voicerow:hover .vch{text-decoration:underline}
+.sizebar{display:flex;align-items:center;gap:6px;background:var(--card);border-radius:var(--r);
+  padding:9px 12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.sizebar .lab{flex:1;margin:0}
+.sizebar button{min-width:34px;padding:6px 8px;border-radius:8px;background:var(--bg);
+  font-size:13px;font-weight:700;color:var(--ink2)}
+.sizebar button[aria-selected="true"]{background:var(--blue);color:#fff}
+.sopts{background:var(--card);border-radius:var(--r);padding:13px;box-shadow:var(--shadow);
+  margin-bottom:10px}
+.rates{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}
+.rates button{flex:1;min-width:52px;padding:8px 0;border-radius:9px;background:var(--bg);
+  font-size:12.5px;font-weight:600;color:var(--ink2)}
+.rates button[aria-selected="true"]{background:var(--blue);color:#fff}
+.fol{display:block;width:100%;text-align:left;font-size:13px;color:var(--ink2);
+  padding:8px 10px;border-radius:9px;background:var(--bg);font-weight:500}
+.fol[aria-selected="true"]{color:var(--blue);font-weight:600}
+.nospeak{background:#FFF8E6;border-radius:var(--rs);padding:11px 13px;font-size:12.5px;
+  color:var(--warnink);margin-bottom:10px;line-height:1.5}
+.vload{display:flex;align-items:center;gap:9px;background:var(--blue-l);border-radius:var(--rs);
+  padding:11px 13px;font-size:12.5px;color:var(--noteink);margin-bottom:10px;font-weight:500}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid rgba(224,119,106,.3);
+  border-top-color:var(--blue);animation:sp .8s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+.sbar .sbtn.on{background:var(--blue-l);color:var(--blue)}
+.vpick .vnote{font-size:12.5px;color:var(--ink2);line-height:1.5;margin:0 0 11px}
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.vopt{text-align:left;background:var(--bg);border-radius:9px;padding:9px 11px}
+.vopt .vn{display:block;font-size:13px;font-weight:600}
+.vopt .vd{display:block;font-size:12.5px;color:var(--ink2);margin-top:1px}
+.vopt[aria-selected="true"]{background:var(--blue);color:#fff}
+.vopt[aria-selected="true"] .vd{color:rgba(255,255,255,.8)}
+
+/* ---------- highlight colours ---------- */
+.rd .v{cursor:pointer;padding-right:6px;margin-left:-6px;padding-left:32px}
+.rd .v.sel{box-shadow:0 0 0 2px var(--blue)}
+.rd .v .nb{display:inline-block;vertical-align:middle;margin-left:6px;color:var(--blue)}
+.rd .v .nb svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* ---------- bottom sheet ---------- */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--card);
+  border-radius:20px 20px 0 0;transform:translateY(102%);transition:transform .22s ease;
+  padding:8px 16px calc(20px + env(safe-area-inset-bottom));max-width:430px;margin:0 auto;
+  box-shadow:0 -8px 30px rgba(32,28,24,.16);max-height:82vh;overflow-y:auto}
+.sheet.on{transform:none}
+.sheet .grab{width:44px;height:5px;border-radius:3px;background:#D5CFC2;
+  margin:6px auto 14px}
+/* a wider target than the bar itself, so the gesture is easy to start */
+.sheet .grabzone{display:block;padding:4px 0 2px;margin:-4px 0 0;cursor:grab;
+  touch-action:none}
+.sheet{touch-action:pan-y}
+.sheet .ref{display:block;font-size:13px;font-weight:700;color:var(--blue);letter-spacing:.05em;
+  text-transform:uppercase}
+.sheet .vt{display:block;font-size:14.5px;line-height:1.55;color:#4F4339;margin:7px 0 15px;
+  max-height:24vh;overflow-y:auto}
+.sws{display:flex;gap:10px;margin-bottom:15px}
+.sw{width:100%;aspect-ratio:1;border-radius:12px;position:relative;border:2px solid transparent;
+  background:var(--bg);display:grid;place-items:center}
+.sw[aria-selected="true"]{border-color:var(--ink)}
+.swt{font-family:var(--serif);font-size:17px;line-height:1.1;color:var(--ink);
+  border-bottom:4px solid;padding:0 3px 1px;border-radius:2px}
+.sheet .acts{display:flex;flex-direction:column;gap:8px}
+.rels{display:flex;flex-direction:column;gap:7px;margin-bottom:15px;max-height:34vh;overflow-y:auto}
+.rel{text-align:left;background:var(--bg);border-radius:10px;padding:10px 12px}
+.rel:hover{background:var(--blue-l)}
+.rr{display:block;font-size:13px;font-weight:700;color:var(--blue);letter-spacing:.04em;
+  text-transform:uppercase}
+.rt{display:block;font-size:13px;color:#655649;line-height:1.5;margin-top:4px}
+
+/* ---------- notes ---------- */
+.note{background:var(--card);border-radius:var(--r);padding:14px;margin-bottom:9px;
+  box-shadow:var(--shadow);border-left:4px solid var(--blue)}
+.note .nr{display:block;font-size:13px;font-weight:700;color:var(--blue);letter-spacing:.04em;
+  text-transform:uppercase}
+.note .nq{font-size:13px;color:#655649;line-height:1.5;margin:7px 0 0;font-style:italic;
+  border-left:2px solid var(--line);padding-left:9px}
+.note .nb{font-size:14px;color:#322B24;line-height:1.55;margin:9px 0 0;white-space:pre-wrap}
+.note .nf{display:flex;align-items:center;gap:10px;margin-top:11px}
+.note .nd{font-size:13px;color:var(--ink2);flex:1}
+.note .nf button{font-size:12px;font-weight:600;color:var(--blue)}
+.note .nf button.del{color:var(--rose)}
+.ta{width:100%;border:1px solid var(--line);border-radius:var(--rs);padding:12px;
+  font-family:var(--text);font-size:15px;line-height:1.55;color:var(--ink);resize:vertical;
+  min-height:130px;outline:none;background:var(--card)}
+.ta:focus{border-color:var(--blue)}
+.fab{position:fixed;right:calc(50% - 215px + 16px);bottom:calc(132px + env(safe-area-inset-bottom));
+  width:54px;height:54px;border-radius:50%;background:var(--blue);color:#fff;z-index:25;
+  display:grid;place-items:center;box-shadow:0 6px 18px rgba(224,119,106,.42)}
+.fab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
+@media(max-width:462px){.fab{right:16px}}
+
+/* ---------- saves ---------- */
+.cfilter{display:flex;gap:7px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+.cfilter::-webkit-scrollbar{display:none}
+.cf{white-space:nowrap;padding:7px 12px;border-radius:999px;font-size:12.5px;font-weight:600;
+  background:var(--card);color:var(--ink2);box-shadow:var(--shadow);display:flex;
+  align-items:center;gap:6px}
+.cf i{width:10px;height:10px;border-radius:50%;flex:none}
+.cf[aria-selected="true"]{background:var(--ink);color:#fff}
+.sv{display:block;width:100%;text-align:left;border-radius:var(--r);padding:13px;
+  margin-bottom:8px;box-shadow:var(--shadow);position:relative}
+.sv .sr{display:block;font-size:13px;font-weight:700;color:#72655A;letter-spacing:.04em;text-transform:uppercase}
+.sv .st{display:block;font-size:14px;line-height:1.55;color:#322B24;margin-top:5px}
+.sv mark{background:rgba(255,255,255,.7);padding:0 2px;border-radius:3px}
+.grp{font-size:13px;font-weight:800;color:var(--ink2);letter-spacing:.07em;
+  text-transform:uppercase;margin:16px 0 8px}
+.grp:first-child{margin-top:4px}
+/* ---------- copy row and update bar ---------- */
+.row2{display:flex;gap:8px}
+.row2 .btn{flex:1}
+.upd{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(84px + env(safe-area-inset-bottom));z-index:50;
+  width:min(398px,calc(100% - 28px));display:flex;align-items:center;gap:10px;
+  background:#201C18;color:#fff;border-radius:14px;padding:11px 13px;
+  box-shadow:0 8px 26px rgba(32,28,24,.32);font-size:13px}
+.upd span{flex:1}
+.upd button{font-size:12.5px;font-weight:700;color:#E0776A;padding:4px 6px}
+.upd button.x{color:#B3A598;font-weight:600}
+
+/* ---------- background loading strip ---------- */
+.bf{display:flex;align-items:center;gap:9px;background:var(--blue-l);border-radius:var(--rs);
+  padding:9px 12px;margin-bottom:10px;font-size:12.5px;color:var(--noteink);font-weight:500}
+
+/* ---------- reading progress ---------- */
+.readmark{font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--ink2);background:var(--bg);border-radius:8px;padding:7px 11px;flex:none}
+.readmark.on{background:var(--brass-l);color:var(--brass)}
+.prog{flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-end;
+  font-size:13px;color:var(--ink2);font-weight:600}
+.progbar{display:block;width:74px;height:5px;border-radius:3px;background:var(--line);
+  overflow:hidden}
+.progbar i{display:block;height:100%;background:var(--brass);border-radius:3px}
+.progbar.big{width:100%;height:8px;margin-top:4px}
+.bigpct{font-family:var(--disp);font-size:34px;font-weight:800;color:var(--brass);
+  line-height:1;letter-spacing:-.02em}
+/* on a cover, progress is a hairline along the foot of the board */
+.cbar{position:absolute;left:11px;right:6px;bottom:5px;height:3px;border-radius:2px;
+  background:rgba(255,255,255,.22);overflow:hidden}
+.cbar i{display:block;height:100%;background:rgba(255,255,255,.85)}
+.cdone{position:absolute;top:7px;right:8px;width:15px;height:15px;border-radius:50%;
+  background:rgba(255,255,255,.92);color:#1D1915;font-size:12px;font-weight:800;
+  display:grid;place-items:center;line-height:1}
+.cover.isapoc .cbar{background:rgba(0,0,0,.25)}
+.cover.isapoc .cbar i{background:rgba(0,0,0,.6)}
+
+/* ---------- tracker ---------- */
+.cover.istracker{background:linear-gradient(160deg,#FFFDF9,#F1ECE1)}
+.cover.istracker::before{background:linear-gradient(90deg,rgba(120,105,80,.20),rgba(255,255,255,.5))}
+.cover.istracker::after{border-color:rgba(120,105,80,.22)}
+/* the mark is pressed into the board rather than printed on it */
+.cover.istracker .art svg{color:#EDE6D8}
+.cover.istracker .ct{color:#2A2620;text-shadow:none}
+.cover.istracker .cn{color:#8A8073}
+.cover.istracker .cbar{background:rgba(120,105,80,.18)}
+.cover.istracker .cbar i{background:rgba(120,105,80,.55)}
+
+.tkhero{position:relative;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.09);border-radius:16px;padding:18px;margin-bottom:16px}
+.tkpct{font-family:var(--disp);font-size:52px;font-weight:800;color:#fff;line-height:1;
+  letter-spacing:-.03em}
+.tkpct span{font-size:22px;color:#C1B5AA;margin-left:3px}
+.tkhero p{margin:10px 0 14px;font-size:13px;color:#C1B5AA}
+.progbar.dark{background:rgba(255,255,255,.14)}
+.progbar.dark i{background:#D8B25E}
+.progbar.full{width:100%;height:6px;display:block}
+.progbar.tiny{width:100%;height:3px;display:block;margin-top:6px}
+.tksec{position:relative;margin-bottom:18px}
+.tkhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px}
+.tkhead span{font-family:var(--disp);font-size:15px;font-weight:700;color:#fff}
+.tkhead b{font-size:12.5px;color:#D8B25E;font-weight:700}
+.tkbooks{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+.tkbook{text-align:left;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+  border-radius:10px;padding:9px 10px}
+.tkbook:hover{background:rgba(255,255,255,.10)}
+.tkbook.done{border-color:rgba(216,178,94,.42)}
+.tn{display:block;font-size:12.5px;font-weight:600;color:#F3F1EF;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.tv{display:block;font-size:12.5px;color:#BBADA0;margin-top:2px}
+
+/* ---------- back to top ---------- */
+/* left side, so it never collides with the + button on the Notes tab */
+#totop{position:fixed;left:calc(50% - 215px + 16px);
+  bottom:calc(132px + env(safe-area-inset-bottom));z-index:26;
+  width:42px;height:42px;border-radius:50%;background:rgba(255,253,249,.94);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(40,32,20,.10);color:var(--blue);
+  display:none;place-items:center;box-shadow:0 5px 18px rgba(40,32,20,.20)}
+#totop.on{display:grid}
+#totop svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:462px){#totop{left:16px}}
+
+/* ---------- chapter picker on the book page ---------- */
+.pickhead{display:flex;align-items:baseline;justify-content:space-between;margin:18px 0 9px}
+.pickhead .lab{margin:0}
+.pickhead b{font-size:12px;color:var(--ink2);font-weight:600}
+
+/* The left-rail tablet layout that lived here is gone: tablets now follow
+   the tablet design (body.lay-tab and body.lay-split, at the end). */
+
+/* a phone held sideways: keep it usable rather than pretending it is a tablet */
+@media (max-width:819px) and (orientation:landscape) and (max-height:520px){
+  #phone{height:auto;min-height:100vh;overflow:visible}
+  .pane{overflow:visible}
+  .top{position:-webkit-sticky;position:sticky;padding-top:8px;padding-bottom:8px;min-height:46px}
+  .pv{padding:12px 16px 120px}
+  .covers{grid-template-columns:repeat(5,1fr)}
+  .libwrap{min-height:0}
+  .hero{padding:14px}
+}
+
+/* the shelf of imported books uses the library panel without the night sky */
+.libplain::before{display:none}
+.libplain::after{background:linear-gradient(180deg,#1B1714,#14110F)}
+.minewrap .item,.minewrap .card{background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.08);box-shadow:none}
+.minewrap .tt,.minewrap .lab{color:#F3F1EF}
+.minewrap .dd,.minewrap .vnote{color:#C1B5AA}
+.minewrap .ic{background:rgba(255,255,255,.10);color:#E0776A}
+.minewrap .empty{color:#C1B5AA}
+
+/* ================= THE PAGE =================
+   A printed Bible is warm paper, brown-black ink and an old-style serif, set
+   justified in a narrow measure. This is that, using only faces already on the
+   device, plus a 740-byte grain tile so the ground is not a flat colour. */
+.rd.paper{
+  font-family:var(--serif);
+  color:var(--ink-dark);
+  background:var(--paper) url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=) repeat;
+  background-blend-mode:multiply;
+  border-radius:10px;
+  padding:22px 20px 26px;
+  margin:0 -4px 4px;
+  box-shadow:0 1px 2px rgba(60,48,30,.10),0 6px 22px rgba(60,48,30,.09),
+             inset 0 0 60px rgba(120,100,70,.06);
+  text-align:left;
+  hyphens:auto;-webkit-hyphens:auto;
+  font-size:calc(var(--rdsize,17px) + 1px);
+  line-height:1.62;
+  letter-spacing:.002em;
+}
+.rd.paper .v{padding-left:30px}
+/* verse numbers in old-style figures, set back so they do not shout */
+.rd.paper .v sup{
+  font-family:var(--serif);
+  font-variant-numeric:oldstyle-nums;
+  font-feature-settings:"onum" 1;
+  color:var(--ink-mid);
+  font-weight:600;
+  font-size:.66em;
+  top:2px;
+}
+/* the divine name in small capitals, as every Cambridge setting has it */
+.sc{font-variant:small-caps;letter-spacing:.03em}
+.rd.paper .v.jump{box-shadow:0 0 0 2px #9A7B3C}
+.rd.paper .nb svg{stroke:var(--ink-mid)}
+/* highlights sit under ink rather than over it */
+
+.pagebar{display:flex;align-items:center;gap:6px;background:var(--card);
+  border-radius:var(--r);padding:9px 12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.pagebar .lab{flex:1;margin:0}
+.pagebar button{min-width:56px;padding:6px 10px;border-radius:8px;background:var(--bg);
+  font-size:13px;font-weight:700;color:var(--ink2)}
+.pagebar button[aria-selected="true"]{background:var(--blue);color:#fff}
+
+/* ---------- highlights ----------
+   Marked as an underline rather than a block of colour, so the ink stays on
+   paper rather than sitting in a swatch. The line is drawn per line of text,
+   so a highlight spanning three lines gets three rules.
+
+   Yellow is the exception. Against warm paper it cannot reach a usable
+   contrast as a line at any weight that still reads as yellow (the best
+   candidate manages 2.5:1), so it gets a heavier rule and a faint wash as
+   well. Every other colour clears 4:1 as a line alone. */
+.rd .v[class*="hl-"]{
+  -webkit-text-decoration-line:underline;text-decoration-line:underline;
+  text-decoration-thickness:3px;
+  text-underline-offset:4px;
+  text-decoration-skip-ink:none;
+  border-radius:2px;
+}
+.rd .v.hl-yellow{-webkit-text-decoration-color:#C8920A;text-decoration-color:#C8920A;text-decoration-thickness:4px;
+  background:rgba(224,176,48,.22)}
+.rd .v.hl-green {-webkit-text-decoration-color:#2E8552;text-decoration-color:#2E8552}
+.rd .v.hl-blue  {-webkit-text-decoration-color:#9A2B22;text-decoration-color:#9A2B22}
+.rd .v.hl-pink  {-webkit-text-decoration-color:#BE455B;text-decoration-color:#BE455B}
+.rd .v.hl-purple{-webkit-text-decoration-color:#6A4CB0;text-decoration-color:#6A4CB0}
+/* on the plain page the wash can be a shade lighter */
+.rd:not(.paper) .v.hl-yellow{background:rgba(224,176,48,.18)}
+
+/* the saved-verse cards keep a colour block, since there is no text to sit under */
+.sv[data-hue="yellow"]{background:#F6EBCB}
+.sv[data-hue="green"] {background:#DDE9DC}
+.sv[data-hue="blue"]  {background:#EAE5E1}
+.sv[data-hue="pink"]  {background:#F0DEE1}
+.sv[data-hue="purple"]{background:#E3DDEE}
+.sv{border-left:4px solid transparent}
+.sv[data-hue="yellow"]{border-left-color:#C8920A}
+.sv[data-hue="green"] {border-left-color:#2E8552}
+.sv[data-hue="blue"]  {border-left-color:#9A2B22}
+.sv[data-hue="pink"]  {border-left-color:#BE455B}
+.sv[data-hue="purple"]{border-left-color:#6A4CB0}
+
+/* ---------- reader controls ---------- */
+.rtools{display:flex;align-items:center;gap:8px;background:var(--card);
+  border-radius:var(--r);padding:9px 12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.rtools .prog{flex:1}
+.gear{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  color:var(--ink2);flex:none;background:var(--bg)}
+.gear.on{background:var(--blue);color:#fff}
+.gear svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.rpanel{background:var(--card);border-radius:var(--r);padding:13px;margin-bottom:10px;
+  box-shadow:var(--shadow)}
+.rpanel .lab{margin:0 0 7px}
+.rpanel .lab:not(:first-child){margin-top:14px}
+.rrow{display:flex;gap:6px;flex-wrap:wrap}
+.rrow button{flex:1;min-width:52px;padding:8px 6px;border-radius:9px;background:var(--bg);
+  font-size:12px;font-weight:600;color:var(--ink2)}
+.rrow button[aria-selected="true"]{background:var(--blue);color:#fff}
+.rrow .redtog[aria-selected="true"]{background:#9E2B2B}
+
+/* ---------- your own cross references ---------- */
+.rel.mine{display:flex;align-items:stretch;gap:0;padding:0;background:var(--brass-l)}
+.rel.mine .relgo{flex:1;text-align:left;padding:10px 12px;display:block}
+.rel.mine .rr{color:var(--brass)}
+.relx{width:38px;flex:none;color:#A08A6A;font-size:18px;line-height:1;border-radius:0 10px 10px 0}
+.relx:hover{background:rgba(160,138,106,.16);color:var(--rose)}
+.refadd{display:flex;gap:7px;margin-bottom:14px}
+.refadd input{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  font-family:var(--text);font-size:14px;outline:none;background:var(--card);color:var(--ink)}
+.refadd input:focus{border-color:var(--blue)}
+.refadd .btn{width:auto;flex:none;padding:10px 16px}
+
+/* ---------- restore points ---------- */
+.snap{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:10px;
+  padding:9px 11px;margin-top:7px}
+.sw1{flex:1;font-size:12.5px;color:var(--ink)}
+.snap button{font-size:12px;font-weight:700;color:var(--blue)}
+
+/* ---------- words of Christ ---------- */
+.wj{color:#9E2B2B}
+.rd.paper .wj{color:#8E2420}          /* a shade deeper against warm paper */
+.redtog{min-width:52px;padding:6px 10px;border-radius:8px;background:var(--bg);
+  font-size:13px;font-weight:700;color:var(--ink2)}
+.redtog[aria-selected="true"]{background:#9E2B2B;color:#fff}
+
+/* ---------- search history ---------- */
+.hist{margin-bottom:14px}
+.hist .lab{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.histclear{font-size:12.5px;font-weight:700;color:var(--blue);letter-spacing:.04em;
+  text-transform:uppercase}
+.histrow{display:flex;align-items:stretch;background:var(--card);border-radius:10px;
+  margin-bottom:6px;box-shadow:var(--shadow);overflow:hidden}
+.histgo{flex:1;display:flex;align-items:center;gap:10px;padding:11px 13px;text-align:left}
+.histgo svg{width:15px;height:15px;stroke:var(--ink2);fill:none;stroke-width:2;flex:none}
+.histgo span{font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.histx{width:40px;flex:none;color:#B4AFA6;font-size:19px;line-height:1}
+.histx:hover{background:var(--bg);color:var(--rose)}
+
+/* ---------- precept saved to notes ---------- */
+.sqf .saved{color:var(--ok);font-weight:700}
+
+/* ---------- atlas ---------- */
+.cover.isatlas{background:linear-gradient(160deg,#E6DCC6,#B99F6F)}
+.cover.isatlas .art svg{color:rgba(60,46,30,.55)}
+.cover.isatlas .ct{color:#2A2016;text-shadow:none}
+.cover.isatlas .cn{color:#6B5B40}
+.atlasgrid{position:relative;display:grid;gap:12px}
+.atlascard{text-align:left;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:10px;display:block}
+.atlascard:hover{background:rgba(255,255,255,.11)}
+.an{display:block;font-family:var(--disp);font-size:16px;font-weight:700;color:#fff}
+.ad{display:block;font-size:12.5px;color:#BBADA0;margin-top:2px;letter-spacing:.05em;
+  text-transform:uppercase}
+.ap{display:block;font-size:12.5px;color:#E0776A;margin-top:5px}
+.mapbig{position:relative;border-radius:12px;overflow:hidden;
+  box-shadow:0 6px 26px rgba(0,0,0,.35)}
+.placelist{position:relative}
+.placerow{background:rgba(255,255,255,.05);border-radius:10px;padding:10px 12px;
+  margin-bottom:6px}
+.placerow b{display:block;font-size:13.5px;color:#F3F1EF}
+.placerow span{display:block;font-size:12.5px;color:#C1B5AA;margin-top:3px;line-height:1.45}
+.minimap{display:block;width:100%;text-align:left;background:var(--card);border-radius:var(--r);padding:13px;margin-bottom:14px;box-shadow:var(--shadow)}
+.minimap b{display:block;font-size:14px;color:var(--ink)}
+.mmlab{display:block;font-size:13px;color:var(--ink2);margin-top:7px;font-weight:600}
+.mapfull .libhead p{color:#D3CAC3}
+.plate::-webkit-scrollbar{width:6px;height:6px}
+.plate::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:3px}
+
+/* ---------- surveyed plates ---------- */
+.plateref{display:block;width:100%;text-align:left;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:12px 13px;
+  margin-bottom:8px}
+.plateref:hover{background:rgba(255,255,255,.11)}
+.plateref b{display:block;font-size:14px;color:#F3F1EF}
+.plateref span{display:block;font-size:12.5px;color:#C1B5AA;margin-top:3px;line-height:1.45}
+.plateload{position:relative;background:rgba(255,255,255,.06);border-radius:12px;
+  padding:26px 16px;text-align:center;color:#C1B5AA;font-size:13.5px}
+
+/* ---------- plate viewer ---------- */
+.plate{position:relative;background:#fff;border-radius:12px;
+  overflow:auto;-webkit-overflow-scrolling:touch;
+  box-shadow:0 6px 26px rgba(0,0,0,.35);height:auto;
+  touch-action:pan-x pan-y pinch-zoom}
+.platein{min-width:100%}
+.plate svg{width:100%;height:auto;display:block}
+.platebar{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.07);
+  border-radius:11px;padding:7px 10px;margin-bottom:9px}
+.platebar span{flex:1;text-align:center;font-size:12.5px;color:#E0776A;font-weight:600}
+.platebar button{width:38px;height:32px;border-radius:8px;background:rgba(255,255,255,.10);
+  color:#F3F1EF;font-size:17px;font-weight:700;line-height:1}
+.platebar button.fit{width:auto;padding:0 13px;font-size:12.5px}
+.platebar button[aria-disabled="true"]{opacity:.35}
+
+/* ---------- one header, with history ---------- */
+.top .brand{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;
+  margin:0;min-width:0}
+.bmark{display:grid;place-items:center;width:22px;height:22px;flex:none}
+.bmark svg{width:20px;height:20px;stroke:var(--brass);fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.bword{display:flex;align-items:baseline;gap:4px;font-family:var(--disp);
+  white-space:nowrap;line-height:1}
+.bword b{font-size:14px;font-weight:800;letter-spacing:.14em;color:var(--ink)}
+.bword i{font-size:14px;font-style:normal;font-weight:400;letter-spacing:.14em;
+  color:var(--brass)}
+.top .icon.nav{width:32px}
+.top .icon.nav.off{opacity:.28;pointer-events:none}
+
+/* the selected tab reads as pressed in, not merely tinted */
+#nav button[aria-selected="true"]{
+  background:linear-gradient(180deg,#EAE5E1,#F3F1EF);
+  box-shadow:inset 0 2px 4px rgba(154,43,34,.34),
+             inset 0 -1px 0 rgba(255,255,255,.65);
+  transform:translateY(1px)}
+#nav button[aria-selected="true"] svg{stroke:var(--blue);transform:scale(.94)}
+#nav button[aria-selected="true"] span{color:var(--blue);font-weight:700}
+#nav button{transition:transform .09s,box-shadow .09s,background .12s}
+#nav button:active{transform:translateY(1px) scale(.97)}
+
+/* ---------- filing a verse into a note ---------- */
+.filelist{margin-bottom:10px}
+.filerow{display:block;width:100%;text-align:left;background:var(--bg);
+  border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.filerow:hover{background:var(--blue-l)}
+.filerow b{display:block;font-size:13.5px;color:var(--ink);font-weight:600}
+.filerow span{display:block;font-size:13px;color:var(--ink2);margin-top:2px}
+
+.chip.pl{background:var(--brass-l);color:var(--brass);font-weight:600}
+
+/* ================= THE LIBRARY, REBUILT =================
+   Calmer than it was. The old covers leaned on a full-bleed gradient with the
+   title shadowed over the top of it, at 12px with an 8.5px label underneath —
+   decorative, and below the size anything should be set at on a phone. These
+   state what they are: a quiet section mark, the name at a readable size, the
+   length in words rather than an abbreviation, and progress as a hairline
+   rather than a badge. The palette is unchanged. */
+.covers{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--s3)}
+@media (min-width:520px){ .covers{grid-template-columns:repeat(3,1fr)} }
+
+.cover{
+  position:relative;display:flex;flex-direction:column;align-items:flex-start;
+  justify-content:space-between;text-align:left;
+  min-height:118px;padding:var(--s3);
+  border-radius:var(--r2);
+  background:var(--card);
+  border:1px solid var(--line);
+  box-shadow:0 1px 2px rgba(50,43,36,.05);
+  transition:transform var(--t-fast) var(--ease),
+             box-shadow var(--t-fast) var(--ease),
+             border-color var(--t-fast) var(--ease);
+  overflow:hidden;
+}
+/* the section colour reads as a spine down the left edge, not a wash */
+.cover::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:linear-gradient(180deg,var(--a),var(--b));
+}
+.cover:active{transform:scale(.985);box-shadow:none}
+.cover:hover{border-color:var(--blue2);box-shadow:0 3px 12px rgba(154,43,34,.10)}
+
+.cmark{position:absolute;right:10px;top:10px;width:26px;height:26px;opacity:.30}
+.cmark svg{width:100%;height:100%;fill:none;stroke:var(--a);stroke-width:5;
+  stroke-linecap:round;stroke-linejoin:round}
+
+.cbody{display:block;padding-right:30px;margin-top:auto}
+.cover .ct{display:block;font-family:var(--disp);font-weight:700;
+  font-size:15px;line-height:1.22;color:var(--ink);letter-spacing:-.008em}
+.cover .cn{display:block;font-size:13px;color:var(--ink2);margin-top:3px;
+  letter-spacing:0;text-transform:none}
+.cbar{display:block;width:100%;height:3px;border-radius:2px;
+  background:var(--line);margin-top:var(--s3);overflow:hidden}
+.cbar i{display:block;height:100%;border-radius:2px;
+  background:linear-gradient(90deg,var(--a),var(--b));
+  transition:width var(--t-mid) var(--ease)}
+.cover.finished{border-color:var(--ok)}
+.cover.finished .cbar i{background:var(--ok)}
+.cover.isapoc .ct{font-style:italic}
+
+/* section headings get room to breathe */
+.h2{font-family:var(--disp);font-size:12px;font-weight:700;letter-spacing:.10em;
+  text-transform:uppercase;color:var(--ink2);margin:var(--s6) 2px var(--s3)}
+.h2:first-of-type{margin-top:var(--s2)}
+
+@media (prefers-reduced-motion:reduce){
+  .cover,.cbar i{transition:none}
+  .cover:active{transform:none}
+}
+.plateload small{display:block;margin-top:6px;opacity:.72;font-size:12px;line-height:1.5}
+.spin{display:inline-block;width:13px;height:13px;margin-right:8px;vertical-align:-2px;
+  border:2px solid rgba(255,255,255,.25);border-top-color:#E0776A;border-radius:50%;
+  animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}}
+
+/* ---------- writing a note where you are ---------- */
+.qn{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:var(--r1);
+  padding:11px 12px;font-family:var(--text);font-size:14.5px;line-height:1.55;
+  color:var(--ink);background:var(--card);outline:none;resize:vertical;
+  margin-bottom:var(--s2)}
+.qn:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(154,43,34,.12)}
+.qnrow{display:flex;gap:var(--s2);margin-bottom:var(--s3)}
+.qnrow .btn{width:auto;flex:1;padding:10px 12px}
+
+/* ---------- covers carrying art ----------
+   The plate fills the card; a scrim carries the type over it so the title
+   stays readable whatever the painting does underneath. Books without art
+   keep the typographic card, so the shelf never looks half-finished. */
+.cover.hasart{aspect-ratio:3/4;min-height:0;padding:0;border:none;background:#1A1712}
+.cover.hasart::before{z-index:3}
+.cart{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;object-fit:cover;
+  display:block;border-radius:var(--r2)}
+.cscrim{position:absolute;left:0;right:0;bottom:0;height:62%;border-radius:0 0 var(--r2) var(--r2);
+  background:linear-gradient(180deg,rgba(16,13,9,0) 0%,rgba(16,13,9,.42) 38%,
+    rgba(16,13,9,.86) 78%,rgba(16,13,9,.94) 100%)}
+.cover.hasart .cbody{position:relative;z-index:2;padding:0 12px 11px;width:100%;
+  box-sizing:border-box}
+.cover.hasart .ct{color:#FBF7EE;font-size:15.5px;
+  text-shadow:0 1px 3px rgba(0,0,0,.55)}
+.cover.hasart .cn{color:rgba(251,247,238,.80);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.cover.hasart .cbar{position:absolute;left:0;right:0;bottom:0;z-index:2;margin:0;
+  height:3px;border-radius:0 0 var(--r2) var(--r2);background:rgba(255,255,255,.18)}
+.cover.hasart:hover{box-shadow:0 6px 20px rgba(50,43,36,.22)}
+.cover.hasart.finished{box-shadow:0 0 0 2px var(--ok)}
+
+/* the apocrypha rows carry their own plate rather than a shared motif */
+.apocrow.hasart .ar{width:58px;height:78px;border-radius:8px;overflow:hidden;
+  background:#1A1712;flex:none;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.apocrow.hasart .ar img{width:100%;height:100%;object-fit:cover;display:block}
+/* the painting is wrapped in <picture> (WebP, or JPEG for older Safari);
+   the wrapper fills the frame so the image sizes as it did on its own */
+.apocrow.hasart .ar picture{display:block;width:100%;height:100%}
+
+/* ================= DARK, CONTRAST, FOCUS =================
+   A Bible app is read late at night more than at any other hour, and until now
+   it had one blazing cream surface and no way to dim it. Dark is a real theme,
+   not an inversion: the same navy-and-brass identity, warmed so the paper page
+   still reads as paper. */
+:root{ color-scheme:light; }
+
+[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#110F0E; --card:#241F1A; --line:#3C332B;
+  --ink:#EEE6DA; --ink2:#B8ADA3;
+  --blue:#E0776A; --blue2:#E0776A; --blue-l:#322B24; --blue-d:#E0776A;
+  --brass:#DCCDB6; --brass-l:#2A2418;
+  --ok:#6FBE8A; --amber:#E7C065; --rose:#E28C99;
+  --paper:#1B1816; --ink-dark:#E8E1D2; --ink-mid:#B3A88F;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.34);
+  --card:#1B1816;
+  --line:rgba(230,210,180,.10);
+  --ink2:#BBAF9E;
+  --blue2:#C9483C;
+  --blue-l:#2A241F;
+  --blue-d:#F0A093;
+  --brass-l:#2A241F;
+  --ink-dark:#EEE6DA;
+  --ink-mid:#BBAF9E;
+  --rose:#E0776A;
+}
+[data-theme="dark"] .cover{background:var(--card);border-color:var(--line)}
+[data-theme="dark"] .rd.paper{
+  background:var(--paper) url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=) repeat;
+  background-blend-mode:soft-light;
+  box-shadow:0 1px 2px rgba(0,0,0,.5),0 6px 22px rgba(0,0,0,.4),
+             inset 0 0 60px rgba(0,0,0,.35)}
+[data-theme="dark"] .wj,[data-theme="dark"] .rd.paper .wj{color:#F08A80}
+[data-theme="dark"] .rd .v.hl-yellow{background:rgba(224,176,48,.20);
+  -webkit-text-decoration-color:#E3B84A;text-decoration-color:#E3B84A}
+[data-theme="dark"] .rd .v.hl-green {-webkit-text-decoration-color:#6FBE8A;text-decoration-color:#6FBE8A}
+[data-theme="dark"] .rd .v.hl-blue  {-webkit-text-decoration-color:#E0776A;text-decoration-color:#E0776A}
+[data-theme="dark"] .rd .v.hl-pink  {-webkit-text-decoration-color:#E28C99;text-decoration-color:#E28C99}
+[data-theme="dark"] .rd .v.hl-purple{-webkit-text-decoration-color:#B49BE8;text-decoration-color:#B49BE8}
+[data-theme="dark"] .plate{background:#EDE7DA}
+[data-theme="dark"] .top,[data-theme="dark"] #nav{
+  background:rgba(36,31,26,.92);border-color:var(--line)}
+[data-theme="dark"] #nav button[aria-selected="true"]{
+  background:linear-gradient(180deg,#3C332C,#2C2520);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.55),inset 0 -1px 0 rgba(255,255,255,.06)}
+
+/* follow the system unless the reader has chosen for themselves */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#110F0E; --card:#241F1A; --line:#3C332B;
+    --ink:#EEE6DA; --ink2:#B8ADA3;
+    --blue:#E0776A; --blue2:#E0776A; --blue-l:#322B24; --blue-d:#E0776A;
+    --brass:#DCCDB6; --brass-l:#2A2418;
+    --ok:#6FBE8A; --amber:#E7C065; --rose:#E28C99;
+    --paper:#1B1816; --ink-dark:#E8E1D2; --ink-mid:#B3A88F;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 6px 20px rgba(0,0,0,.34);
+  --card:#1B1816;
+  --line:rgba(230,210,180,.10);
+  --ink2:#BBAF9E;
+  --blue2:#C9483C;
+  --blue-l:#2A241F;
+  --blue-d:#F0A093;
+  --brass-l:#2A241F;
+  --ink-dark:#EEE6DA;
+  --ink-mid:#BBAF9E;
+  --rose:#E0776A;
+}
+}
+
+/* readers who ask the system for more contrast get it */
+@media (prefers-contrast:more){
+  :root{ --ink2:#4A463F; --line:#B9B2A4; --blue:#9A2B22; }
+  [data-theme="dark"]{ --ink2:#E0DAD4; --line:#70645A; --blue:#E0776A; }
+  .cover,.card,.item,.histrow{border:1px solid var(--line)}
+  .cbar{background:var(--line)}
+}
+
+/* Keyboard focus was nearly invisible: two rules in the whole stylesheet.
+   One ring, on everything that can be reached by tab. */
+:where(a,button,input,textarea,select,[tabindex]):focus-visible{
+  outline:3px solid var(--blue);
+  outline-offset:2px;
+  border-radius:6px;
+}
+[data-theme="dark"] :where(a,button,input,textarea,select,[tabindex]):focus-visible{
+  outline-color:var(--blue2);
+}
+
+/* Targets. Anything you tap should be reachable without aiming. */
+.rdbar button,.gear,.sw,.relx,.histx,.platebar button{min-width:44px;min-height:44px}
+#nav button{min-height:48px}
+.chip,.rrow button,.rates button,.pagebar button{min-height:40px}
+
+/* announcements for screen readers, visually hidden */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------- continue reading ---------- */
+.cont{display:flex;align-items:stretch;gap:0;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r3);
+  overflow:hidden;margin-bottom:var(--s4);box-shadow:var(--shadow);
+  min-height:96px;transition:transform var(--t-fast) var(--ease),
+  box-shadow var(--t-fast) var(--ease)}
+.cont:active{transform:scale(.99)}
+.cont:hover{box-shadow:0 6px 20px rgba(154,43,34,.16)}
+.contart{width:74px;flex:none;object-fit:cover;display:block;background:#1A1712}
+.contw{flex:1;min-width:0;padding:13px 14px;display:flex;flex-direction:column;
+  justify-content:center;gap:2px}
+.contk{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--blue)}
+.contt{font-family:var(--disp);font-size:19px;font-weight:700;color:var(--ink);
+  letter-spacing:-.015em;line-height:1.15}
+.contm{font-size:12.5px;color:var(--ink2)}
+.contbar{display:block;height:4px;border-radius:2px;background:var(--line);
+  margin-top:7px;overflow:hidden}
+.contbar i{display:block;height:100%;border-radius:2px;
+  background:linear-gradient(90deg,var(--blue),var(--blue2))}
+.contgo{display:grid;place-items:center;width:42px;flex:none;color:var(--ink2)}
+.contgo svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+@media (prefers-reduced-motion:reduce){ .cont{transition:none} .cont:active{transform:none} }
+
+/* Dark mode had been applied to the tokens but not to the surfaces that were
+   written as fixed colours. Two were serious: the chapter note was dark blue
+   ink on a dark blue card, and the book drawer striped every other row white
+   behind near-white text, which hid half the books. */
+[data-theme="dark"]{
+  --noteink:#E0776A; --warnink:#E5C77A; --warnbg:#2E2717; --stripe:#2B251F; --pill:#342D26; --pillink:#CBC1B8;
+  --capbg:#2A1E20; --offbg:#302923; --offink:#94887E;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --noteink:#E0776A; --warnink:#E5C77A; --warnbg:#2E2717; --stripe:#2B251F; --pill:#342D26; --pillink:#CBC1B8;
+    --capbg:#2A1E20; --offbg:#302923; --offink:#94887E;
+  }
+}
+[data-theme="dark"] .drawer,[data-theme="dark"] .drawer .dl button{color:var(--ink)}
+[data-theme="dark"] .drawer{background:var(--card)}
+[data-theme="dark"] .dh{background:var(--card);border-color:var(--line)}
+[data-theme="dark"] .dch:hover,[data-theme="dark"] button.ref:hover,
+[data-theme="dark"] button.ref.approx:hover{background:var(--blue-l);color:var(--ink)}
+[data-theme="dark"] .hero{background:var(--card)}
+[data-theme="dark"] .libhead h2{color:#F4F2F0}
+[data-theme="dark"] .an{color:#F4F2F0}
+
+/* ---------- gold foil on the wordmark ----------
+   A stack of warm stops clipped to the letters, so the light appears to run
+   across the metal rather than the type being flat gold. Browsers without
+   background-clip:text keep the solid brass, which is why the colour is set
+   first. */
+.bword b,.bword i{
+  background-image:linear-gradient(100deg,
+    #8A6A22 0%, #C9A227 16%, #F3E2A0 30%, #FFF8DC 38%,
+    #E8C766 48%, #B8912F 62%, #F0DC96 76%, #C9A227 88%, #8A6A22 100%);
+  background-size:200% 100%;
+  background-position:20% 0;
+  -webkit-background-clip:text; background-clip:text;
+}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .bword b{color:transparent}
+  .bword i{color:transparent}
+}
+.bword b{text-shadow:0 1px 0 rgba(255,255,255,.35)}
+[data-theme="dark"] .bword b{text-shadow:0 1px 0 rgba(0,0,0,.5)}
+.bmark svg{stroke:#C9A227}
+
+/* ---------- the page as an old sheet ----------
+   The paper had a grain but no edges: it read as a clean rectangle of texture.
+   These are layered over the grain \u2014 a warm centre falling off to a darker
+   rim, a few soft stains, and a torn deckle along the sides \u2014 all in
+   gradients, so it costs nothing to ship. */
+.rd.paper{
+  background-image:
+    /* stains, kept faint and irregular */
+    radial-gradient(ellipse 22% 14% at 12% 8%,  rgba(150,116,64,.10), transparent 70%),
+    radial-gradient(ellipse 18% 10% at 88% 24%, rgba(150,116,64,.09), transparent 70%),
+    radial-gradient(ellipse 26% 12% at 74% 92%, rgba(140,106,58,.10), transparent 70%),
+    radial-gradient(ellipse 16% 9%  at 22% 68%, rgba(150,116,64,.07), transparent 70%),
+    /* the rim, darker where an old sheet is handled most */
+    radial-gradient(ellipse 120% 100% at 50% 50%,
+      transparent 58%, rgba(146,112,60,.05) 84%, rgba(132,100,52,.10) 100%),
+    /* along the long edges */
+    linear-gradient(90deg, rgba(140,106,56,.11), transparent 5%,
+      transparent 95%, rgba(140,106,56,.11)),
+    linear-gradient(180deg, rgba(140,106,56,.09), transparent 4%,
+      transparent 96%, rgba(140,106,56,.09)),
+    url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=);
+  background-repeat:no-repeat,no-repeat,no-repeat,no-repeat,
+    no-repeat,no-repeat,no-repeat,repeat;
+  background-blend-mode:multiply,multiply,multiply,multiply,
+    multiply,multiply,multiply,multiply;
+  box-shadow:
+    0 1px 2px rgba(60,48,30,.12),
+    0 8px 26px rgba(60,48,30,.12),
+    inset 0 0 70px rgba(146,112,60,.07);
+}
+.rd.paper{position:relative}
+[data-theme="dark"] .rd.paper{
+  box-shadow:0 1px 2px rgba(0,0,0,.5),0 8px 26px rgba(0,0,0,.42),
+             inset 0 0 70px rgba(0,0,0,.42)}
+
+/* A worn edge, done as a soft uneven shadow rather than a cut-out. The first
+   attempt used a repeating gradient and came out looking like a barcode. */
+.rd.paper{position:relative}
+.rd.paper::before{
+  content:'';position:absolute;top:0;right:0;bottom:0;left:0;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(140,106,56,.10),
+             inset 0 2px 5px rgba(140,106,56,.09),
+             inset 0 -2px 5px rgba(140,106,56,.09);
+}
+
+/* ---------- the drawer's settings row ---------- */
+.dset{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:13px 16px;color:var(--blue);font-weight:600;font-size:14px}
+.dset svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;flex:none}
+.dset:hover{background:var(--blue-l)}
+/* the hint under the chapter name, so the swipe is discoverable */
+.poshint{display:block;font-style:normal;font-size:12px;font-weight:500;
+  color:var(--ink2);letter-spacing:.04em;margin-top:2px;opacity:.85}
+.rdbar .pos{line-height:1.25}
+
+/* ---------- black on white ----------
+   A third page style for anyone who needs the plainest, hardest contrast the
+   screen can give: pure white, pure black, no texture, no warmth. */
+.rd.contrast{
+  background:#FFFFFF;color:#000000;
+  border-radius:10px;padding:22px 20px 26px;margin-bottom:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.10),0 6px 20px rgba(0,0,0,.08);
+  font-family:var(--serif);text-rendering:optimizeLegibility}
+.rd.contrast .v{padding-left:30px}
+.rd.contrast .v sup{color:#000;font-weight:700;opacity:.75}
+.rd.contrast .wj{color:#A80000}
+.rd.contrast .sc{color:#000}
+.rd.contrast .v.jump{box-shadow:0 0 0 3px #000}
+.rd.contrast .nb svg{stroke:#000}
+[data-theme="dark"] .rd.contrast{background:#FFFFFF;color:#000000}
+
+/* ---------- full screen reading ---------- */
+body.immersive .pane>.top,
+body.immersive #nav,
+body.immersive .rdbar,
+body.immersive #speakbar,
+body.immersive #backfill,
+body.immersive .rtools,
+body.immersive .rpanel,
+body.immersive .chnote,
+body.immersive .rdfoot{display:none !important}
+body.immersive .pv{padding:26px 14px 40px}
+.rd.immersive{margin-bottom:0}
+.rd.immersive .nb{display:none}
+body.immersive .imhint{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+  background:rgba(20,20,24,.78);color:#fff;font-size:12.5px;font-weight:600;
+  padding:8px 15px;border-radius:999px;pointer-events:none;z-index:80;
+  animation:imfade 3.4s ease forwards}
+@keyframes imfade{0%{opacity:0}12%{opacity:1}70%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){ body.immersive .imhint{animation:none;opacity:.9} }
+
+/* ================= THE REDESIGN =================
+   From the canvas study: the header names the screen instead of the app and
+   carries how far through the book you are; a chapter opens the way a printed
+   one does; and it closes with a rule and an obvious way onward. */
+.top .ctitle{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;
+  gap:1px;padding:2px 0;border-radius:10px;transition:background var(--t-fast) var(--ease)}
+.top .ctitle:hover{background:var(--bg)}
+.top .ctitle.plain{pointer-events:none}
+.ct1{display:flex;align-items:center;gap:6px;font-family:var(--serif);font-size:18px;
+  font-weight:600;letter-spacing:-.01em;color:var(--ink);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.ct1 .chev{display:inline-grid;place-items:center;flex:none}
+.ct1 .chev svg{width:13px;height:13px;stroke:var(--ink2);fill:none;stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round}
+.ct2{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink2)}
+.hprog{position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--line)}
+.hprog i{display:block;height:100%;background:linear-gradient(90deg,#C9A227,#8A6228);
+  transition:width .3s var(--ease)}
+[data-theme="dark"] .hprog i{background:linear-gradient(90deg,#D9B463,#A8842E)}
+
+/* a labelled rule before a block, and a closing one after it */
+.eyebrow{display:flex;align-items:center;gap:9px;margin:0 2px 10px}
+.eyebrow span{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--brass)}
+.eyebrow i{flex:1;height:1px;background:var(--line)}
+.divider{display:flex;align-items:center;gap:10px;margin:18px 2px 0}
+.divider i{flex:1;height:1px;background:var(--line)}
+.divider span{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink2)}
+
+/* the chapter opening */
+.chopen{text-align:center;margin-bottom:20px}
+.chopen .cw{display:block;font-family:var(--disp);font-size:12px;font-weight:700;
+  letter-spacing:.22em;text-transform:uppercase;color:#A2907A}
+.chopen .cnum{display:block;font-family:var(--serif);font-size:34px;font-weight:700;
+  color:var(--ink-dark);line-height:1;margin-top:4px}
+.chopen i{display:block;width:34px;height:1px;background:#C9B99A;margin:14px auto 0}
+.rd:not(.paper) .chopen .cnum{color:var(--ink)}
+[data-theme="dark"] .chopen .cw{color:#9A8B72}
+
+/* the way onward */
+.nextcard{display:flex;align-items:center;justify-content:space-between;width:100%;
+  margin-top:12px;padding:15px 16px;border-radius:var(--r3);background:var(--card);
+  box-shadow:var(--shadow);text-align:left;
+  transition:transform var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.nextcard:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(40,32,20,.11)}
+.nextcard:active{transform:scale(.99)}
+.nck{display:block;font-size:12px;font-weight:700;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--ink2)}
+.ncn{display:block;font-family:var(--serif);font-size:17px;font-weight:600;
+  color:var(--ink);margin-top:3px}
+.ncgo{width:34px;height:34px;border-radius:50%;background:var(--blue-l);color:var(--blue);
+  display:grid;place-items:center;flex:none}
+.ncgo svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round}
+@media (prefers-reduced-motion:reduce){
+  .nextcard,.hprog i,.top .ctitle{transition:none}
+  .nextcard:hover{transform:none}
+}
+.ncw{flex:1;min-width:0;text-align:left}
+
+/* ---------- the reading pill ----------
+   One floating control instead of three stacked bars. It sits over the text
+   near where a thumb already rests, rather than pushing the words down the
+   screen. Listen, keep your place, and the type controls. */
+.player{position:-webkit-sticky;position:sticky;bottom:calc(var(--navh,72px) + 10px);z-index:40;
+  margin:16px auto 4px;width:max-content;max-width:calc(100% - 24px);
+  display:flex;align-items:center;gap:2px;padding:5px 6px;
+  background:rgba(255,253,249,.92);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border:1px solid rgba(40,32,20,.08);border-radius:999px;
+  box-shadow:0 8px 26px rgba(40,32,20,.14),0 2px 6px rgba(40,32,20,.08)}
+[data-theme="dark"] .player{background:rgba(36,31,26,.92);
+  border-color:rgba(255,255,255,.09);
+  box-shadow:0 8px 26px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.3)}
+
+.pl-listen{display:flex;align-items:center;gap:7px;padding:8px 13px 8px 11px;
+  border-radius:999px;transition:background var(--t-fast) var(--ease);min-height:40px}
+.pl-listen:hover{background:var(--bg)}
+.pl-listen svg{width:17px;height:17px;stroke:var(--blue);fill:var(--blue);
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pl-listen span{font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+
+.pl-sep{width:1px;height:20px;background:var(--line);flex:none;margin:0 3px}
+
+.pl-mark{padding:8px 12px;border-radius:999px;min-height:40px;min-width:40px;
+  display:grid;place-items:center;transition:background var(--t-fast) var(--ease)}
+.pl-mark:hover{background:var(--bg)}
+.pl-mark svg{width:18px;height:18px;stroke:var(--ink2);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.pl-mark.on svg{stroke:var(--ok);fill:var(--ok)}
+
+.pl-aa{display:flex;align-items:center;justify-content:center;padding:8px 15px;
+  min-height:40px;border-radius:999px;background:var(--blue);color:#fff;
+  font-family:var(--serif);font-size:15px;font-weight:700;line-height:1;
+  transition:background var(--t-fast) var(--ease),transform var(--t-fast) var(--ease)}
+.pl-aa:hover{background:var(--blue-d,#9A2B22)}
+.pl-aa:active{transform:scale(.96)}
+.pl-aa.on{background:var(--ink)}
+body.immersive .player{display:none}
+@media (prefers-reduced-motion:reduce){
+  .pl-listen,.pl-mark,.pl-aa{transition:none}
+  .pl-aa:active{transform:none}
+}
+
+/* ---------- the reading sheet ----------
+   One group open at a time. Each header shows what the setting currently is,
+   so the sheet can be read at a glance without opening anything. */
+.rsheet{position:-webkit-sticky;position:sticky;bottom:calc(var(--navh,72px) + 10px);z-index:41;
+  margin:12px 0 6px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r4);box-shadow:0 10px 34px rgba(40,32,20,.18);
+  overflow:hidden}
+[data-theme="dark"] .rsheet{box-shadow:0 10px 34px rgba(0,0,0,.55)}
+.rsgrab{width:38px;height:4px;border-radius:2px;background:var(--line);
+  margin:9px auto 4px}
+.rsg{border-top:1px solid var(--line)}
+.rsg:first-of-type{border-top:none}
+.rsh{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:13px 16px;min-height:48px}
+.rsh:hover{background:var(--bg)}
+.rst{flex:1;font-size:14.5px;font-weight:600;color:var(--ink)}
+.rsv{font-size:13px;color:var(--ink2);white-space:nowrap}
+.rsc{display:grid;place-items:center;width:18px;flex:none;
+  transition:transform var(--t-mid) var(--ease)}
+.rsc svg{width:15px;height:15px;stroke:var(--ink2);fill:none;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+.rsg.open .rsc{transform:rotate(180deg)}
+.rsg.open .rst{color:var(--blue)}
+.rsb{padding:2px 16px 16px}
+.rsdone{width:100%;padding:14px;border-top:1px solid var(--line);
+  font-size:14px;font-weight:700;color:var(--blue);background:var(--bg)}
+.rsdone:hover{background:var(--blue-l)}
+@media (prefers-reduced-motion:reduce){ .rsc{transition:none} }
+
+/* ================= THE FOUR SCREENS =================
+   One head for all of them: an optional eyebrow, the name in the serif, a line
+   saying what is in it, and at most one action. Filters scroll sideways rather
+   than wrapping into a block of buttons, which is what made these feel busy. */
+.shead{margin:0 0 var(--s4)}
+.shrow{display:flex;align-items:flex-end;gap:12px}
+.shl{flex:1;min-width:0}
+.sheyebrow{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  color:#A79F90}
+.shead h2{font-family:var(--serif);font-size:25px;font-weight:700;letter-spacing:-.02em;
+  margin:0;color:var(--ink);line-height:1.15}
+.sheyebrow + h2{margin-top:4px}
+.shead p{margin:4px 0 0;font-size:12.5px;color:var(--ink2);line-height:1.5}
+.shbtn{width:36px;height:36px;flex:none;border-radius:11px;display:grid;place-items:center;
+  color:var(--ink2);background:var(--bg);
+  transition:background var(--t-fast) var(--ease)}
+.shbtn:hover{background:var(--line)}
+.shbtn.primary{background:var(--blue);color:#fff}
+.shbtn.primary:hover{background:var(--blue-d,#9A2B22)}
+.shbtn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+/* the chips scroll instead of stacking */
+.shchips{display:flex;gap:7px;margin-top:13px;overflow-x:auto;padding-bottom:2px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.shchips::-webkit-scrollbar{display:none}
+.shchips .chip{white-space:nowrap;flex:none}
+.chip.hue{display:flex;align-items:center;gap:7px}
+.chip.hue i{width:9px;height:9px;border-radius:50%;flex:none}
+.shrows{margin-top:13px}
+.shpair{display:flex;gap:8px}
+.shpair button{flex:1;padding:10px 0;border-radius:11px;background:var(--blue-l);
+  color:var(--blue);font-size:13px;font-weight:600;
+  transition:background var(--t-fast) var(--ease)}
+.shpair button:hover{background:var(--blue2);color:#fff}
+.seg{display:flex;background:var(--blue-l);border-radius:999px;padding:3px}
+.seg button{flex:1;padding:9px 6px;border-radius:999px;font-size:13px;font-weight:600;
+  color:var(--blue);transition:background var(--t-fast) var(--ease)}
+.seg button[aria-selected="true"]{background:var(--blue);color:#fff;
+  box-shadow:0 1px 3px rgba(40,32,20,.12)}
+[data-theme="dark"] .sheyebrow{color:#9A8B72}
+.libwrap .shead h2{color:#fff}
+.libwrap .shead p{color:#B8AA9D}
+.libwrap .shbtn{background:rgba(255,255,255,.08);color:#DDD6CF}
+.libwrap .shbtn:hover{background:rgba(255,255,255,.14)}
+
+/* ---------- the shelf: full plates, not squat cards ---------- */
+.cover.hasart .cbody{padding:0 12px 13px}
+.cover.hasart .ct{font-size:15.5px}
+.cover:hover{transform:translateY(-3px);
+  box-shadow:0 4px 8px rgba(0,0,0,.28),0 16px 30px rgba(0,0,0,.22)}
+.cover:active{transform:scale(.985)}
+
+/* ---------- continue reading, as a plate and a line ---------- */
+.cont{align-items:stretch;min-height:0;padding:10px;gap:12px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09)}
+.cont:hover{background:rgba(255,255,255,.12)}
+.contart{width:52px;height:70px;border-radius:7px;flex:none;object-fit:cover}
+.contw{padding:0;gap:3px;justify-content:center}
+.contk{font-size:12px;letter-spacing:.14em;color:#BBADA0}
+.contt{font-size:17px;color:#fff}
+.contm{font-size:12px;color:#B8AA9D}
+.contbar{height:3px;margin-top:3px;background:rgba(255,255,255,.16)}
+.contbar i{background:var(--brass)}
+.contgo{align-self:center;width:auto;color:#A79585}
+
+/* ---------- notes, set as notes ---------- */
+.nitem{position:relative;margin-bottom:16px;border-radius:4px 12px 4px 4px;
+  background:#FCF8EC;overflow:hidden;
+  box-shadow:0 1px 2px rgba(60,48,30,.12),0 8px 20px rgba(60,48,30,.10)}
+.nitem::before{content:'';position:absolute;left:34px;top:0;bottom:0;width:1px;
+  background:rgba(176,120,60,.34)}
+.nitem::after{content:'';position:absolute;right:0;top:0;width:22px;height:22px;
+  background:linear-gradient(225deg,rgba(60,48,30,.16),transparent 62%)}
+.nbody{padding:16px 18px 12px 48px}
+[data-theme="dark"] .nitem{background:#1F1C16;
+  box-shadow:0 1px 2px rgba(0,0,0,.5),0 8px 20px rgba(0,0,0,.35)}
+[data-theme="dark"] .nitem::before{background:rgba(217,180,99,.30)}
+
+/* the note's own parts, on the ruled stock */
+.nitem .nr{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:#8A6228;margin-bottom:8px}
+.nitem .nq{margin:0 0 10px;font-family:var(--serif);font-size:14px;line-height:1.55;
+  color:#5E5545;font-style:italic;
+  padding-bottom:10px;border-bottom:1px solid rgba(176,120,60,.22)}
+.nitem .nb{margin:0;font-size:14.5px;line-height:1.6;color:#241F17;white-space:pre-wrap}
+.nitem .nf{display:flex;align-items:center;gap:12px;margin-top:14px;
+  padding-top:10px;border-top:1px solid rgba(176,120,60,.18)}
+.nitem .nd{flex:1;font-size:12px;color:#8C8372}
+.nitem .nf button{font-size:13px;font-weight:600;color:var(--blue)}
+.nitem .nf button.del{color:var(--rose)}
+[data-theme="dark"] .nitem .nr{color:#D9B463}
+[data-theme="dark"] .nitem .nq{color:#B3A88F;border-bottom-color:rgba(217,180,99,.22)}
+[data-theme="dark"] .nitem .nb{color:#E8E1D2}
+[data-theme="dark"] .nitem .nf{border-top-color:rgba(217,180,99,.18)}
+[data-theme="dark"] .nitem .nd{color:#9A9184}
+.pl-eye{padding:8px 12px;border-radius:999px;min-height:40px;min-width:40px;
+  display:grid;place-items:center;transition:background var(--t-fast) var(--ease)}
+.pl-eye:hover{background:var(--bg)}
+.pl-eye svg{width:18px;height:18px;stroke:var(--ink2);fill:none;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.pl-eye.on svg{stroke:var(--blue)}
+.fol.on{color:var(--ok)}
+.rbaa{min-width:44px;min-height:44px;border-radius:11px;background:var(--bg);
+  font-family:var(--serif);font-size:15px;font-weight:700;color:var(--ink);
+  transition:background var(--t-fast) var(--ease)}
+.rbaa:hover{background:var(--line)}
+.rbaa.on{background:var(--blue);color:#fff}
+.player.live .pl-listen svg{stroke:var(--blue);fill:var(--blue)}
+
+/* ---------- the pill, fixed ----------
+   It was sticky inside the chapter, placed above the first verse, so it
+   scrolled away as soon as reading began. It is fixed now, centred, and
+   clears the raised Bible button in the tab bar. */
+#player .player{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 164px);z-index:45;margin:0}
+/* the sheet sits in the page under the chapter bar; sticky made it drift */
+.rsheet{position:relative;bottom:auto}
+
+/* At Fit the frame hugs the map, so a landscape map is not stranded above a
+   slab of empty paper. Once zoomed it becomes a window you drag around in. */
+.plate.zoomed{height:72vh}
+
+[data-theme="dark"] #totop{background:rgba(36,31,26,.92);color:#E0776A;
+  border-color:rgba(255,255,255,.09);box-shadow:0 6px 18px rgba(0,0,0,.45)}
+
+/* ================= CALFSKIN =================
+   Near-black with brown undertones and a red accent, from the redesign. The
+   token names are unchanged so the whole stylesheet follows; --blue now
+   carries the Calfskin accent rather than the old oceanic blue. */
+:root{ --wj:#A3281E; --wj-paper:#8E2420;
+  --sw-yellow:#E6D19C; --sw-green:#C9D8B6; --sw-blue:#C3D3DE;
+  --sw-pink:#E8C3BA; --sw-purple:#D5C7E0; }
+[data-theme="dark"]{ --wj:#E0776A; --wj-paper:#E0776A; }
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --wj:#E0776A; --wj-paper:#E0776A; }
+}
+.wj{color:var(--wj)}
+.rd.paper .wj{color:var(--wj-paper)}
+[data-theme="dark"] .wj,[data-theme="dark"] .rd.paper .wj{color:var(--wj)}
+/* Wheat, Sage, Mist, Rose and Heather, named as the design names them */
+.rd .v.hl-yellow{-webkit-text-decoration-color:var(--sw-yellow);text-decoration-color:var(--sw-yellow)}
+.rd .v.hl-green {-webkit-text-decoration-color:var(--sw-green);text-decoration-color:var(--sw-green)}
+.rd .v.hl-blue  {-webkit-text-decoration-color:var(--sw-blue);text-decoration-color:var(--sw-blue)}
+.rd .v.hl-pink  {-webkit-text-decoration-color:var(--sw-pink);text-decoration-color:var(--sw-pink)}
+.rd .v.hl-purple{-webkit-text-decoration-color:var(--sw-purple);text-decoration-color:var(--sw-purple)}
+[data-theme="dark"] .rd .v.hl-yellow{-webkit-text-decoration-color:var(--sw-yellow);text-decoration-color:var(--sw-yellow)}
+[data-theme="dark"] .rd .v.hl-green {-webkit-text-decoration-color:var(--sw-green);text-decoration-color:var(--sw-green)}
+[data-theme="dark"] .rd .v.hl-blue  {-webkit-text-decoration-color:var(--sw-blue);text-decoration-color:var(--sw-blue)}
+[data-theme="dark"] .rd .v.hl-pink  {-webkit-text-decoration-color:var(--sw-pink);text-decoration-color:var(--sw-pink)}
+[data-theme="dark"] .rd .v.hl-purple{-webkit-text-decoration-color:var(--sw-purple);text-decoration-color:var(--sw-purple)}
+/* the shelf ground, so the library sits in the same leather */
+.libwrap{background:var(--bg)}
+
+/* ================= PHASE 2: the v58 fixes =================
+   The header, the chapter bar and Aa were three stacked bands above the text.
+   They are one row now, so the page starts higher and reads quieter. */
+.top .hact{display:flex;align-items:center;gap:2px;flex:none}
+.top .rbaa{font-family:var(--serif);font-size:19px;font-weight:600;
+  min-width:42px;min-height:42px;border-radius:11px;background:transparent;
+  color:var(--ink)}
+.top .rbaa.on{background:var(--blue-l);color:var(--blue)}
+.top .ct2{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink3,var(--ink2))}
+
+/* Verses set left-aligned. Justified text on a 393px screen opens rivers of
+   white space between words, which is what those wide gaps were. */
+.rd{text-align:left;hyphens:auto;-webkit-hyphens:auto}
+
+/* While it reads aloud, the verse being spoken stays bright and the rest
+   settle back, so the eye is not hunting for the place. */
+.rd.listening .v{opacity:.34;transition:opacity .45s var(--ease)}
+.rd.listening .v.speaking{opacity:1}
+@media (prefers-reduced-motion:reduce){ .rd.listening .v{transition:none} }
+
+/* The tab bar is five flat icons: no raised centre button, which also leaves
+   room for the player to sit directly above it. */
+#nav button.mid .bub{width:auto;height:auto;margin:0;background:none;
+  box-shadow:none;border-radius:0;color:inherit;display:contents}
+#nav button.mid[aria-selected="true"] .bub{box-shadow:none}
+
+/* and the player sits just above that bar */
+#player .player{bottom:calc(env(safe-area-inset-bottom, 0px) + 92px)}
+/* With the fade doing the work, the spoken verse no longer needs its box:
+   brightness marks the place, quietly. */
+.rd.listening .v.speaking{opacity:1}
+.rd.listening .v.speaking sup{opacity:.9}
+
+/* ---------- the player while it reads ----------
+   At rest it is a pill. Reading, it becomes a bar that says where it is, how
+   far through the chapter, and lets the reader step back a verse. */
+#player .player.wide{width:calc(100vw - 24px);max-width:410px;padding:7px 8px;gap:4px}
+.pl-play{width:40px;height:40px;flex:none;border-radius:50%;background:var(--blue2);
+  display:grid;place-items:center}
+.pl-play svg{width:17px;height:17px;stroke:#fff;fill:#fff}
+.pl-mid{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;
+  padding:0 6px;gap:1px}
+.pl-ref{font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.pl-sub{font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.pl-bar{display:block;height:2px;border-radius:1px;background:var(--line);
+  margin-top:5px;overflow:hidden}
+.pl-bar i{display:block;height:100%;background:var(--blue);transition:width .25s linear}
+.pl-step{width:34px;height:40px;flex:none;display:grid;place-items:center;border-radius:10px}
+.pl-step svg{width:15px;height:15px;stroke:var(--ink2);fill:none;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+.pl-step[disabled]{opacity:.35}
+.pl-step:hover{background:var(--bg)}
+/* a bookmarked verse in Saves */
+.sv.bmk{display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;
+  padding:13px 15px;margin-bottom:8px;border-radius:var(--r2);background:var(--card);
+  box-shadow:var(--shadow);border-left:3px solid var(--brass)}
+.sv.bmk .svr{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--brass)}
+.sv.bmk .svt{font-family:var(--serif);font-size:14.5px;line-height:1.5;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ---------- a note's fuller shape ---------- */
+.ti{width:100%;padding:12px 14px;margin-bottom:10px;border-radius:var(--r2);
+  background:var(--card);border:1px solid var(--line);color:var(--ink);
+  font-family:var(--serif);font-size:16px}
+.ti::placeholder{color:var(--ink2);font-family:var(--text)}
+.ti:last-of-type{font-family:var(--text);font-size:14px;margin-top:10px;margin-bottom:0}
+.nitem .nt{font-family:var(--serif);font-size:17px;font-weight:600;color:var(--ink);
+  margin:0 0 8px;line-height:1.3}
+.ntags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.ntag{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;
+  background:var(--brass-l);color:var(--brass);min-height:0}
+.ntag:hover{background:var(--blue-l);color:var(--blue)}
+.nlinks{margin-top:12px;padding-top:10px;border-top:1px solid rgba(176,120,60,.18)}
+.nlink{font-size:13px;line-height:1.5;margin-bottom:6px;color:var(--ink2)}
+.nlink b{color:var(--blue);font-weight:600;margin-right:6px}
+[data-theme="dark"] .nlinks{border-top-color:rgba(217,180,99,.18)}
+
+/* ---------- linked references on a note ---------- */
+.lklist{margin-bottom:10px}
+.lkrow{display:flex;align-items:baseline;gap:8px;padding:10px 12px;margin-bottom:6px;
+  border-radius:var(--r2);background:var(--card);border:1px solid var(--line)}
+.lkref{font-size:13px;font-weight:700;color:var(--blue);flex:none}
+.lktxt{flex:1;min-width:0;font-family:var(--serif);font-size:13.5px;line-height:1.45;
+  color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lkdel{width:28px;height:28px;flex:none;display:grid;place-items:center;border-radius:8px;
+  min-height:0}
+.lkdel svg{width:13px;height:13px;stroke:var(--ink2);fill:none;stroke-width:2.2;
+  stroke-linecap:round}
+.lkdel:hover{background:var(--blue-l)}
+.lkdel:hover svg{stroke:var(--rose)}
+.lkadd{display:flex;gap:8px;align-items:stretch}
+.lkadd input{flex:1;min-width:0;padding:12px 14px;border-radius:var(--r2);
+  background:var(--card);border:1px solid var(--line);color:var(--ink);
+  font-family:var(--text);font-size:14px}
+.lkadd input::placeholder{color:var(--ink2)}
+.lkadd .btn{flex:none;width:auto;padding:0 18px}
+/* a link on a note card is a way into the passage */
+button.nlink{display:block;width:100%;text-align:left;padding:7px 0;min-height:0}
+button.nlink:hover b{text-decoration:underline}
+button.nlink span{display:block;font-family:var(--serif);color:var(--ink2);
+  font-size:13px;line-height:1.45;margin-top:2px}
+
+/* ================= THE FRAME, TO THE DESIGN =================
+   Measured against the rendered design, not read from its notes. */
+:root{ --tab:rgba(250,246,240,.94); --ink3:#76685B; }
+[data-theme="dark"]{ --tab:rgba(17,15,14,.92); --ink3:#948978; }
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --tab:rgba(17,15,14,.92); --ink3:#948978; }
+}
+
+/* the tab bar: flat, edge to edge, a hairline on top, line icons, red when on */
+#nav{position:fixed;left:0;right:0;bottom:0;top:auto;margin:0 auto;width:100%;
+  max-width:none;height:auto;border-radius:0;border:none;
+  border-top:1px solid var(--line);background:var(--tab);box-shadow:none;
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  display:flex;justify-content:space-around;align-items:flex-start;
+  padding:8px 0 calc(env(safe-area-inset-bottom, 0px) + 10px);z-index:40}
+#nav button{width:64px;flex:none;min-height:0;margin:0;padding:0;border-radius:0;
+  background:transparent !important;box-shadow:none !important;color:var(--ink2);
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  font-family:var(--text);font-size:12px;font-weight:500}
+#nav button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+#nav button[aria-selected="true"]{color:var(--blue)}
+#nav button[aria-selected="true"] svg{stroke:currentColor}
+#nav button::before,#nav button::after{display:none !important}
+
+/* only the reader keeps a bar at the top */
+.pane:not([data-screen="reader"]):not([data-screen="book"])>.top{display:none}
+.pane>.top{box-shadow:none;border-bottom:1px solid var(--line)}
+.top .ctitle.left{align-items:flex-start;text-align:left;padding-left:6px;flex:1}
+.top .ctitle.left .ct1{font-size:21px;font-weight:500;justify-content:flex-start}
+.top .ctitle.left .ct2{font-size:12.5px}
+
+/* the page: warm dawn at the top in the early morning, a few stars at night */
+.pane:not([data-screen="reader"])>.pv{
+  background:linear-gradient(180deg,#E9D6CF 0,#F2DDCB 150px,var(--bg) 380px) no-repeat,var(--bg)}
+[data-theme="dark"] .pane:not([data-screen="reader"])>.pv,
+body[data-x] .pane:not([data-screen="reader"])>.pv{background:var(--bg)}
+[data-theme="dark"] .pane:not([data-screen="reader"])>.pv{
+  background:
+    radial-gradient(1px 1px at 12% 8%,rgba(238,230,218,.55),transparent 60%),
+    radial-gradient(1px 1px at 78% 5%,rgba(238,230,218,.45),transparent 60%),
+    radial-gradient(1.2px 1.2px at 42% 14%,rgba(238,230,218,.4),transparent 60%),
+    radial-gradient(1px 1px at 91% 19%,rgba(238,230,218,.35),transparent 60%),
+    radial-gradient(1px 1px at 24% 27%,rgba(238,230,218,.3),transparent 60%),
+    radial-gradient(1px 1px at 63% 31%,rgba(238,230,218,.3),transparent 60%),
+    radial-gradient(1px 1px at 7% 44%,rgba(238,230,218,.25),transparent 60%),
+    radial-gradient(1px 1px at 86% 52%,rgba(238,230,218,.22),transparent 60%),
+    var(--bg);
+  background-attachment:local}
+.pv{padding-left:20px;padding-right:20px}
+
+/* screen titles, as the design sets them */
+.shead h2{font-family:var(--serif);font-size:32px;font-weight:400;letter-spacing:-.01em}
+.shead p{font-size:13px;color:var(--ink2)}
+.libwrap .shead h2,.libwrap .shead p{color:var(--ink)}
+
+/* the Library's mark */
+.brand-row{display:flex;align-items:center;gap:10px;height:48px;margin:0 0 6px}
+.brand-tile{width:30px;height:30px;border-radius:8px;flex:none;
+  background:linear-gradient(155deg,#2E2723,#110F0E 70%);box-shadow:0 0 0 1px var(--line);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.brand-tile i{font-style:normal;font-family:var(--serif);font-size:9px;line-height:1;
+  letter-spacing:.06em;color:#DCCDB6}
+.brand-tile b{display:block;width:12px;height:1px;background:#C9483C}
+.brand-word{font-family:var(--serif);font-size:19px;letter-spacing:.16em;
+  font-variant:small-caps;white-space:nowrap;color:var(--ink);flex:1}
+.brand-act{display:flex;gap:4px}
+.brand-act .icon{width:40px;height:40px;border-radius:12px;color:var(--ink)}
+.brand-act svg.line{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round}
+.libwrap .brand-word,.libwrap .brand-act .icon{color:var(--ink)}
+
+/* a way back, where the design has one */
+.backlink{display:inline-block;font-size:14px;font-weight:500;color:var(--blue);
+  padding:10px 0 4px;min-height:0}
+/* the old centred capsule translated the bar by half its width; the flat bar
+   sits at left 0, so that transform has to go or it hangs off the screen */
+#nav{transform:none}
+@media (max-width:819px){ #nav{left:0;right:0;width:100%} }
+#nav button[aria-selected="true"],#nav button[aria-selected="true"] svg{transform:none}
+
+/* ================= THE READER, TO THE DESIGN =================
+   Text straight on the ground, no card; each verse its own block; the book's
+   full title, the chapter number large in red and the chapter note in italic
+   above the first verse. */
+:root{ --hl:rgba(214,170,110,.24); }
+[data-theme="dark"]{ --hl:rgba(201,166,107,.14); }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --hl:rgba(201,166,107,.14); } }
+
+.pane[data-screen="reader"]>.pv{padding:0 24px 190px;background:var(--bg)}
+.pane[data-screen="reader"]>.top{background:var(--bg);border-bottom:none;box-shadow:none}
+.pane[data-screen="reader"] .hprog{display:none}
+.pane[data-screen="reader"] .top .ct2{color:var(--ink3)}
+
+/* the page itself: no card unless the reader has asked for Paper */
+.rd:not(.paper):not(.contrast){background:transparent;box-shadow:none;border:none;
+  padding:0;margin:0;border-radius:0}
+.rd:not(.paper):not(.contrast)::before,.rd:not(.paper):not(.contrast)::after{display:none}
+
+.chop{text-align:center;padding:18px 0 22px}
+.chop-t{font-family:var(--text);font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink3)}
+.chop-n{font-family:var(--serif);font-size:64px;line-height:1;margin-top:12px;color:var(--blue)}
+.chop-s{font-family:var(--serif);font-style:italic;font-size:15px;line-height:1.45;
+  color:var(--ink2);margin-top:12px;text-wrap:pretty}
+
+.rd .v{display:block;margin:0 -12px 4px;padding:7px 12px;border-radius:10px;
+  font-family:var(--serif);line-height:1.6;text-wrap:pretty;
+  transition:opacity .8s ease,background .6s ease}
+.rd .v sup{font-family:var(--text);font-size:12px;font-weight:600;color:var(--blue);
+  margin-right:7px;position:relative;top:-.45em;vertical-align:baseline;line-height:0}
+/* while it reads aloud: the passage being read on a warm band, the rest back */
+.rd.listening .v{opacity:.2}
+.rd.listening .v.speaking{opacity:1}
+
+/* the player: one bar at the foot of the reader, always there */
+#player .player.bar{position:fixed;left:12px;right:12px;width:auto;max-width:560px;
+  margin:0 auto;transform:none;height:66px;border-radius:22px;
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 74px);
+  background:var(--card);border:1px solid var(--line);
+  box-shadow:0 10px 30px rgba(20,10,4,.18);-webkit-backdrop-filter:none;backdrop-filter:none;-webkit-backdrop-filter:none;
+  display:flex;align-items:center;gap:12px;padding:0 10px 0 11px;z-index:45}
+[data-theme="dark"] #player .player.bar{box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.player.bar .pl-play{width:44px;height:44px;border-radius:22px;background:var(--blue2);flex:none}
+.player.bar .pl-play svg{width:17px;height:17px;fill:#fff;stroke:#fff}
+.player.bar .pl-mid{padding:0;gap:0}
+.player.bar .pl-ref{font-family:var(--text);font-size:14px;font-weight:600;color:var(--ink)}
+.player.bar .pl-sub{font-size:12px;color:var(--ink3);margin-top:1px}
+.player.bar .pl-bar{height:2px;margin-top:7px;background:var(--blue-l)}
+.player.bar .pl-bar i{background:var(--blue)}
+.player.bar .pl-step{width:36px;height:40px}
+.player.bar .pl-step svg{width:16px;height:16px;fill:var(--ink2);stroke:none}
+.player.bar .pl-step[disabled]{opacity:.3}
+.player.bar .pl-eye{width:40px;height:40px;padding:0}
+
+/* ================= THE LIBRARY, TO THE DESIGN =================
+   The shelf sits on the same ground as every other screen now: the dawn wash
+   or the night sky, not its own leather photograph. */
+:root{ --plate:linear-gradient(155deg,#2E2723,#141110 70%); --plate-ink:#E6D9C4;
+  --tool:rgba(230,217,196,.25); }
+[data-theme="dark"]{ --plate:linear-gradient(155deg,#2E2723,#181412 70%); --plate-ink:#DCCDB6;
+  --tool:rgba(220,205,182,.22); }
+.libwrap{background:transparent !important;padding:0;margin:0}
+.libwrap::before,.libwrap::after{display:none !important}
+
+.greet{margin-top:22px;font-family:var(--text);font-size:12px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink2);font-weight:500}
+.daily{display:block;width:100%;text-align:left;padding:0;min-height:0;background:none}
+.daily-t{display:block;margin-top:12px;font-family:var(--serif);font-style:italic;
+  font-size:22px;line-height:1.35;color:var(--ink);text-wrap:pretty}
+.daily-r{display:flex;align-items:center;gap:10px;margin-top:10px;font-family:var(--text);
+  font-size:13px;color:var(--ink2)}
+.daily-r i{display:block;width:18px;height:1px;background:var(--blue)}
+
+/* the continue card */
+.contwrap{margin-top:26px;background:var(--card);border:1px solid var(--line);
+  border-radius:20px;padding:16px 16px 16px 18px;display:flex;align-items:center;gap:14px}
+.contwrap .cont{flex:1;min-width:0;display:flex;flex-direction:column;align-items:stretch;
+  text-align:left;padding:0;margin:0;background:none;border:none;box-shadow:none;min-height:0}
+.contwrap .contk{font-family:var(--text);font-size:12px;letter-spacing:.04em;
+  text-transform:none;color:var(--ink3);font-weight:400}
+.contwrap .contt{font-family:var(--serif);font-size:24px;font-weight:400;color:var(--ink);
+  margin-top:2px}
+.contwrap .contm{font-family:var(--text);font-size:13px;color:var(--ink2);margin-top:1px}
+.contwrap .contbar{display:block;margin-top:12px;height:3px;border-radius:2px;
+  background:var(--blue-l);overflow:hidden}
+.contwrap .contbar i{display:block;height:100%;background:var(--blue)}
+.contplay{width:50px;height:50px;border-radius:25px;background:var(--blue2);flex:none;
+  display:grid;place-items:center}
+.contplay svg{width:18px;height:18px;fill:#fff}
+
+/* the chips, as the design draws them */
+.libwrap .shchips{margin:26px -20px 0;padding:0 20px;gap:8px}
+.libwrap .shchips .chip{height:34px;padding:0 14px;border-radius:17px;
+  border:1px solid var(--line);background:transparent;color:var(--ink2);
+  font-family:var(--text);font-size:13px;font-weight:500}
+.libwrap .shchips .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* the shelf: three to a row */
+.libwrap .covers{margin-top:22px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:22px 14px}
+.shelfbk{min-width:0}
+.libwrap .cover{position:relative;display:block;width:100%;
+  aspect-ratio:3/4;min-height:0;padding:0;margin:0;border:none;overflow:hidden;
+  border-radius:3px 7px 7px 3px;background:var(--plate);
+  box-shadow:inset 4px 0 0 rgba(0,0,0,.35),0 6px 14px rgba(20,10,4,.22)}
+.libwrap .cover .cart{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;object-fit:cover}
+/* the spine shadow has to sit over the painting, not under it */
+.libwrap .cover::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:rgba(0,0,0,.35);z-index:3;display:block}
+.libwrap .cover .cscrim{position:absolute;top:0;right:0;bottom:0;left:0;z-index:1;
+  background:linear-gradient(180deg,transparent 45%,rgba(14,11,9,.82) 100%)}
+.ctool{position:absolute;top:7px;right:7px;bottom:7px;left:10px;border:1px solid var(--tool);
+  border-radius:3px;z-index:2;pointer-events:none}
+.libwrap .cover .cbody{position:absolute;left:10px;right:7px;bottom:12px;z-index:2;
+  display:block;padding:0;text-align:center}
+.libwrap .cover .ct{font-family:var(--serif);font-variant:small-caps;letter-spacing:.06em;
+  font-size:13px;line-height:1.1;color:var(--plate-ink);font-weight:400;
+  text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.libwrap .cover:not(.hasart) .cbody{top:50%;bottom:auto;transform:translateY(-50%)}
+.libwrap .cover:not(.hasart) .ct{font-size:15px}
+.ribbon{position:absolute;right:14px;bottom:-7px;width:7px;height:22px;z-index:4;
+  background:var(--blue2);-webkit-clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%);clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
+.libwrap .cover{overflow:visible}
+.libwrap .cover .cart,.libwrap .cover .cscrim{border-radius:3px 7px 7px 3px}
+.shelfbk .cn{display:block;margin-top:8px;font-family:var(--text);font-size:12px;
+  color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.libwrap .cover:hover{transform:translateY(-2px)}
+
+/* ================= RED LETTER, ONLY =================
+   On the page of scripture, red belongs to the words of Christ and nothing
+   else. Verse numbers and the chapter number follow the page's ink instead:
+   near-black in the early morning, warm white at night. */
+.rd .v sup{color:var(--ink3)}
+.chop-n{color:var(--ink)}
+.rd .v{color:var(--ink)}
+.rd .v .wj{color:var(--wj)}
+
+/* ================= NOTES, TO THE DESIGN ================= */
+.nhead{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.nhead h2{font-family:var(--serif);font-size:32px;font-weight:400;margin:0;color:var(--ink)}
+.newnote{height:36px;padding:0 16px;border-radius:18px;background:var(--blue2);color:#fff;
+  font-family:var(--text);font-size:14px;font-weight:600;white-space:nowrap;min-height:0}
+.nsub{margin:4px 0 0;font-size:13px;color:var(--ink2)}
+.nchips{margin:16px -20px 16px;padding:0 20px;gap:8px}
+.nchips .chip{height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line);
+  background:transparent;color:var(--ink2);font-size:13px;font-weight:500}
+.nchips .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* a note card: plain, as the design has it, not ruled paper */
+.ncard{display:block;width:100%;text-align:left;cursor:pointer;margin-bottom:12px;
+  padding:16px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.ncard:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.ncrow{display:flex;align-items:baseline;gap:10px}
+.ncref{font-family:var(--text);font-size:13px;font-weight:600;color:var(--blue)}
+.ncdate{margin-left:auto;font-size:12px;color:var(--ink3);white-space:nowrap}
+.nctitle{font-family:var(--serif);font-size:22px;line-height:1.25;color:var(--ink);margin-top:6px}
+.ncverse{font-family:var(--serif);font-style:italic;font-size:14px;line-height:1.45;
+  color:var(--ink2);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;overflow:hidden}
+.ncbody{font-family:var(--text);font-size:14px;line-height:1.5;color:var(--ink);margin-top:8px;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ncard .ntags{margin-top:10px}
+.ntag{background:var(--blue-l);color:var(--ink2);font-weight:500}
+
+/* the editor: a page you write on */
+.nedbar{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px}
+.neddone{font-size:15px;font-weight:600;color:var(--blue);min-height:0;padding:10px 0}
+.ncrow.ned{margin-top:6px}
+.nedverse{margin-top:10px;padding:12px 14px;border-radius:12px;background:var(--card);
+  border:1px solid var(--line);font-family:var(--serif);font-style:italic;font-size:15px;
+  line-height:1.5;color:var(--ink2)}
+.nedtitle{display:block;width:100%;margin-top:18px;padding:0;border:none;background:transparent;
+  font-family:var(--serif);font-size:26px;color:var(--ink)}
+.nedtitle::placeholder{color:var(--ink3)}
+.nedbody{display:block;width:100%;min-height:160px;margin-top:8px;padding:0;border:none;
+  background:transparent;box-shadow:none;font-family:var(--text);font-size:16px;
+  line-height:1.55;color:var(--ink);resize:vertical}
+.nedtitle:focus,.nedbody:focus{outline:none}
+.nedlab{margin:22px 0 8px;font-family:var(--text);font-size:12px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink3)}
+.nedtags{align-items:center}
+.nedtags .ntag b{font-weight:400;margin-left:3px;opacity:.7}
+.tagadd{display:inline-flex;align-items:center;gap:4px}
+.tagadd input{width:92px;padding:4px 8px;border-radius:999px;border:1px dashed var(--line);
+  background:transparent;color:var(--blue);font-size:12px;font-weight:500}
+.tagadd input::placeholder{color:var(--blue)}
+.tagaddbtn{width:26px;height:26px;min-height:0;border-radius:13px;color:var(--blue);
+  font-size:16px;line-height:1}
+.neddel{display:block;margin:28px auto 8px;font-size:14px;color:var(--rose);min-height:0;
+  padding:10px 16px}
+/* linked verses as the design sets them: plain rows under a hairline */
+.lklist{margin-bottom:6px}
+.lkrow{border:none;border-radius:0;background:transparent;padding:10px 0;margin:0;
+  border-bottom:1px solid var(--line);align-items:baseline}
+.lkref{font-size:13px}
+.lktxt{white-space:normal;font-size:14px;color:var(--ink)}
+.lkdel{opacity:.55}
+.lkdel:hover{opacity:1}
+.lkadd{margin-top:10px}
+.lkadd input{background:transparent}
+.nedtags .tagadd input{border-style:solid;border-color:var(--blue-l);width:84px}
+
+/* ================= SAVES, TO THE DESIGN ================= */
+.savseg{margin-top:14px;background:var(--blue-l);border-radius:12px;padding:3px}
+.savseg button{border-radius:9px;font-size:14px;font-weight:500;color:var(--ink2)}
+.savseg button[aria-selected="true"]{background:var(--card);color:var(--ink);
+  box-shadow:0 1px 3px rgba(20,10,4,.12)}
+/* folders as small tooled plates */
+.folders{display:flex;gap:10px;overflow-x:auto;margin:16px -20px 10px;padding:0 20px 4px;
+  scrollbar-width:none}
+.folders::-webkit-scrollbar{display:none}
+.folder{flex:none;width:96px;height:74px;position:relative;padding:10px 10px 9px;
+  border-radius:3px 7px 7px 3px;background:var(--plate);text-align:left;
+  display:flex;flex-direction:column;justify-content:space-between;
+  box-shadow:inset 4px 0 0 rgba(0,0,0,.35),0 4px 10px rgba(20,10,4,.2)}
+.folder::after{content:'';position:absolute;top:5px;right:5px;bottom:5px;left:8px;border:1px solid var(--tool);
+  border-radius:3px;pointer-events:none}
+.folder.on{box-shadow:inset 4px 0 0 rgba(0,0,0,.35),0 0 0 2px var(--blue2)}
+.fname{font-family:var(--serif);font-variant:small-caps;letter-spacing:.05em;font-size:13px;
+  line-height:1.1;color:var(--plate-ink);display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;overflow:hidden}
+.fcount{font-family:var(--text);font-size:12px;color:rgba(230,217,196,.7)}
+/* a saved verse as a row */
+.bmrow,.hlrow{display:block;width:100%;text-align:left;padding:14px 0;
+  border-bottom:1px solid var(--line);min-height:0;background:none}
+.bmhead{display:flex;align-items:center;gap:8px}
+.bmic{width:14px;height:14px;fill:var(--blue);stroke:none;flex:none}
+.bmref{font-family:var(--text);font-size:13px;font-weight:600;color:var(--blue)}
+.bmfold2{font-size:12px;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bmdate{margin-left:auto;font-size:12px;color:var(--ink3);white-space:nowrap}
+.bmtext,.hltext{display:block;margin-top:6px;font-family:var(--serif);font-size:16px;
+  line-height:1.5;color:var(--ink)}
+.hldot{width:8px;height:8px;border-radius:50%;flex:none}
+/* a highlight drawn like marker ink: the swatch behind the words */
+.hltext mark{color:inherit;
+  background:linear-gradient(transparent 12%,var(--sw55,transparent) 12%,var(--sw55,transparent) 92%,transparent 92%);
+  box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:0 2px}
+[data-theme="dark"] .hltext mark{
+  background:linear-gradient(transparent 12%,var(--swn,transparent) 12%,var(--swn,transparent) 92%,transparent 92%)}
+/* where color-mix() is understood the swatch mixes itself; without it (Safari
+   before 16.2) the rgba strengths set on each highlight stand. It has to sit
+   behind @supports: a declaration holding var() is never rejected when read,
+   so an unknown function in it would blank the marker rather than fall back. */
+@supports (background:color-mix(in srgb,red 50%,transparent)){
+  .hltext mark{background:linear-gradient(transparent 12%,color-mix(in srgb,var(--sw) 55%,transparent) 12%,
+    color-mix(in srgb,var(--sw) 55%,transparent) 92%,transparent 92%)}
+  [data-theme="dark"] .hltext mark{
+    background:linear-gradient(transparent 12%,var(--swn,transparent) 12%,var(--swn,transparent) 92%,transparent 92%)}
+}
+.swchips{margin:14px -20px 6px;padding:0 20px}
+.swchips .chip{height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line);
+  background:transparent;color:var(--ink2);font-size:13px;font-weight:500}
+.swchips .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+/* the folder picker in the verse sheet */
+.bmfold{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 10px}
+.bmfl{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-right:4px}
+.bmfold .chip{height:30px;padding:0 12px;border-radius:15px;font-size:12.5px}
+.folder{width:112px;height:80px}
+.fname{font-size:14px}
+/* an older rule shrank <mark>; the verse keeps its full reading size */
+.hltext{font-size:17px}
+.hltext mark{font-size:inherit;font-family:inherit;line-height:inherit;border-radius:2px}
+
+/* ================= THE SKY, AS THE DESIGN DRAWS IT =================
+   A fixed layer behind everything, so it stays put while the page scrolls.
+   The earlier approximation painted eight dots onto the scrolling page; this
+   replaces it. */
+html,body{background:var(--bg)}
+#sky{position:fixed;top:0;right:0;bottom:0;left:0;z-index:0;pointer-events:none;overflow:hidden}
+#sky .sky-night,#sky .sky-dawn{position:absolute;top:0;right:0;bottom:0;left:0;display:none}
+[data-theme="dark"] #sky .sky-night{display:block;
+  background:radial-gradient(90% 45% at 85% 0%,rgba(150,110,80,.16),transparent 70%)}
+#sky .st{position:absolute;border-radius:50%;background:#F4EADB}
+#sky .st.big{box-shadow:0 0 6px rgba(244,234,219,.8)}
+#sky .st.tw{animation-name:se-twinkle;animation-timing-function:ease-in-out;
+  animation-iteration-count:infinite}
+@keyframes se-twinkle{0%,100%{filter:brightness(1)}50%{filter:brightness(.3)}}
+@media (prefers-reduced-motion:reduce){ #sky .st.tw{animation:none} }
+/* early morning: a warm sun low in the top right over the dawn gradient */
+[data-theme="light"] #sky .sky-dawn{display:block;
+  background:radial-gradient(70% 28% at 82% 0%,rgba(255,210,160,.75),rgba(255,210,160,0) 70%),
+             linear-gradient(180deg,#E9D6CF 0%,#F2DDCB 20%,var(--bg) 48%)}
+/* the content sits over the sky; the reader keeps its plain page */
+#phone,.pv{position:relative;z-index:1}
+.pane:not([data-screen="reader"])>.pv,
+[data-theme="dark"] .pane:not([data-screen="reader"])>.pv{background:transparent !important}
+body:not(.lay-tablet)[data-screen="reader"] #sky{display:none}
+.pane[data-screen="reader"]>.pv{background:var(--bg) !important}
+/* the app's outer frame was painted solid and sat in front of the sky, so
+   the stars and the dawn were there and invisible; the page ground is the
+   body's, and the frame lets the sky through */
+#phone{background:transparent !important}
+
+
+
+/* ================= THE READER'S GRADIENT, AS THE DESIGN HAS IT =================
+   At rest, the text dissolves over 18px as it slides under the header. While
+   reading aloud, the page fades out over its top 30% and again from 66% to
+   92%, leaving a clear window round the verse being read, with space above and
+   below so the first and last verses can still reach the middle of it. */
+.pane[data-screen="reader"]>.pv{
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18px,#000 100%);
+          mask-image:linear-gradient(to bottom,transparent 0,#000 18px,#000 100%)}
+body.focusing .pane[data-screen="reader"]>.pv{
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 30%,#000 66%,transparent 92%);
+          mask-image:linear-gradient(to bottom,transparent 0%,#000 30%,#000 66%,transparent 92%)}
+body.focusing .rd.listening{padding-top:200px;padding-bottom:360px;
+  transition:padding .4s ease}
+.rd.listening .v{opacity:.2}
+.rd.listening .v.near2{opacity:.28}
+.rd.listening .v.near1{opacity:.45}
+.rd.listening .v.speaking{opacity:1}
+@media (prefers-reduced-motion:reduce){ body.focusing .rd.listening{transition:none} }
+
+/* ================= HIGHLIGHTS AS BANDS, AS THE DESIGN HAS THEM =================
+   A highlighted verse sits on a soft band of its swatch, the whole verse
+   block, no underline: the swatch at 69% in the early morning and 22% at
+   night, the design's own strengths. A highlight wins over the reading band,
+   as in the design. */
+.rd .v.hl-yellow,.rd .v.hl-green,.rd .v.hl-blue,.rd .v.hl-pink,.rd .v.hl-purple{
+  text-decoration:none !important}
+.rd .v.hl-yellow,.rd.aloud .v.speaking.hl-yellow,.rd.held .v.speaking.hl-yellow{background:rgba(230,209,156,.69)}
+.rd .v.hl-green, .rd.aloud .v.speaking.hl-green,.rd.held .v.speaking.hl-green {background:rgba(201,216,182,.69)}
+.rd .v.hl-blue,  .rd.aloud .v.speaking.hl-blue,.rd.held .v.speaking.hl-blue  {background:rgba(195,211,222,.69)}
+.rd .v.hl-pink,  .rd.aloud .v.speaking.hl-pink,.rd.held .v.speaking.hl-pink  {background:rgba(232,195,186,.69)}
+.rd .v.hl-purple,.rd.aloud .v.speaking.hl-purple,.rd.held .v.speaking.hl-purple{background:rgba(213,199,224,.69)}
+/* Night highlights, remade. The daytime pastels at low strength all turned
+   the same muddy brown on the dark page, so the five could not be told apart.
+   At night each colour is its own deeper, clearer hue: a tint behind the
+   verse and a bar of the full colour down its left edge. */
+[data-theme="dark"] .rd .v.hl-yellow,[data-theme="dark"] .rd.aloud .v.speaking.hl-yellow,[data-theme="dark"] .rd.held .v.speaking.hl-yellow{background:rgba(217,169,59,.2);box-shadow:inset 3px 0 0 rgb(217,169,59)}
+[data-theme="dark"] .vpop .pdot[data-pcolor="yellow"]{background:rgb(217,169,59) !important}
+[data-theme="dark"] .rd .v.hl-green,[data-theme="dark"] .rd.aloud .v.speaking.hl-green,[data-theme="dark"] .rd.held .v.speaking.hl-green{background:rgba(111,174,114,.2);box-shadow:inset 3px 0 0 rgb(111,174,114)}
+[data-theme="dark"] .vpop .pdot[data-pcolor="green"]{background:rgb(111,174,114) !important}
+[data-theme="dark"] .rd .v.hl-blue,[data-theme="dark"] .rd.aloud .v.speaking.hl-blue,[data-theme="dark"] .rd.held .v.speaking.hl-blue{background:rgba(95,151,207,.2);box-shadow:inset 3px 0 0 rgb(95,151,207)}
+[data-theme="dark"] .vpop .pdot[data-pcolor="blue"]{background:rgb(95,151,207) !important}
+[data-theme="dark"] .rd .v.hl-pink,[data-theme="dark"] .rd.aloud .v.speaking.hl-pink,[data-theme="dark"] .rd.held .v.speaking.hl-pink{background:rgba(212,107,120,.2);box-shadow:inset 3px 0 0 rgb(212,107,120)}
+[data-theme="dark"] .vpop .pdot[data-pcolor="pink"]{background:rgb(212,107,120) !important}
+[data-theme="dark"] .rd .v.hl-purple,[data-theme="dark"] .rd.aloud .v.speaking.hl-purple,[data-theme="dark"] .rd.held .v.speaking.hl-purple{background:rgba(155,127,214,.2);box-shadow:inset 3px 0 0 rgb(155,127,214)}
+[data-theme="dark"] .vpop .pdot[data-pcolor="purple"]{background:rgb(155,127,214) !important}
+
+/* The old navy palette is gone: every bluish grey above was converted to the
+   Calfskin browns at the same lightness, and every old blue accent to the red
+   accent. Only the design's Mist and Heather highlight swatches stay cool. */
+
+/* The old navy palette is gone: every bluish grey above was converted to the
+   Calfskin browns at the same lightness, and every old blue accent to the red
+   accent. Only the design's Mist and Heather highlight swatches stay cool. */
+/* the design's own bar colour, over the old night rule for .top and #nav */
+[data-theme="dark"] #nav{background:var(--tab)}
+
+/* ================= SEARCH, TO THE DESIGN ================= */
+.search{height:50px;margin-top:16px;border-radius:15px;background:var(--card);
+  border:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 14px}
+.search svg{width:19px;height:19px;stroke:var(--ink3);fill:none;stroke-width:1.8;flex:none}
+.search input{flex:1;min-width:0;border:none;background:transparent;color:var(--ink);font-size:16px;outline:none}
+.sclear{width:22px;height:22px;min-height:0;border-radius:11px;background:var(--blue-l);
+  color:var(--ink2);font-size:13px;line-height:1;flex:none}
+.schips{margin:14px -20px 6px;padding:0 20px;gap:8px}
+.schips .chip{height:34px;padding:0 14px;border-radius:17px;border:1px solid var(--line);
+  background:transparent;color:var(--ink2);font-size:13px;font-weight:500}
+.schips .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.scount{margin:10px 0 2px;font-size:13px;color:var(--ink3)}
+.sres{display:block;width:100%;text-align:left;padding:14px 0;border-bottom:1px solid var(--line);
+  min-height:0;background:none}
+.srow{display:flex;align-items:center;gap:8px}
+.sref{font-family:var(--text);font-size:13px;font-weight:600;color:var(--blue)}
+.stype{font-size:12px;color:var(--ink3);background:var(--blue-l);padding:1px 7px;border-radius:6px}
+.stext{display:block;margin-top:5px;font-family:var(--serif);font-size:16px;line-height:1.5;color:var(--ink2);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.stext b{font-weight:600;color:var(--ink)}
+
+/* ================= SETTINGS, TO THE DESIGN ================= */
+.sethead{font-family:var(--serif);font-size:32px;margin-top:2px;color:var(--ink)}
+.setgrp,.pane[data-screen="about"] .h2{margin:26px 0 0;font-family:var(--text);font-size:12px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);font-weight:500}
+.setcard,.pane[data-screen="about"] .card{margin-top:10px;background:var(--card);border:1px solid var(--line);
+  border-radius:18px;padding:4px 16px;box-shadow:none}
+.pane[data-screen="about"] .card{padding:14px 16px}
+.setrow{padding:12px 0;border-bottom:1px solid var(--line)}
+.setlab{display:block;font-size:15px;color:var(--ink)}
+.setseg{margin-top:10px;display:flex;background:var(--blue-l);border-radius:11px;padding:3px;gap:3px}
+.setseg button{flex:1;min-width:0;height:32px;min-height:0;border-radius:9px;font-size:13px;font-weight:500;
+  color:var(--ink2);background:transparent;white-space:nowrap}
+.setseg button[aria-selected="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(20,10,4,.14)}
+.settog{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:13px 0;
+  border-bottom:1px solid var(--line);min-height:0;background:none}
+.settxt{flex:1;min-width:0}
+.setsub{display:block;font-size:12px;color:var(--ink3);margin-top:2px}
+.setsw{width:44px;height:26px;border-radius:13px;background:var(--blue-l);position:relative;flex:none;
+  transition:background .2s}
+.setsw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:10px;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .2s}
+.setsw.on{background:var(--blue2)}
+.setsw.on i{left:21px}
+.setcard > :last-child{border-bottom:none}
+.setline{display:flex;justify-content:space-between;padding:14px 0;font-size:15px;color:var(--ink)}
+.setline span:last-child{color:var(--ink3);font-size:14px}
+@media (prefers-reduced-motion:reduce){ .setsw,.setsw i{transition:none} }
+
+/* ================= FIXES FROM LIVE TESTING ================= */
+/* the shading on each painting runs the whole height; an old rule cut it off
+   at 62%, which is what drew a hard stripe across every cover */
+.libwrap .cover .cscrim{top:0;bottom:0;height:auto}
+
+/* the reading settings: a sheet that rises over wherever you are */
+#rshost{position:relative;z-index:48}
+.rsback{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(10,8,7,.38);z-index:48;cursor:pointer}
+.rsheet{position:fixed !important;left:8px;right:8px;margin:0 auto;max-width:560px;
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 72px);max-height:min(72vh,640px);
+  overflow-y:auto;overscroll-behavior:contain;z-index:49;
+  box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.speedseg{margin-top:8px}
+.rsheet .lab{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+
+/* ================= THE ATLAS TABLE =================
+   Maps are read the same way day or night: on a warm graphite table, with
+   the map on its own paper. The early-morning dawn and the white lettering
+   it was never meant to sit under are gone; the colours here do not change
+   with the theme, on purpose. */
+body:not(.lay-split)[data-screen="atlas"] #sky{display:none}
+html[data-theme] .pane[data-screen="atlas"]>.pv,
+.pane[data-screen="atlas"]>.pv{background:#1C1917 !important;
+  --ink:#EDE5D8;--ink2:#BCB1A1;--ink3:#948A7C;--card:#27231F;--line:rgba(237,229,216,.12);
+  --blue:#E6887C;--blue2:#C9483C;--blue-l:#332D28;--bg:#1C1917;color:var(--ink)}
+.pane[data-screen="atlas"] .pv h2,.pane[data-screen="atlas"] .pv .libhead h2{color:#EDE5D8}
+.pane[data-screen="atlas"] .pv .libhead p,.pane[data-screen="atlas"] .pv .vnote{color:#BCB1A1}
+.pane[data-screen="atlas"] .plate{background:#F4EFE6 !important;border-radius:10px;
+  box-shadow:0 1px 0 rgba(255,255,255,.04),0 14px 34px rgba(0,0,0,.5)}
+.pane[data-screen="atlas"] .platebar{background:#27231F;border:1px solid rgba(237,229,216,.12)}
+.pane[data-screen="atlas"] .platebar button{background:#332D28;color:#EDE5D8}
+.pane[data-screen="atlas"] .platebar span{color:#EDE5D8}
+/* the read-aloud options inside the sheet line up with everything else in it */
+.rsheet .sopts{margin:14px 0 0;padding:0;background:none;border:none;box-shadow:none}
+.rsheet .sopts .lab{margin:14px 0 8px}
+.rsheet .sopts .lab:first-child{margin-top:0}
+
+/* the play and pause icon is white in both themes; the red circle is unchanged.
+   The shape takes currentColor, so the colour has to be set on the button. */
+.player.bar .pl-play{color:#fff}
+.player.bar .pl-play svg,.player.bar .pl-play svg *{fill:#fff;stroke:#fff}
+
+/* ================= THE TRACKER COVER, REBRANDED =================
+   The XVI / XI mark pressed into the board, where the old sword and flame
+   used to be. Blind-stamped: a shade darker than the board, no colour. */
+.cover.istracker .art.mark{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:5px;padding-bottom:18%}
+.cover.istracker .art.mark i{font-style:normal;font-family:var(--serif);font-size:24px;
+  line-height:1;letter-spacing:.08em;text-indent:.08em;color:#E2D9C8;
+  text-shadow:0 1px 0 rgba(255,255,255,.7),0 -1px 0 rgba(120,105,80,.18)}
+.cover.istracker .art.mark b{display:block;width:34px;height:2px;border-radius:1px;
+  background:#E2D9C8;box-shadow:0 1px 0 rgba(255,255,255,.7)}
+
+/* ================= WORD MEANINGS =================
+   The word keeps the colour of the text around it: near-black in the early
+   morning, warm white at night, red only inside the words of Christ. Just a
+   faint dotted line says it can be tapped. */
+.rd .gw{color:inherit;cursor:pointer;-webkit-text-decoration-line:underline;text-decoration-line:underline;
+  -webkit-text-decoration-style:dotted;text-decoration-style:dotted;text-decoration-thickness:1.5px;text-underline-offset:.22em;
+  -webkit-text-decoration-color:var(--ink3);text-decoration-color:var(--ink3);-webkit-tap-highlight-color:transparent}
+@supports (text-decoration-color:color-mix(in srgb,red 50%,transparent)){
+  .rd .gw{-webkit-text-decoration-color:color-mix(in srgb,currentColor 42%,transparent);text-decoration-color:color-mix(in srgb,currentColor 42%,transparent)}
+}
+.rd .gw:hover{-webkit-text-decoration-style:solid;text-decoration-style:solid}
+.rd .gw:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:3px}
+
+/* the card that rises when a word is tapped */
+.wdsheet{padding:2px 2px 6px}
+.wdk{font-family:var(--text);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink3);font-weight:500}
+.wdh{font-family:var(--serif);font-size:32px;line-height:1.1;color:var(--ink);margin-top:6px}
+.wdf{font-size:13px;color:var(--ink2);margin-top:4px}
+.wdm{font-family:var(--serif);font-size:19px;line-height:1.5;color:var(--ink);margin:12px 0 0}
+.wdv{margin:16px 0 14px;padding:12px 14px;border-radius:12px;background:var(--bg);
+  border:1px solid var(--line);font-family:var(--serif);font-style:italic;font-size:15.5px;
+  line-height:1.55;color:var(--ink2)}
+.wdv b{font-style:normal;font-weight:600;color:var(--ink)}
+.wdr{display:block;font-family:var(--text);font-style:normal;font-size:12px;font-weight:600;
+  color:var(--blue);margin-bottom:4px}
+/* and above search results, when the word searched for has a meaning */
+.sgloss{margin:14px 0 4px;padding:14px 16px;border-radius:16px;background:var(--card);
+  border:1px solid var(--line)}
+.sgloss .wdh{font-size:26px}
+.sgloss .wdm{font-size:17px;margin-top:8px}
+
+/* ================= READING ALOUD: ONE VERSE, ONE BAND =================
+   While it plays, the verse being read sits on the design's warm band. Paused,
+   the page is plain again, as the design draws it. The old boxes with a red
+   bar were an early style that took over on pause; they are gone at source. */
+.rd.aloud .v.speaking{background:var(--hl)}
+
+/* Paused, the verse it stopped on keeps the warm band, so you can see where
+   Play will pick up. Everything else is at full strength on the plain page. */
+.rd.held .v.speaking{background:var(--hl)}
+
+/* ================= OLDER SAFARI =================
+   The iPad Air and other devices that stop at iOS 12 have Safari 12: no dvh,
+   no aspect-ratio, and a vh that runs under the toolbar. These put back what
+   those rules would have done, and only where the rule is not understood. */
+@supports not (height:100dvh){ #phone{height:calc(var(--vh,1vh)*100)} }
+@supports not (aspect-ratio:3/4){
+  .libwrap .cover,.cover.hasart{height:0;padding-top:133.333%}
+  .cover.istracker,.cover.isatlas{height:0;padding-top:133.333%}
+  .sw{height:0;padding-top:100%}
+  .sw .swt{position:absolute;top:50%;left:50%;-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%)}
+}
+
+/* ================= TABLETS =================
+   From the tablet design. body.lay-tab is a tablet held upright: one screen,
+   a centred column, the floating bar at its foot. body.lay-split is a tablet
+   on its side: two screens side by side, the bar on the divider. A phone never
+   has either class, so nothing above changes for it. */
+:root{ --tbbg:rgba(252,249,244,.9); --tbline:rgba(60,40,25,.15); --tbacc:#9A2B22;
+  --tbhandle:rgba(29,24,20,.32); }
+[data-theme="dark"]{ --tbbg:rgba(30,26,23,.86); --tbline:rgba(230,210,180,.13); --tbacc:#C9483C;
+  --tbhandle:rgba(238,230,218,.38); }
+
+/* the frame is the whole screen */
+body.lay-tablet #phone{max-width:none;width:100%;box-shadow:none}
+
+/* ---- the floating bar ---- */
+body.lay-tablet #nav{position:fixed;top:auto;right:auto;left:50%;width:auto;max-width:none;
+  height:auto;margin:0;bottom:calc(env(safe-area-inset-bottom, 0px) + 22px);
+  -webkit-transform:translateX(-50%);transform:translateX(-50%);
+  display:-webkit-box;display:flex;align-items:center;justify-content:center;
+  padding:7px;border-radius:32px;border:1px solid var(--tbline);background:var(--tbbg);
+  -webkit-backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  box-shadow:0 14px 40px rgba(10,6,3,.28);z-index:40}
+body.lay-tablet #nav .tbgrp{display:flex;align-items:center}
+body.lay-tablet #nav .tb{height:46px;min-width:46px;width:auto;flex:none;margin:0 2px;padding:0;
+  border-radius:23px;display:flex;flex-direction:row;align-items:center;justify-content:center;
+  gap:0;color:var(--ink2);font-family:var(--text);font-size:14px;font-weight:600;
+  letter-spacing:0;white-space:nowrap;transition:background .25s,color .25s,padding .25s}
+body.lay-tablet #nav .tb svg{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;
+  stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transform:none}
+body.lay-tablet #nav .tb span{display:none}
+body.lay-tablet #nav .tb.on{padding:0 16px;background:var(--tbacc) !important;color:#fff}
+body.lay-tablet #nav .tb.on svg{stroke:#fff}
+body.lay-tablet #nav .tb.on span{display:inline;margin-left:8px;color:#fff;font-weight:600}
+body.lay-tablet #nav .tb:active{transform:scale(.96)}
+/* two sides: left icons, the swap, right icons, centred on the swap */
+body.lay-split #nav{display:grid;grid-template-columns:1fr auto 1fr;grid-gap:6px;gap:6px;
+  transition:left .15s}
+body.lay-split #nav .tbgrp.l{justify-content:flex-end}
+body.lay-split #nav .tbgrp.r{justify-content:flex-start}
+body.lay-split #nav .tbswap{width:42px;height:42px;min-width:0;margin:0 4px;padding:0;flex:none;
+  border-radius:21px;border:1px solid var(--tbline);background:transparent !important;
+  color:var(--ink2);display:flex;align-items:center;justify-content:center}
+body.lay-split #nav .tbswap svg{width:20px;height:20px;fill:none;stroke:currentColor;
+  stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+body.dragging #nav{transition:none}
+
+/* ---- the player and the sheets, above the bar ---- */
+body.lay-tab #player .player.bar{max-width:600px;left:16px;right:16px;margin:0 auto;
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 96px)}
+body.lay-tablet .sheet{left:0;right:0;margin:0 auto;max-width:560px;border-radius:26px;
+  bottom:calc(env(safe-area-inset-bottom, 0px) + 96px);max-height:calc(100% - 150px);
+  padding-bottom:20px;box-shadow:0 18px 50px rgba(10,6,3,.3);
+  -webkit-transform:translateY(120vh);transform:translateY(120vh)}
+body.lay-tablet .sheet.on{-webkit-transform:none;transform:none}
+body.lay-tablet .rsheet{bottom:calc(env(safe-area-inset-bottom, 0px) + 96px)}
+/* back to top: clear of the player, at the right; with two sides each has
+   its own scroll and the button would belong to neither, so it goes */
+body.lay-tab #totop{left:auto;right:24px;bottom:calc(env(safe-area-inset-bottom, 0px) + 180px)}
+body.lay-split #totop{display:none}
+
+/* ---- one screen, upright: a centred column ---- */
+body.lay-tab .pane>.pv{padding-left:40px;padding-right:40px;
+  padding-left:max(28px, calc(50% - 344px));padding-right:max(28px, calc(50% - 344px));
+  padding-bottom:200px}
+body.lay-tab .pane[data-screen="reader"]>.pv{padding-left:48px;padding-right:48px;
+  padding-left:max(32px, calc(50% - 330px));padding-right:max(32px, calc(50% - 330px))}
+body.lay-tab .pane>.top{padding-left:20px;padding-right:20px}
+
+/* ---- two screens, side by side ---- */
+body.lay-split #phone{flex-direction:row;align-items:stretch}
+body.lay-split .pane{flex:1 1 0%;min-width:0;overflow:hidden}
+body.lay-split #paneA{flex:none}
+body.lay-split #paneB{display:flex}
+body.lay-split .pane>.pv{padding-bottom:200px}
+body.lay-split .pane[data-screen="reader"]>.pv{padding-bottom:210px}
+body.lay-split #divider{display:block;position:relative;width:1px;flex:none;z-index:5;
+  background:var(--tbline)}
+#divider .grip{position:absolute;left:-17px;top:50%;width:35px;height:96px;margin-top:-48px;
+  display:flex;align-items:center;justify-content:center;cursor:col-resize;outline:none;
+  -webkit-touch-callout:none;-webkit-user-select:none;-webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent}
+#divider .grip i{display:block;width:6px;height:52px;border-radius:3px;
+  background:var(--tbhandle);box-shadow:0 0 0 3px var(--bg)}
+#divider .grip:focus i{background:var(--blue)}
+body.dragging #divider{background:var(--blue)}
+body.dragging #divider .grip i{background:var(--blue)}
+body.dragging,body.dragging *{cursor:col-resize}
+/* the player belongs to the side that is reading, and sits inside it */
+body.lay-split #player .player.bar{position:absolute;left:12px;right:12px;max-width:560px;
+  margin:0 auto;bottom:calc(env(safe-area-inset-bottom, 0px) + 96px);
+  -webkit-transform:none;transform:none}
+/* how many covers to a row follows the width of the side, not the screen */
+.pane[data-w="narrow"] .libwrap .covers{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pane[data-w="mid"] .libwrap .covers{grid-template-columns:repeat(4,minmax(0,1fr))}
+.pane[data-w="roomy"] .libwrap .covers{grid-template-columns:repeat(5,minmax(0,1fr))}
+.pane[data-w="wide"] .libwrap .covers{grid-template-columns:repeat(6,minmax(0,1fr))}
+.pane[data-w] .libwrap .covers{grid-gap:20px 14px;gap:20px 14px}
+/* full screen reading on a split tablet: the reading side takes the screen */
+body.lay-split.immersive .pane:not(.is-reader),body.lay-split.immersive #divider{display:none !important}
+body.lay-split.immersive .pane.is-reader{width:auto !important;flex:1 1 0%}
+body.lay-split.immersive #player{display:none}
+/* the reader shows the sky behind it on a tablet, as the design has it */
+body.lay-tablet .pane[data-screen="reader"]>.pv{background:transparent !important}
+body.lay-tablet .pane[data-screen="reader"]>.top{background:transparent}
+/* the chapter drawer opens over the reading side; shut, it is hidden rather
+   than slid off the screen's edge, which on the right side would cross the
+   left one */
+body.lay-split .drawer{visibility:hidden;transition:transform .2s ease,visibility 0s linear .2s}
+body.lay-split .drawer.on{visibility:visible;transition:transform .2s ease}
+
+/* ================= THE VERSE CARD (5a) =================
+   A compact card hangs from the tapped verse. It is in the page, so it
+   scrolls with the verse, and it overlays what follows rather than pushing
+   it down. The rest of the chapter dims. */
+:root{ --popbg:#FCF9F4; --popline:rgba(60,40,25,.12); }
+[data-theme="dark"]{ --popbg:#221E1B; --popline:rgba(230,210,180,.12); }
+.rd.popping .v{opacity:.35;transition:opacity .25s ease}
+.rd.popping .v.popsel{opacity:1;background:var(--hl)}
+.vpopw{position:relative;height:0;z-index:25;display:block}
+.vpop{position:absolute;left:4px;right:4px;top:8px;max-width:560px;display:block;
+  background:var(--popbg);border:1px solid var(--popline);border-radius:16px;
+  box-shadow:0 18px 44px rgba(10,6,3,.28);padding:14px 16px 10px;font-family:var(--text);
+  -webkit-animation:popin .16s ease-out;animation:popin .16s ease-out}
+[data-theme="dark"] .vpop{box-shadow:0 18px 44px rgba(0,0,0,.55)}
+@-webkit-keyframes popin{from{opacity:0;-webkit-transform:translateY(-4px)}to{opacity:1;-webkit-transform:none}}
+@keyframes popin{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.vpop .parr{position:absolute;top:-7px;left:52px;width:12px;height:12px;background:var(--popbg);
+  border-left:1px solid var(--popline);border-top:1px solid var(--popline);
+  -webkit-transform:rotate(45deg);transform:rotate(45deg)}
+.vpop .prow{display:flex;align-items:center;flex-wrap:nowrap}
+.vpop .pref{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--blue);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;margin-right:8px}
+.vpop .pdots{display:flex;align-items:center;flex:none}
+.vpop .pdot{width:30px;height:30px;border-radius:15px;margin-left:8px;flex:none;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.vpop .pdot:first-child{margin-left:0}
+.vpop .pdot.on{box-shadow:0 0 0 2px var(--popbg),0 0 0 4px var(--ink)}
+.vpop .pacts{display:flex;align-items:center;flex:none;margin-left:12px;padding-left:4px;
+  border-left:1px solid var(--popline)}
+.vpop .pact{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:48px;height:44px;padding:0 4px;color:var(--ink2);font-size:12px;font-weight:500}
+.vpop .pact svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;margin-bottom:3px}
+.vpop .pact.on{color:var(--blue)}
+.vpop .pact.on svg{fill:currentColor}
+.vpop .prels{border-top:1px solid var(--popline);margin-top:12px;padding-top:4px}
+.vpop .prel{display:flex;align-items:flex-start;width:100%;text-align:left;padding:8px 0;background:none}
+.vpop .prr{flex:none;width:96px;padding-top:2px;font-size:12px;font-weight:600;color:var(--blue)}
+.vpop .prt{flex:1;min-width:0;font-family:var(--serif);font-size:15px;line-height:1.45;color:var(--ink)}
+.vpop .pfoot{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.vpop .pfoot button{font-size:13px;padding:8px 0;min-height:36px}
+.vpop .pmore{color:var(--blue);font-weight:600}
+.vpop .padd{color:var(--ink2)}
+/* narrow pages (every phone, and a tablet side under about 520px): the
+   colours take a line of their own, spread across the card */
+.vpop.compact .prow{flex-wrap:wrap}
+.vpop.compact .pdots{-webkit-box-ordinal-group:4;order:3;width:100%;justify-content:space-between;
+  margin-top:10px}
+.vpop.compact .pdot{width:36px;height:36px;border-radius:18px;margin-left:0}
+.vpop.compact .pacts{border-left:none;margin-left:0}
+.vpop.compact .pact{min-width:44px}
+.vpop.compact .prr{width:84px}
+.vpop.compact .prt{font-size:14.5px}
+.vpop .pact{min-width:46px}
+.vpop.compact .pact{min-width:42px}
+/* "See all related": the card grows in place, and scrolls inside itself */
+.vpop .prels.all{max-height:38vh;max-height:calc(var(--vh,1vh)*38);overflow-y:auto;
+  -webkit-overflow-scrolling:touch}
+.vpop .pmore-body{border-top:1px solid var(--popline);margin-top:6px;padding-top:4px}
+.vpop .plab{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink3);margin:10px 0 6px}
+.vpop .pmine{display:flex;flex-wrap:wrap;align-items:center}
+.vpop .pchip{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;margin:0 6px 6px 0;
+  border-radius:16px;border:1px solid var(--popline);font-size:13px;color:var(--ink);background:none}
+.vpop .pchip.on{background:var(--ink);color:var(--popbg);border-color:var(--ink)}
+.vpop .pchip.go{color:var(--blue);font-weight:600}
+.vpop .pchipx{margin:0 -6px 0 6px;width:24px;height:24px;border-radius:12px;font-size:16px;
+  line-height:1;color:var(--ink3);background:none}
+.vpop .pnewf{display:inline-flex;align-items:center;margin:0 0 6px}
+.vpop .pnewf input,.vpop .prefadd input{height:34px;border-radius:17px;border:1px solid var(--popline);
+  padding:0 12px;font:inherit;font-size:14px;background:transparent;color:var(--ink);width:130px;margin-right:6px}
+.vpop .prefadd{display:flex;align-items:center;margin-top:10px}
+.vpop .prefadd input{flex:1;min-width:0;width:auto}
+.vpop .prefadd .btn{min-height:34px;padding:0 12px;margin-left:4px}
+.vpop .pfiles{max-height:30vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.vpop .pfile{display:block;width:100%;text-align:left;padding:8px 0;background:none;border-bottom:1px solid var(--popline)}
+.vpop .pfile b{display:block;font-size:14px;font-weight:600;color:var(--ink)}
+.vpop .pfile span{font-size:12px;color:var(--ink3)}
+.vpop .pline{display:block;margin:10px 0 2px;font-size:13px;color:var(--blue);font-weight:600;background:none;
+  min-height:36px}
+.vpop .pmsg{font-size:13px;color:var(--ink2);margin:8px 0 0}
+
+/* ================= THE HEADER ISLAND (4b) =================
+   On a tablet the player lives in the chapter header as a pill. */
+.hact .island{display:flex;align-items:center;height:44px;padding:0 6px 0 3px;margin-right:6px;
+  border-radius:22px;background:var(--popbg);border:1px solid var(--popline)}
+.hact .island:empty{display:none}
+[data-theme="dark"] .hact .island{background:rgba(34,30,27,.9)}
+.island .il-play{position:relative;width:38px;height:38px;border-radius:19px;flex:none;
+  background:var(--tbacc);display:flex;align-items:center;justify-content:center}
+.island .il-play>svg:last-child{width:14px;height:14px;fill:#fff;stroke:#fff;position:relative}
+.island .il-ring{position:absolute;left:-3px;top:-3px;width:44px;height:44px;pointer-events:none}
+.island .il-ring circle{fill:none;stroke:rgba(255,255,255,.85);stroke-width:2.2;stroke-linecap:round;
+  transition:stroke-dashoffset .4s linear}
+.island .il-mid{display:flex;flex-direction:column;justify-content:center;min-width:64px;
+  padding:0 8px 0 9px;line-height:1.15}
+.island .il-v{font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+.island .il-s{font-size:12px;color:var(--ink3);white-space:nowrap}
+.island .il-next{width:30px;height:36px;flex:none;display:flex;align-items:center;justify-content:center}
+.island .il-next svg{width:13px;height:13px;fill:var(--ink2)}
+.island .il-next[disabled]{opacity:.35}
+/* no player at the foot of a tablet: the reading line runs to the bar */
+body.lay-tablet #player{display:none}
+body.lay-tablet .pane[data-screen="reader"]>.pv{padding-bottom:200px}
+
+/* ================= THE FLOATING BACK ARROW ================= */
+.backfloat{position:absolute;left:12px;top:10px;top:calc(env(safe-area-inset-top, 0px) + 10px);z-index:35;width:38px;height:38px;border-radius:19px;
+  display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;
+  background:var(--tbbg);border:1px solid var(--tbline);color:var(--ink);
+  -webkit-backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  box-shadow:0 6px 18px rgba(10,6,3,.18);-webkit-transform:translateY(-6px);transform:translateY(-6px);
+  transition:opacity .2s ease,transform .2s ease}
+.backfloat.on{opacity:1;pointer-events:auto;-webkit-transform:none;transform:none}
+.backfloat svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+body.immersive .backfloat{display:none}
+
+/* ================= WORD STUDY ================= */
+.cover.iswords{background:linear-gradient(160deg,#3A2F28,#1B1613)}
+.libwrap .cover.iswords{background:linear-gradient(160deg,#3A2F28,#1B1613)}
+.cover.iswords .wmark{position:absolute;left:0;right:0;top:30%;text-align:center;font-family:var(--serif);
+  font-size:40px;color:#E6D9C4;opacity:.9;letter-spacing:.02em}
+.cover.iswords .ct,.cover.iswords .cn{position:absolute;left:10px;right:8px;text-align:center;
+  color:var(--plate-ink,#E6D9C4);font-family:var(--serif);font-variant:small-caps;letter-spacing:.05em}
+.cover.iswords .ct{bottom:30px;font-size:14px}
+.cover.iswords .cn{bottom:12px;font-size:12px;opacity:.75;font-family:var(--text);font-variant:normal;letter-spacing:0}
+.wordsp .wsearch{margin-top:6px}
+.wsugg{display:flex;flex-wrap:wrap;margin:0 -3px 6px}
+.wsugg .chip{margin:0 3px 8px;height:36px;padding:0 14px;border-radius:18px;border:1px solid var(--line);
+  background:transparent;color:var(--ink);font-size:14px;display:inline-flex;align-items:center}
+.wsugg .wcount{margin-left:8px;font-size:12px;color:var(--ink3)}
+.whead{display:flex;flex-wrap:wrap;align-items:baseline;margin:14px 0 6px}
+.whead h3{font-family:var(--serif);font-weight:400;font-size:34px;margin:0 14px 0 0;color:var(--ink)}
+.whead .wn{font-size:13px;color:var(--ink3);margin-right:12px}
+.whead .chip{height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line);font-size:13px;
+  color:var(--blue);margin-top:6px}
+.wsec{border-top:1px solid var(--line);padding:14px 0 6px;margin-top:10px}
+.wsec .lab{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px}
+.wetym{font-family:var(--serif);font-size:17px;line-height:1.5;color:var(--ink);margin:0 0 8px;font-style:italic}
+.wentry{margin-bottom:12px}
+.wform{font-weight:600;font-size:14px;color:var(--blue);margin-bottom:4px}
+.wform i{font-weight:400;color:var(--ink3)}
+.wdef{font-family:var(--serif);font-size:16.5px;line-height:1.55;color:var(--ink);margin:0 0 7px}
+.wgloss .wdh{font-size:20px}
+.wsrow{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--popbg)}
+.wshead{display:flex;align-items:baseline;flex-wrap:wrap;width:100%;text-align:left;padding:11px 12px}
+.wsnum{font-size:12px;font-weight:700;color:var(--blue);margin-right:10px;min-width:44px}
+.wslem{font-family:'SBL Hebrew','Ezra SIL','Times New Roman',serif;font-size:21px;color:var(--ink);margin-right:10px}
+.wsx{font-style:italic;font-family:var(--serif);font-size:16px;color:var(--ink2);margin-right:10px}
+.wsdef{flex-basis:100%;font-size:13.5px;color:var(--ink2);margin-top:4px}
+.wsbody{padding:0 12px 10px}
+.wsbody p{margin:0 0 8px;font-size:14.5px;line-height:1.5;color:var(--ink)}
+.wslab{display:block;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:2px}
+.wslink{color:var(--blue);font-weight:600;text-decoration:underline;padding:0 2px}
+.wcredit{font-size:12px;color:var(--ink3);line-height:1.5;margin:18px 0 0}
+
+/* ================= SIXTEEN ELEVEN STUDY: THE PAYWALL =================
+   It rides in the bottom sheet. Plain and honest: what you get, three plans,
+   what it costs and when, and a way out that is as easy to find as the way in. */
+.paywall{padding:4px 2px 18px}
+.paywall .pwhead{text-align:center;padding:6px 8px 4px}
+.paywall .pwkick{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
+.paywall h2{font-family:var(--serif);font-weight:400;font-size:28px;line-height:1.15;margin:8px 0 6px;color:var(--ink)}
+.paywall .pwhead p{font-size:14.5px;line-height:1.5;color:var(--ink2);margin:0 auto;max-width:420px}
+.paywall .pwlist{list-style:none;margin:16px 0 6px;padding:0}
+.paywall .pwlist li{position:relative;padding:7px 0 7px 26px;font-size:14px;line-height:1.45;color:var(--ink)}
+.paywall .pwlist li:before{content:'';position:absolute;left:4px;top:12px;width:10px;height:6px;
+  border-left:2px solid var(--blue);border-bottom:2px solid var(--blue);-webkit-transform:rotate(-45deg);transform:rotate(-45deg)}
+.paywall .pwplans{margin:14px 0 12px}
+.paywall .pwplan{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;
+  padding:13px 14px;margin:0 0 8px;border-radius:14px;border:1.5px solid var(--popline,rgba(60,40,25,.14));
+  background:transparent;min-height:56px}
+.paywall .pwplan.on{border-color:var(--blue);background:rgba(160,60,40,.05)}
+[data-theme="dark"] .paywall .pwplan.on{background:rgba(230,160,140,.08)}
+.paywall .pwpt{display:flex;flex-direction:column;min-width:0;padding-right:10px}
+.paywall .pwpt b{font-size:15px;font-weight:600;color:var(--ink)}
+.paywall .pwpt span{font-size:12.5px;color:var(--ink3);margin-top:2px}
+.paywall .pwpp{flex:none;font-size:14px;font-weight:600;color:var(--ink)}
+.paywall .pwbuy{display:block;width:100%;min-height:50px;font-size:16px}
+.paywall .pwbuy[disabled]{opacity:.55}
+.paywall .pwmsg{font-size:13.5px;color:var(--ink2);text-align:center;margin:10px 0 0}
+.paywall .pwfine{font-size:12px;line-height:1.5;color:var(--ink3);margin:12px 2px 6px;text-align:center}
+.paywall .pwlinks{display:flex;flex-wrap:wrap;justify-content:center;margin:4px 0}
+.paywall .pwlinks button,.paywall .pwlinks a{font-size:12.5px;color:var(--ink2);text-decoration:underline;
+  background:none;padding:8px 9px;min-height:36px}
+.paywall .pwwhy{display:block;margin:6px auto 0;font-size:13px;color:var(--blue);background:none;min-height:36px}
+.paywall .pwwhytext{font-size:13.5px;line-height:1.55;color:var(--ink2);margin:6px 4px 0;text-align:center}
+.paywall .pwclose{display:block;width:100%;margin-top:10px}
+.pwcard .pwrow{display:flex;flex-wrap:wrap;margin-top:10px}
+.pwcard .pwrow .btn{margin:0 8px 8px 0}
+.pwtips{display:flex;flex-wrap:wrap}
+.pwtips .pchip{display:inline-flex;align-items:center;min-height:36px;padding:0 16px;margin:0 8px 8px 0;
+  border-radius:18px;border:1px solid var(--line,rgba(60,40,25,.14));font-size:14px;color:var(--ink);background:none}
+/* a narrated chapter you have not bought */
+.narrhint{display:block;margin:4px 0 10px;font-size:13px;color:var(--blue);font-weight:600;background:none;min-height:36px;text-align:left}
+.narrhint span{color:var(--ink3);font-weight:400}
+.teaser{padding:6px 2px 20px}
+.teaser .tlead{font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink);margin:0 0 18px}

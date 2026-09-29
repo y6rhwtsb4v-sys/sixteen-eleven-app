@@ -1,0 +1,103 @@
+{
+ "id": "/",
+ "name": "Sixteen Eleven Bible",
+ "short_name": "Sixteen Eleven",
+ "description": "The King James Bible with the Apocrypha \u2014 80 books, with historical context, a written note on every chapter, cross references, study sheets and read-aloud.",
+ "lang": "en",
+ "dir": "ltr",
+ "start_url": "./index.html",
+ "scope": "./",
+ "display": "standalone",
+ "display_override": [
+  "standalone",
+  "minimal-ui"
+ ],
+ "orientation": "any",
+ "background_color": "#110F0E",
+ "theme_color": "#110F0E",
+ "categories": [
+  "books",
+  "education",
+  "lifestyle"
+ ],
+ "prefer_related_applications": false,
+ "icons": [
+  {
+   "src": "assets/icons/icon-144.png",
+   "sizes": "144x144",
+   "type": "image/png"
+  },
+  {
+   "src": "assets/icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "assets/icons/icon-384.png",
+   "sizes": "384x384",
+   "type": "image/png"
+  },
+  {
+   "src": "assets/icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "assets/icons/icon-maskable-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "maskable"
+  },
+  {
+   "src": "assets/icons/icon-maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  },
+  {
+   "src": "assets/icon.svg",
+   "sizes": "any",
+   "type": "image/svg+xml"
+  }
+ ],
+ "shortcuts": [
+  {
+   "name": "Keep reading",
+   "short_name": "Read",
+   "description": "Open where you left off",
+   "url": "./index.html?go=read",
+   "icons": [
+    {
+     "src": "assets/icons/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  },
+  {
+   "name": "Search the scriptures",
+   "short_name": "Search",
+   "description": "Search 80 books",
+   "url": "./index.html?go=search",
+   "icons": [
+    {
+     "src": "assets/icons/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  },
+  {
+   "name": "Tracker",
+   "short_name": "Tracker",
+   "description": "See how far you have read",
+   "url": "./index.html?go=tracker",
+   "icons": [
+    {
+     "src": "assets/icons/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,38 @@
+# Builds the iOS app and sends it to TestFlight, signed automatically with an
+# App Store Connect API key (no certificates or profiles to manage by hand).
+# Run from the native folder:  fastlane ios beta
+default_platform(:ios)
+
+platform :ios do
+  lane :beta do
+    key_path = File.expand_path("../AuthKey.p8", __dir__)
+    File.write(key_path, ENV.fetch("ASC_KEY_P8"))
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: key_path
+    )
+    auth = "-allowProvisioningUpdates -authenticationKeyPath #{key_path} " \
+           "-authenticationKeyID #{ENV['ASC_KEY_ID']} -authenticationKeyIssuerID #{ENV['ASC_ISSUER_ID']}"
+    update_code_signing_settings(
+      path: "ios/App/App.xcodeproj",
+      use_automatic_signing: true,
+      team_id: ENV.fetch("APPLE_TEAM_ID"),
+      bundle_identifier: "com.sixteeneleven.bible",
+      targets: ["App"]
+    )
+    build_app(
+      project: "ios/App/App.xcodeproj",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "SixteenEleven.ipa",
+      xcargs: "#{auth} DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']} " \
+              "MARKETING_VERSION=#{ENV.fetch('APP_VERSION', '1.0.0')} " \
+              "CURRENT_PROJECT_VERSION=#{ENV.fetch('BUILD_NUMBER', '1')}",
+      export_xcargs: auth
+    )
+    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
+  end
+end

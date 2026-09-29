@@ -1,0 +1,23 @@
+{
+  "name": "sixteen-eleven-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sixteen Eleven Bible for the App Store and Google Play, built with Capacitor around the web app in www/.",
+  "scripts": {
+    "assets": "capacitor-assets generate --iconBackgroundColor '#171412' --iconBackgroundColorDark '#171412' --splashBackgroundColor '#171412' --splashBackgroundColorDark '#171412'",
+    "ios": "bash scripts/prepare.sh ios",
+    "android": "bash scripts/prepare.sh android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/filesystem": "^8.0.0",
+    "@capacitor/ios": "^8.5.2",
+    "@capacitor/share": "^8.0.0",
+    "@revenuecat/purchases-capacitor": "^13.6.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2"
+  }
+}
