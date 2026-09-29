@@ -5,3 +5,5 @@ upload-key/
 AuthKey.p8
 ios/App/App/public/
 android/app/src/main/assets/public/
+signing/
+ios-signing/

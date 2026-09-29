@@ -10,7 +10,8 @@ app in `www/`. GitHub builds them in the cloud, so no Mac is needed.
    - Identifiers → register the App ID `com.sixteeneleven.bible` with **In-App Purchase** on.
    - App Store Connect → My Apps → **+ New App**: iOS, name "Sixteen Eleven Bible", bundle ID above, SKU `sixteeneleven`.
    - Users and Access → Integrations → **App Store Connect API** → generate a key with the **App Manager** role. Download the .p8 (only once), note the Key ID and Issuer ID.
-   - In GitHub → Settings → Secrets and variables → Actions, add `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (paste the whole .p8 file).
+   - In GitHub → Settings → Secrets and variables → Actions, add `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (paste the whole .p8 file), and `IOS_CERT_PASSWORD` (a long password you make up).
+   - After the first successful iOS run, download **ios-signing** from the run and paste the text of `IOS_SIGNING_B64.txt` into a secret `IOS_SIGNING_B64`. It is your distribution certificate, encrypted with that password; every later build uses it.
 3. **Google Play Console** ($25 once): create the app "Sixteen Eleven Bible", free, and fill the store listing from `STORE.md`.
 4. **RevenueCat:** follow `STORE.md`, then put the two SDK keys into `src/app.js` (`PAY.keys`).
 

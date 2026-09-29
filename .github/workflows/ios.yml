@@ -1,9 +1,13 @@
 # Builds the iOS app on GitHub's Macs and sends it to TestFlight.
 # Run it from the Actions tab (Run workflow). Needs these repository secrets:
-#   APPLE_TEAM_ID   your 10-character Team ID (developer.apple.com > Membership)
-#   ASC_KEY_ID      App Store Connect API key ID
-#   ASC_ISSUER_ID   App Store Connect issuer ID
-#   ASC_KEY_P8      the contents of the downloaded AuthKey_XXXX.p8 file
+#   APPLE_TEAM_ID      your 10-character Team ID (developer.apple.com > Membership)
+#   ASC_KEY_ID         App Store Connect API key ID
+#   ASC_ISSUER_ID      App Store Connect issuer ID
+#   ASC_KEY_P8         the contents of the downloaded AuthKey_XXXX.p8 file
+#   IOS_CERT_PASSWORD  a long password you make up; it encrypts the signing key
+# and, after the first successful run:
+#   IOS_SIGNING_B64    the text of IOS_SIGNING_B64.txt from the run's
+#                      "ios-signing" download (encrypted, safe to keep public)
 name: iOS to TestFlight
 on:
   workflow_dispatch:
@@ -23,6 +27,8 @@ jobs:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+      IOS_SIGNING_B64: ${{ secrets.IOS_SIGNING_B64 }}
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
@@ -35,6 +41,13 @@ jobs:
       - run: bash scripts/prepare.sh ios
       - run: gem install fastlane --no-document || sudo gem install fastlane --no-document
       - run: fastlane ios beta
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-signing
+          path: ios-signing/IOS_SIGNING_B64.txt
+          if-no-files-found: ignore
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         if: always()
         with:
