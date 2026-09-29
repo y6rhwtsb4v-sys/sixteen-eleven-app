@@ -27,8 +27,8 @@ before the first upload if you want a different one; it can never change after).
   The text is the 1769 Oxford standard edition of the King James Version.
 
 - **What's new (1.0):** First release.
-- **Support URL / Marketing URL:** https://sixteeneleven.bible (support email scribe@sixteeneleven.bible)
-- **Privacy policy URL:** https://sixteeneleven.bible/privacy.html (the page is in the site you deploy)
+- **Support URL / Marketing URL:** https://app.sixteeneleven.bible (support email scribe@sixteeneleven.bible)
+- **Privacy policy URL:** https://app.sixteeneleven.bible/privacy.html (the page is in the site you deploy)
 
 ## In-app products
 
