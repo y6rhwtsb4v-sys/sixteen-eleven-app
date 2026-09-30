@@ -98,6 +98,26 @@ def step(label, fn):
         return False
 
 
+def shot_ok(shot, kind):
+    """Keep an existing review screenshot only if Apple took it and it is the
+    size of the file we have now; otherwise delete it so it is sent again."""
+    if not shot:
+        return False
+    a = shot.get('attributes') or {}
+    state = ((a.get('assetDeliveryState') or {}).get('state') or '')
+    img = a.get('imageAsset') or {}
+    try:
+        from PIL import Image
+        w, h = Image.open(SHOT).size
+    except Exception:
+        w = h = None
+    good = state not in ('FAILED',) and (w is None or (img.get('width') == w and img.get('height') == h))
+    if not good:
+        call('DELETE', '/v1/%s/%s' % (kind, shot['id']))
+        print('  ok   old review screenshot removed (%s, %sx%s)' % (state or '?', img.get('width'), img.get('height')))
+    return good
+
+
 def upload_screenshot(create_path, rel_name, rel_type, owner_id, patch_path):
     data = open(SHOT, 'rb').read()
     res = call('POST', create_path, {'data': {
@@ -234,7 +254,7 @@ def main():
             shot = call('GET', '/v1/subscriptions/%s/appStoreReviewScreenshot' % sid).get('data')
         except Exception:
             shot = None
-        if not shot:
+        if not shot_ok(shot, 'subscriptionAppStoreReviewScreenshots'):
             step('review screenshot', lambda: upload_screenshot(
                 '/v1/subscriptionAppStoreReviewScreenshots', 'subscription', 'subscriptions', sid,
                 '/v1/subscriptionAppStoreReviewScreenshots'))
@@ -301,7 +321,7 @@ def main():
             shot = call('GET', '/v2/inAppPurchases/%s/appStoreReviewScreenshot' % iid).get('data')
         except Exception:
             shot = None
-        if not shot:
+        if not shot_ok(shot, 'inAppPurchaseAppStoreReviewScreenshots'):
             step('review screenshot', lambda: upload_screenshot(
                 '/v1/inAppPurchaseAppStoreReviewScreenshots', 'inAppPurchaseV2', 'inAppPurchases', iid,
                 '/v1/inAppPurchaseAppStoreReviewScreenshots'))
