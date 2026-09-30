@@ -1,0 +1,20 @@
+# Creates the in-app products in App Store Connect (scripts/asc_products.py).
+# Safe to run again: it only adds what is missing.
+name: App Store products
+on:
+  workflow_dispatch:
+jobs:
+  products:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install "pyjwt[crypto]" requests
+      - run: python scripts/asc_products.py
