@@ -1114,10 +1114,28 @@ var Kokoro=(function(){
           _reset:function(){tts=null;state='idle';err='';loading=null;}};
 })();
 
+/* ---- the phone's own audio player ----
+   In the store app the recorded narration is played natively (see
+   native/plugins/narrator). A web page cannot keep reading with the screen
+   locked: the phone suspends its script, so it can never start the next clip.
+   The native player is given the whole queue and moves on by itself, with
+   lock-screen and notification controls. In a browser this is null and the
+   <audio> element below does the work as before. */
+var Narrator=(function(){
+  try{
+    var C=(typeof window!=='undefined')?window.Capacitor:null;
+    if(C&&C.isNativePlatform&&C.isNativePlatform()&&C.registerPlugin&&
+       (!C.isPluginAvailable||C.isPluginAvailable('Narrator')))
+      return C.registerPlugin('Narrator');
+  }catch(e){}
+  return null;
+})();
+
 /* ---- unified player ---- */
 var Speech=(function(){
   var synth=(typeof window!=='undefined'&&window.speechSynthesis)?window.speechSynthesis:null;
   var queue=[], idx=0, playing=false, paused=false, onTick=null, onDone=null, onProgress=null;
+  var onState=null, nat=false, natHooked=false;  /* nat: the native player has the queue */
   var est=null;                   /* timing estimate, for voices that report no words */
   function report(i,f){ if(onProgress&&playing&&!paused) onProgress(i,Math.max(0,Math.min(1,f))); }
   function stopEst(){ if(est){ clearInterval(est); est=null; } }
@@ -1208,6 +1226,7 @@ var Speech=(function(){
   }
   function pause(){
     if(!playing) return; paused=true; stopEst();
+    if(nat){ try{ Narrator.pause(); }catch(e){} return; }
     if(el&&!el.paused){ try{ el.pause(); }catch(e){} }
     /* The phone's own pause is unreliable on iPhone and resumes mid-sentence;
        reading starts again from the verse instead, so the speech is simply
@@ -1216,11 +1235,13 @@ var Speech=(function(){
   }
   function resume(){
     if(!playing) return; paused=false;
+    if(nat){ try{ Narrator.play(); }catch(e){} return; }
     if(engine()==='kokoro'){ var a=audioEl(); if(a){ var p=a.play(); if(p&&p.catch)p.catch(function(){}); } }
     else if(supported()){ try{ synth.resume(); }catch(e){} }
   }
   function stop(){
     playing=false; paused=false; idx=0; token++; stopEst();
+    if(nat){ nat=false; try{ Narrator.stop(); }catch(e){} }
     if(supported()){ try{ synth.cancel(); }catch(e){} }
     if(el){ try{ el.pause(); el.removeAttribute('src'); }catch(e){} }
     revoke();
@@ -1230,11 +1251,36 @@ var Speech=(function(){
   /* Play a list of already-rendered audio files. The same element, ticks and
      completion callback as synthesised speech, so the bar, the follow-along
      highlight and continuing into the next chapter all work unchanged. */
-  function playFiles(urls, from, startFrac){
+  function natHook(){
+    if(natHooked) return; natHooked=true;
+    /* the native player reports back; nat is false once the page has moved
+       on to something else, so a late event from an old queue is ignored */
+    Narrator.addListener('item', function(e){
+      if(!nat||!playing) return; idx=(e&&e.index)|0; if(onTick) onTick(idx); });
+    Narrator.addListener('progress', function(e){
+      if(!nat||!e||!(e.duration>0)) return; report(e.index|0, e.position/e.duration); });
+    Narrator.addListener('state', function(e){
+      if(!nat||!playing) return;
+      var p=!(e&&e.playing);
+      if(p!==paused){ paused=p; if(onState) onState(); } });
+    Narrator.addListener('ended', function(){
+      if(!nat||!playing) return; nat=false; playing=false; if(onDone) onDone(); });
+  }
+  function playFiles(urls, from, startFrac, meta){
     stop();
     queue = urls.slice();
     idx = Math.max(0, Math.min(from || 0, queue.length - 1));
     playing = true; paused = false;
+    if(Narrator){
+      natHook(); nat=true;
+      Narrator.load({
+        items: queue.map(function(u,i){ var m=(meta&&meta[i])||{};
+          return {url:u, title:m.title||'', album:m.album||''}; }),
+        index: idx, fraction: startFrac||0, rate: rate, artist: 'Sixteen Eleven'
+      }).catch(function(){ nat=false; playing=false; if(onState) onState(); });
+      if(onTick) onTick(idx);
+      return true;
+    }
     if(!el){ el = new Audio(); }
     var seek = startFrac || 0;
     var step = function(){
@@ -1262,7 +1308,9 @@ var Speech=(function(){
     voices:voices, engine:engine,
     isPlaying:function(){return playing;}, isPaused:function(){return paused;},
     at:function(){return idx;},
-    setRate:function(r){rate=r;}, getRate:function(){return rate;},
+    setRate:function(r){rate=r; if(nat){ try{ Narrator.setRate({rate:r}); }catch(e){} }},
+    getRate:function(){return rate;},
+    onState:function(f){onState=f;}, isNative:function(){return nat;},
     setVoice:function(v){voice=v;}, getVoice:function(){return voice;},
     onTick:function(f){onTick=f;}, onDone:function(f){onDone=f;},
     onProgress:function(f){onProgress=f;}};
@@ -1554,6 +1602,7 @@ function updatePlayerPlace(){
   if(pv){ if(curVerse()>1) pv.removeAttribute('disabled'); else pv.setAttribute('disabled',''); }
 }
 function speakFrom(v){
+  clearTimeout(nextChapterTimer); nextChapterTimer=null;   /* a reading chosen now wins */
   var b=BK(S.reading); if(!b) return;
   v=Math.max(1,v||1);
   if(S.places) delete S.places[placeKey(S.reading,S.ch)];   /* taken up again */
@@ -1571,23 +1620,8 @@ function speakFrom(v){
     var nv=verseAt(p,f);
     if(nv!==S.speakVerse){ S.speakVerse=nv; paintSpeaking(); updatePlayerPlace(); }
   });
-  Speech.onDone(function(){
-    /* the chapter was read to the end, so next time it starts at verse 1 */
-    if(S.places) delete S.places[placeKey(S.speakB,S.speakC)];
-    /* roll straight on into the next chapter rather than stopping dead */
-    if(S.autoNext && S.reading!==null){
-      var nxt=nextChapterFrom(S.reading,S.ch);
-      if(nxt){
-        markRead(S.reading,S.ch,true);
-        S.book=nxt.b; S.reading=nxt.b; S.ch=nxt.c; S.speakVerse=0;
-        S.speakB=nxt.b; S.speakC=nxt.c;   /* moving on is not leaving */
-        render();
-        setTimeout(function(){ if(S.autoNext) speakFrom(1); },250);
-        return;
-      }
-    }
-    S.speaking=false; S.speakAt=-1; S.speakVerse=0; renderSpeakBar(); paintSpeaking();
-  });
+  Speech.onDone(chapterFinished);
+  Speech.onState(null);
   /* Only call it speaking if the engine actually is. When speech fails on the
      first line, onDone has already marked it stopped by the time start()
      returns, and setting speaking=true here left the app sure it was reading
@@ -1601,7 +1635,30 @@ function speakFrom(v){
   }
   renderSpeakBar();
 }
+/* The reading reached the end of what it was given. */
+function chapterFinished(){
+  /* the chapter was read to the end, so next time it starts at verse 1 */
+  if(S.places) delete S.places[placeKey(S.speakB,S.speakC)];
+  /* roll straight on into the next chapter rather than stopping dead */
+  if(S.autoNext && S.reading!==null){
+    var nxt=nextChapterFrom(S.reading,S.ch);
+    if(nxt){
+      markRead(S.reading,S.ch,true);
+      S.book=nxt.b; S.reading=nxt.b; S.ch=nxt.c; S.speakVerse=0;
+      S.speakB=nxt.b; S.speakC=nxt.c;   /* moving on is not leaving */
+      render();
+      clearTimeout(nextChapterTimer);
+      nextChapterTimer=setTimeout(function(){ nextChapterTimer=null; if(S.autoNext) speakFrom(1); },250);
+      return;
+    }
+  }
+  S.speaking=false; S.speakAt=-1; S.speakVerse=0; renderSpeakBar(); paintSpeaking();
+}
+/* the pause before the next chapter starts; stopping inside it must cancel it,
+   or the reading starts again by itself a moment later */
+var nextChapterTimer=null;
 function stopSpeaking(){
+  clearTimeout(nextChapterTimer); nextChapterTimer=null;
   stopAutoScroll();
   holdPlace();
   Speech.stop(); S.speaking=false; S.speakAt=-1; S.speakVerse=0;
@@ -5326,27 +5383,73 @@ function recordedRaw(bookName, ch){
 }
 function hasRecording(bookName, ch){ return !!recordedFor(bookName, ch); }
 /* recorded chapters play as ordinary audio, so the same bar drives both */
+function recordedPassages(bi, ch, list){
+  var vs=chapterOf(BK(bi),ch)||[];
+  /* the audio may live on a CDN (Cloudflare R2): the manifest says where */
+  var base=(S.voiceManifest&&S.voiceManifest._base)||VOICE_BASE;
+  return list.map(function(x){
+    var parts=[];
+    for(var n=x.v1;n<=x.v2;n++) if(vs[n-1]) parts.push([n,vs[n-1].length]);
+    return {text:'', from:x.v1, to:x.v2, file:base+x.f, marks:marksOf(parts,0)};
+  });
+}
+/* The chapters to hand the native player at once: this one, and while
+   "continue" is on, the recorded chapters after it (up to about six hours),
+   because with the screen locked the page cannot start the next one itself. */
+function recordedSpan(bi, ch){
+  var out=[{b:bi, c:ch}];
+  if(!Narrator||!S.autoNext) return out;
+  var cur=out[0], clips=(recordedFor(BK(bi).name, ch)||[]).length;
+  while(out.length<60 && clips<600){
+    var nx=nextChapterFrom(cur.b, cur.c); if(!nx) break;
+    var bk=BK(nx.b); if(!bk) break;
+    var l=recordedFor(bk.name, nx.c); if(!l) break;
+    out.push(nx); clips+=l.length; cur=nx;
+  }
+  return out;
+}
 function playRecorded(bookName, ch, fromVerse){
   var list=recordedFor(bookName, ch);
   if(!list) return false;
-  var vs=chapterOf(BK(S.reading),ch)||[];
-  S.passages=list.map(function(x){
-    var parts=[];
-    for(var n=x.v1;n<=x.v2;n++) if(vs[n-1]) parts.push([n,vs[n-1].length]);
-    /* the audio may live on a CDN (Cloudflare R2): the manifest says where */
-    var base=(S.voiceManifest&&S.voiceManifest._base)||VOICE_BASE;
-    return {text:'', from:x.v1, to:x.v2, file:base+x.f, marks:marksOf(parts,0)};
+  var bi=S.reading, urls=[], meta=[], segs=[];
+  recordedSpan(bi, ch).forEach(function(sc){
+    var name=BK(sc.b).name, l=(sc.b===bi&&sc.c===ch)?list:(recordedFor(name, sc.c)||[]);
+    var ps=recordedPassages(sc.b, sc.c, l);
+    segs.push({b:sc.b, c:sc.c, start:urls.length, list:l});
+    ps.forEach(function(p){ urls.push(p.file); meta.push({title:name+' '+sc.c, album:'Sixteen Eleven Bible'}); });
   });
+  S.passages=recordedPassages(bi, ch, list);
   var v=Math.max(1,fromVerse||1), at=0, frac=0;
   S.passages.forEach(function(p,k){ if(p.from<=v&&v<=p.to){ at=k;
     (p.marks||[]).forEach(function(m){ if(m[0]===v) frac=m[1]; }); } });
   S.speakAt=at; S.speakVerse=v;
   S.speaking=true;
-  Speech.onTick(function(i){ S.speakAt=i; if(i!==at||!frac) S.speakVerse=S.passages[i].from;
+  function segOf(i){ for(var k=segs.length-1;k>0;k--) if(i>=segs[k].start) return segs[k]; return segs[0]; }
+  /* the native player went on into the next chapter by itself */
+  function movedOn(sg){
+    if(S.places) delete S.places[placeKey(S.speakB,S.speakC)];
+    markRead(S.speakB,S.speakC,true);
+    var following=(S.reading===S.speakB&&S.ch===S.speakC);
+    S.speakB=sg.b; S.speakC=sg.c;
+    S.passages=recordedPassages(sg.b, sg.c, sg.list);
+    /* the page turns with it, unless you had gone to read something else */
+    if(following){ S.book=sg.b; S.reading=sg.b; S.ch=sg.c; S.speakVerse=0; render(); }
+  }
+  Speech.onTick(function(i){
+    var sg=segOf(i);
+    if(sg.b!==S.speakB||sg.c!==S.speakC) movedOn(sg);
+    var li=i-sg.start;
+    S.speakAt=li;
+    if((i!==at||!frac)&&S.passages[li]) S.speakVerse=S.passages[li].from;
     paintSpeaking(); updatePlayerPlace(); });
-  Speech.onProgress(function(i,f){ var nv=verseAt(S.passages[i],f);
+  Speech.onProgress(function(i,f){
+    var sg=segOf(i), p=S.passages[i-sg.start]; if(!p||sg.c!==S.speakC||sg.b!==S.speakB) return;
+    var nv=verseAt(p,f);
     if(nv!==S.speakVerse){ S.speakVerse=nv; paintSpeaking(); updatePlayerPlace(); } });
-  Speech.playFiles(S.passages.map(function(p){return p.file;}), at, frac);
+  Speech.onDone(chapterFinished);
+  /* paused or played from the lock screen: the pill follows */
+  Speech.onState(function(){ renderSpeakBar(); paintSpeaking(); });
+  Speech.playFiles(urls, at, frac, meta);
   renderSpeakBar(); paintSpeaking();
   return true;
 }

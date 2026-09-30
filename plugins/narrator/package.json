@@ -1,0 +1,15 @@
+{
+  "name": "sixteen-narrator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plays the recorded narration with the phone's own audio player, so it keeps reading with the screen locked or the app in the background, with lock-screen and notification controls.",
+  "main": "index.js",
+  "license": "UNLICENSED",
+  "capacitor": {
+    "ios": { "src": "ios" },
+    "android": { "src": "android" }
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=8.0.0"
+  }
+}
