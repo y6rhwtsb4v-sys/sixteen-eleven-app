@@ -135,10 +135,13 @@ platform :ios do
     app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
     UI.user_error!("No app #{BUNDLE_ID} in App Store Connect") unless app
 
-    # the newest build, once Apple has finished processing it
+    # the newest store build (tester builds, numbered N.1 with everything
+    # unlocked, are for the Team group only and never go out on the link),
+    # once Apple has finished processing it
     build = nil
     60.times do
-      build = Spaceship::ConnectAPI::Build.all(app_id: app.id, sort: '-uploadedDate', limit: 1).first
+      build = Spaceship::ConnectAPI::Build.all(app_id: app.id, sort: '-uploadedDate', limit: 20)
+                                          .find { |b| !b.version.to_s.include?('.') }
       break if build && build.processed?
       UI.message('Waiting for Apple to finish processing the newest build...')
       sleep 30

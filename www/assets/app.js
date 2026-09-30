@@ -2652,6 +2652,12 @@ function vProfile(){
     '<p class="setsub" style="margin:10px 0 2px">The narrated Bible is an AI rendering, made with Chatterbox, '+
     'of the narrator\u2019s own voice. Where a chapter has not been narrated yet, the device\u2019s voice reads it.</p>'+
     '</div>';
+  if(isTesterBuild()){
+    h+='<div class="setgrp">Tester build</div><div class="setcard">'+
+      tog('All features unlocked','Study, every narrated book and all books. Turn off to try the paywall and purchases.',
+          'toggletester',testerOpen())+
+      '</div>';
+  }
   h+=payCard();
   if(PAY.on&&!PAY.offerings&&!PAY.loadingOffers){ PAY.loadingOffers=1;
     payLoadOfferings().then(function(){ if(S.tab==='about'){ S.keepScroll=true; render(); } }); }
@@ -5132,8 +5138,16 @@ function payTestMode(){
   try{ return /[?&]paytest=1/.test(location.search)||localStorage.getItem('strata:paytest')==='1'; }
   catch(e){ return false; }
 }
-function hasStudy(){ return !PAY.on||!!PAY.ent.study; }
-function hasAudio(){ return !PAY.on||!!PAY.ent.audio; }
+/* Tester builds: the iOS workflow's "unlock all" option adds assets/tester.js,
+   which sets window.SE_TESTER. Everything is open, and a switch in Settings
+   locks it again to try the paywall. Store builds never have the file. */
+function isTesterBuild(){ return window.SE_TESTER===1; }
+function testerLocked(){
+  try{ return localStorage.getItem('strata:testerlock')==='1'; }catch(e){ return false; }
+}
+function testerOpen(){ return isTesterBuild()&&!testerLocked(); }
+function hasStudy(){ return testerOpen()||!PAY.on||!!PAY.ent.study; }
+function hasAudio(){ return testerOpen()||!PAY.on||!!PAY.ent.audio; }
 function payInit(){
   if(payNative()){
     PAY.on=true;
@@ -6978,6 +6992,11 @@ document.addEventListener('click',inPane(function(ev){
                  screen.orientation.unlock(); }catch(e){} }
     announce(S.lockRotate?'The reader will stay upright.':'The screen rotates freely.');
     render(); return; }
+  if(d.a==='toggletester'){
+    var lockNow=testerOpen();
+    try{ localStorage.setItem('strata:testerlock',lockNow?'1':'0'); }catch(e){}
+    announce(lockNow?'Locked: the app now behaves as it will in the store.':'All features unlocked.');
+    applyLayout(); S.keepScroll=true; render(); return; }
   if(d.a==='toggleauto-backup'){
     S.autoBackup=!S.autoBackup; Store.set('strata:autobackup',S.autoBackup);
     if(S.autoBackup) takeSnapshot('manual').then(function(){ render(); });

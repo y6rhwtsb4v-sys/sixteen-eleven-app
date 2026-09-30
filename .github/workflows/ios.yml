@@ -16,13 +16,18 @@ on:
         description: 'Version shown in the App Store (e.g. 1.0.0)'
         required: true
         default: '1.0.0'
+      unlock_all:
+        description: 'Tester build: every feature unlocked (never goes to the public link)'
+        type: boolean
+        default: false
 jobs:
   ios:
     runs-on: macos-latest
     timeout-minutes: 60
     env:
       APP_VERSION: ${{ github.event.inputs.version }}
-      BUILD_NUMBER: ${{ github.run_number }}
+      # tester builds are numbered N.1; the public-link lane skips them
+      BUILD_NUMBER: ${{ github.event.inputs.unlock_all == 'true' && format('{0}.1', github.run_number) || github.run_number }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -38,6 +43,13 @@ jobs:
         with:
           node-version: 22
       - run: npm install
+      - name: Unlock everything (tester build only)
+        if: github.event.inputs.unlock_all == 'true'
+        run: |
+          echo 'window.SE_TESTER=1;' > www/assets/tester.js
+          perl -0pi -e 's#<script src="assets/app.js"#<script src="assets/tester.js"></script><script src="assets/app.js"#' www/index.html
+          grep -q 'assets/tester.js' www/index.html
+          echo "Tester build $BUILD_NUMBER: all features unlocked" >> "$GITHUB_STEP_SUMMARY"
       - run: bash scripts/prepare.sh ios
       - run: gem install fastlane --no-document || sudo gem install fastlane --no-document
       - run: fastlane ios beta
