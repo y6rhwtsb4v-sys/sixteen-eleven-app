@@ -1,0 +1,32 @@
+# Opens the newest TestFlight build to testers (fastlane ios testers):
+#   - "Team": everyone on the App Store Connect account, at once
+#   - "Public testers": a public link, sent to Apple's beta review
+# The public link appears on the run's summary page.
+# Uses the same App Store Connect secrets as the iOS build, plus:
+#   BETA_CONTACT_PHONE  a phone number Apple's beta reviewers can call
+#                       (without it the public group is made but not submitted)
+name: TestFlight testers
+on:
+  workflow_dispatch:
+    inputs:
+      what_to_test:
+        description: 'What testers should try (shown in TestFlight)'
+        required: false
+        default: 'Read, study and listen. Try the narrated chapters with the screen locked, and tell us anything that reads or sounds wrong.'
+jobs:
+  testers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      BETA_CONTACT_PHONE: ${{ secrets.BETA_CONTACT_PHONE }}
+      WHAT_TO_TEST: ${{ github.event.inputs.what_to_test }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - run: gem install fastlane --no-document
+      - run: fastlane ios testers

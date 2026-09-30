@@ -114,4 +114,100 @@ platform :ios do
     )
     upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
   end
+
+  # Opens the newest build to testers, two ways:
+  #   "Team"            internal: everyone on the App Store Connect account, at
+  #                     once, no review (up to 100 people).
+  #   "Public testers"  external: a public link anyone can open, once Apple's
+  #                     beta review passes (usually within a day). Needs
+  #                     BETA_CONTACT_PHONE; without it the group is made but not
+  #                     submitted.
+  # The public link is written to the run's summary page.
+  lane :testers do
+    key_path = File.join(ROOT, 'AuthKey.p8')
+    File.write(key_path, ENV.fetch('ASC_KEY_P8'))
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch('ASC_KEY_ID'),
+      issuer_id: ENV.fetch('ASC_ISSUER_ID'),
+      key_filepath: key_path
+    )
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: api_key)
+    app = Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+    UI.user_error!("No app #{BUNDLE_ID} in App Store Connect") unless app
+
+    # the newest build, once Apple has finished processing it
+    build = nil
+    60.times do
+      build = Spaceship::ConnectAPI::Build.all(app_id: app.id, sort: '-uploadedDate', limit: 1).first
+      break if build && build.processed?
+      UI.message('Waiting for Apple to finish processing the newest build...')
+      sleep 30
+    end
+    UI.user_error!('No processed build yet; try again in a few minutes') unless build && build.processed?
+    UI.success("Newest build: #{build.app_version} (#{build.version})")
+
+    groups = app.get_beta_groups
+    team = groups.find { |g| g.name == 'Team' } ||
+           app.create_beta_group(group_name: 'Team', is_internal_group: true, has_access_to_all_builds: true)
+    people = Spaceship::ConnectAPI::User.all.map do |u|
+      { email: u.email || u.username, firstName: u.first_name.to_s, lastName: u.last_name.to_s }
+    end.reject { |p| p[:email].to_s.empty? }
+    unless people.empty?
+      Spaceship::ConnectAPI.post_bulk_beta_tester_assignments(beta_group_id: team.id, beta_testers: people)
+    end
+    UI.success("Team group: #{people.map { |p| p[:email] }.join(', ')}")
+
+    pub = groups.find { |g| g.name == 'Public testers' } ||
+          app.create_beta_group(group_name: 'Public testers', public_link_enabled: true,
+                                public_link_limit: 10_000, public_link_limit_enabled: false)
+    unless pub.public_link_enabled
+      pub.update(attributes: { publicLinkEnabled: true, publicLinkLimitEnabled: false })
+    end
+
+    phone = ENV['BETA_CONTACT_PHONE'].to_s.strip
+    opts = {
+      api_key: api_key,
+      distribute_only: true,
+      app_identifier: BUNDLE_ID,
+      app_platform: 'ios',
+      app_version: build.app_version,
+      build_number: build.version,
+      distribute_external: true,
+      groups: ['Public testers'],
+      notify_external_testers: true,
+      uses_non_exempt_encryption: false,
+      changelog: ENV.fetch('WHAT_TO_TEST', 'Read, study and listen. Try the narrated chapters with the screen locked, and tell us anything that reads or sounds wrong.'),
+      localized_app_info: {
+        'default' => {
+          feedback_email: 'scribe@sixteeneleven.bible',
+          marketing_url: 'https://app.sixteeneleven.bible',
+          privacy_policy_url: 'https://app.sixteeneleven.bible/privacy.html',
+          description: 'Sixteen Eleven: the King James Bible with the Apocrypha, set like a book, with study tools and a narrated Bible.'
+        }
+      },
+      submit_beta_review: !phone.empty?
+    }
+    # Apple's reviewers need someone to call; without a number, nothing is sent
+    unless phone.empty?
+      opts[:beta_app_review_info] = {
+        contact_email: 'scribe@sixteeneleven.bible',
+        contact_first_name: ENV.fetch('BETA_CONTACT_FIRST', 'Tyrell'),
+        contact_last_name: ENV.fetch('BETA_CONTACT_LAST', 'Powe'),
+        contact_phone: phone,
+        demo_account_required: false,
+        notes: 'No sign-in. The narration plays from any recorded chapter (Psalms and John are free). Purchases use the sandbox.'
+      }
+    end
+    upload_to_testflight(opts)
+
+    pub = app.get_beta_groups.find { |g| g.name == 'Public testers' }
+    link = pub && pub.public_link
+    lines = ["## TestFlight",
+             "Build #{build.app_version} (#{build.version})",
+             "Team (internal, now): #{people.map { |p| p[:email] }.join(', ')}",
+             "Public link: #{link || '(not issued yet)'}",
+             phone.empty? ? 'Not sent for beta review: add BETA_CONTACT_PHONE.' : 'Sent for beta review; the public link works once it passes.']
+    UI.success(lines.join("\n"))
+    File.write(ENV['GITHUB_STEP_SUMMARY'], lines.join("\n\n") + "\n") if ENV['GITHUB_STEP_SUMMARY']
+  end
 end
