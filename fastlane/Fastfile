@@ -147,8 +147,19 @@ platform :ios do
     UI.success("Newest build: #{build.app_version} (#{build.version})")
 
     groups = app.get_beta_groups
-    team = groups.find { |g| g.name == 'Team' } ||
-           app.create_beta_group(group_name: 'Team', is_internal_group: true, has_access_to_all_builds: true)
+    team = groups.find { |g| g.name == 'Team' }
+    unless team
+      # fastlane's helper always sends public-link settings, which Apple
+      # refuses for an internal group, so this one is posted directly
+      Spaceship::ConnectAPI.client.test_flight_request_client.post('v1/betaGroups', {
+        data: {
+          type: 'betaGroups',
+          attributes: { name: 'Team', isInternalGroup: true, hasAccessToAllBuilds: true },
+          relationships: { app: { data: { type: 'apps', id: app.id } } }
+        }
+      })
+      team = app.get_beta_groups.find { |g| g.name == 'Team' }
+    end
     people = Spaceship::ConnectAPI::User.all.map do |u|
       { email: u.email || u.username, firstName: u.first_name.to_s, lastName: u.last_name.to_s }
     end.reject { |p| p[:email].to_s.empty? }
