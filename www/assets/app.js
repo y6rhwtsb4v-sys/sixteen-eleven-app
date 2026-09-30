@@ -5022,7 +5022,7 @@ function announce(msg){
    locked there. ?paytest=1 turns on a pretend store in any browser, to try
    the paywall and for the tests: it never charges anything. */
 var PAY={
-  keys:{ios:'appl_REPLACE_WITH_REVENUECAT_IOS_KEY', android:'goog_gOwvMofhSzEqCQkfoFZMNcdtIWL'},
+  keys:{ios:'appl_UCyRxeMGYyJhDbQyVPxXDXupjoC', android:'goog_gOwvMofhSzEqCQkfoFZMNcdtIWL'},
   terms:'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
   privacy:'privacy.html',
   support:'scribe@sixteeneleven.bible',   /* hardship passes; blank hides the line */
