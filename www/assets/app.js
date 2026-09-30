@@ -1613,10 +1613,12 @@ function speakFrom(v){
   var lines=S.passages.map(function(p){ return p.text; });
   Speech.onTick(function(i){
     S.speakAt=i; S.speakVerse=S.passages[i]?S.passages[i].from:curVerse();
+    Glide.note(i,0);
     paintSpeaking(); updatePlayerPlace();
   });
   Speech.onProgress(function(i,f){
     var p=S.passages[i]; if(!p) return;
+    Glide.note(i,f);
     var nv=verseAt(p,f);
     if(nv!==S.speakVerse){ S.speakVerse=nv; paintSpeaking(); updatePlayerPlace(); }
   });
@@ -1661,7 +1663,7 @@ function stopSpeaking(){
   clearTimeout(nextChapterTimer); nextChapterTimer=null;
   stopAutoScroll();
   holdPlace();
-  Speech.stop(); S.speaking=false; S.speakAt=-1; S.speakVerse=0;
+  Speech.stop(); Glide.stop(); S.speaking=false; S.speakAt=-1; S.speakVerse=0;
   renderSpeakBar(); paintSpeaking();
 }
 function paintSpeaking(){
@@ -1686,7 +1688,9 @@ function paintSpeaking(){
   /* follow it down the page, once each time it moves on */
   if(S.follow&&S.paintedVerse!==key){
     S.paintedVerse=key;
-    try{ bringIntoView(nodes[pos],'center',true); }catch(e){}
+    /* the glide follows it continuously; without motion (or the setting to
+       reduce it) the verse is simply centred, as before */
+    if(!Glide.start()){ try{ bringIntoView(nodes[pos],'center',true); }catch(e){} }
   }
 }
 function renderSpeakBar(){
@@ -4733,6 +4737,31 @@ function startAutoScroll(){
   if(!px) return;
   var el=paneEl(readerSide()||CUR,2)||document.getElementById('view');
   if(!el) return;
+  /* Every frame by a fraction of a pixel. Whole pixels twenty times a second
+     read as a judder, the slow speeds most of all. The position is kept as a
+     fraction because scrollTop rounds; if you move the page yourself it
+     carries on from where you left it. */
+  if(window.requestAnimationFrame){
+    var job={raf:true, on:true, id:0}, prev=null, at=el.scrollTop;
+    var frame=function(t){
+      if(!job.on) return;
+      if(prev===null){ prev=t; at=el.scrollTop; job.id=requestAnimationFrame(frame); return; }
+      var dt=Math.min(0.1,(t-prev)/1000); prev=t;
+      try{
+        if(Math.abs(el.scrollTop-at)>2) at=el.scrollTop;
+        var max=el.scrollHeight-el.clientHeight;
+        if(at>=max-0.5){
+          /* at the end of the chapter, roll into the next one */
+          if(!turnPage(1)){ stopAutoScroll(); return; }
+          el.scrollTop=0; at=0;
+        } else { at=Math.min(max, at+px*dt); el.scrollTop=at; }
+      }catch(e){ stopAutoScroll(); return; }
+      job.id=requestAnimationFrame(frame);
+    };
+    job.id=requestAnimationFrame(frame);
+    S.scrollTimer=job;
+    return;
+  }
   var last=null, acc=0;
   S.scrollTimer=setInterval(function(){
     var now=Date.now();
@@ -4753,7 +4782,11 @@ function startAutoScroll(){
   },50);
 }
 function stopAutoScroll(){
-  if(S.scrollTimer){ clearInterval(S.scrollTimer); S.scrollTimer=null; }
+  var j=S.scrollTimer;
+  if(!j) return;
+  if(j.raf){ j.on=false; try{ cancelAnimationFrame(j.id); }catch(e){} }
+  else clearInterval(j);
+  S.scrollTimer=null;
 }
 
 
@@ -5439,11 +5472,12 @@ function playRecorded(bookName, ch, fromVerse){
     var sg=segOf(i);
     if(sg.b!==S.speakB||sg.c!==S.speakC) movedOn(sg);
     var li=i-sg.start;
-    S.speakAt=li;
+    S.speakAt=li; Glide.note(li,0);
     if((i!==at||!frac)&&S.passages[li]) S.speakVerse=S.passages[li].from;
     paintSpeaking(); updatePlayerPlace(); });
   Speech.onProgress(function(i,f){
     var sg=segOf(i), p=S.passages[i-sg.start]; if(!p||sg.c!==S.speakC||sg.b!==S.speakB) return;
+    Glide.note(i-sg.start,f);
     var nv=verseAt(p,f);
     if(nv!==S.speakVerse){ S.speakVerse=nv; paintSpeaking(); updatePlayerPlace(); } });
   Speech.onDone(chapterFinished);
@@ -6466,6 +6500,83 @@ function bringIntoView(el, where, smooth){
   }
   requestAnimationFrame(step);
 }
+
+/* ---------- following the reading, smoothly ----------
+   Centring each new verse in turn made the page sit still, then hop. Instead,
+   while reading aloud with "follow" on, the page glides continuously: a point
+   moves through the verse being heard at the pace of the voice, and the page
+   eases after it every frame, holding it about 42% down the screen. Progress
+   arrives only a few times a second, so between reports the point is carried
+   forward at the pace measured so far. A touch or a scroll-wheel on the page
+   hands it back to you for four seconds. */
+var Glide=(function(){
+  var raf=0, last=0, hold=0, pos=null, pi=-1, f=0, fAt=0, speed=0;
+  function reduced(){ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } }
+  function note(i, frac){
+    var now=Date.now();
+    if(i===pi && fAt && frac>f){
+      var s=(frac-f)/Math.max(0.05,(now-fAt)/1000);
+      speed=speed?speed*0.6+s*0.4:s;
+    } else if(i!==pi){ speed=0; }
+    pi=i; f=frac||0; fAt=now;
+  }
+  function frac(){
+    if(!fAt) return f;
+    return Math.min(1, f+speed*Math.min(0.8,(Date.now()-fAt)/1000));
+  }
+  /* how far through the current verse the voice is, 0..1 */
+  function inVerse(){
+    var p=S.passages&&S.passages[S.speakAt];
+    if(!p||!p.marks||!p.marks.length||S.speakAt!==pi) return 0;
+    var fr=frac(), v=S.speakVerse;
+    for(var j=0;j<p.marks.length;j++) if(p.marks[j][0]===v){
+      var st=p.marks[j][1], en=(j+1<p.marks.length)?p.marks[j+1][1]:1;
+      return en>st?Math.max(0,Math.min(1,(fr-st)/(en-st))):0;
+    }
+    return 0;
+  }
+  function node(){
+    if(!S.speaking||S.speakB!==S.reading||S.speakC!==S.ch) return null;
+    return document.querySelector('.rd .v[data-vs="'+vKey(S.reading,S.ch,curVerse())+'"]');
+  }
+  function tick(t){
+    raf=0;
+    if(!S.speaking||!S.follow){ last=0; pos=null; return; }
+    var el=node(), sc=el&&scrollerOf(el);
+    if(el&&sc&&!Speech.isPaused()&&Date.now()>hold&&el.getBoundingClientRect){
+      var r=el.getBoundingClientRect(), s=sc.getBoundingClientRect();
+      var max=Math.max(0,sc.scrollHeight-sc.clientHeight);
+      var target=sc.scrollTop+(r.top-s.top)+inVerse()*r.height-sc.clientHeight*0.42;
+      target=Math.max(0,Math.min(max,target));
+      /* the page's own position, kept as a fraction, since scrollTop rounds
+         and tiny steps would otherwise be lost; re-read if anything else moved it */
+      if(pos===null||Math.abs(sc.scrollTop-pos)>2) pos=sc.scrollTop;
+      var dt=last?Math.min(0.1,(t-last)/1000):1/60;
+      var d=target-pos;
+      /* far away (a jump, a new chapter): catch up quicker */
+      var tau=Math.abs(d)>sc.clientHeight?0.18:0.45;
+      if(Math.abs(d)>0.3){ pos+=d*(1-Math.exp(-dt/tau)); sc.scrollTop=pos; }
+    } else { pos=null; }
+    last=t;
+    raf=requestAnimationFrame(tick);
+  }
+  function start(){
+    if(reduced()||!window.requestAnimationFrame) return false;
+    if(!raf){ last=0; raf=requestAnimationFrame(tick); }
+    return true;
+  }
+  function stop(){ if(raf&&window.cancelAnimationFrame) cancelAnimationFrame(raf); raf=0; pos=null; last=0; }
+  function yieldToHand(e){
+    /* only a hand on the page itself; the player's buttons do not count */
+    var t=e&&e.target;
+    if(raf&&t&&t.closest&&t.closest('.pane>.pv')){ hold=Date.now()+4000; pos=null; }
+  }
+  try{
+    document.addEventListener('touchstart',yieldToHand,{passive:true});
+    document.addEventListener('wheel',yieldToHand,{passive:true});
+  }catch(e){}
+  return {note:note, start:start, stop:stop, running:function(){ return !!raf; }};
+})();
 
 /* ================= RENDER ================= */
 function readingAnchor(){

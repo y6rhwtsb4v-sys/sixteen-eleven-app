@@ -2540,3 +2540,41 @@ body.immersive .backfloat{display:none}
 .narrhint span{color:var(--ink3);font-weight:400}
 .teaser{padding:6px 2px 20px}
 .teaser .tlead{font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink);margin:0 0 18px}
+
+/* ---------- the phone's clock and camera ----------
+   The store app runs edge to edge, so the top of every screen sits under the
+   status bar and the Dynamic Island. The reader and book screens have a top bar
+   that already pads itself; the others start their own title at the very top
+   of the scroller, and full-screen reading hides the bar altogether. --sat is
+   the phone's top inset (0 in a browser; a test can set --sat-test). */
+:root{--sat:var(--sat-test,env(safe-area-inset-top,0px))}
+.pane:not([data-screen="reader"]):not([data-screen="book"])>.pv{padding-top:calc(16px + var(--sat))}
+body.immersive .pane>.pv,
+body.immersive .pane[data-screen="reader"]>.pv{padding-top:calc(22px + var(--sat))}
+
+/* ---------- tracker and Apocrypha on the light page ----------
+   Both were written for the old dark photograph behind the library: white
+   type, faint white panels. The library now sits on the theme's own page, so
+   they take the theme's colours, which also keeps dark mode as it was. */
+:root{--gold:#8F6418}
+[data-theme="dark"]{--gold:#D8B25E}
+.libhead h2{color:var(--ink)}
+.libhead p{color:var(--ink2)}
+.tkhero{background:var(--card);border-color:var(--line);box-shadow:var(--shadow)}
+.tkpct{color:var(--ink)}
+.tkpct span,.tkhero p{color:var(--ink2)}
+.progbar.dark{background:var(--line)}
+.progbar.dark i{background:var(--gold)}
+.tkhead span{color:var(--ink)}
+.tkhead b{color:var(--gold)}
+.tkbook{background:var(--card);border-color:var(--line)}
+.tkbook:hover{background:var(--blue-l)}
+.tkbook.done{border-color:var(--gold)}
+.tn{color:var(--ink)}
+.tv{color:var(--ink2)}
+.apocrow{background:var(--card);border-color:var(--line)}
+.apocrow:hover{background:var(--blue-l)}
+.apocrow .an{color:var(--ink)}
+.apocrow .am,.apocrow .as{color:var(--ink2)}
+/* the eras' "Power" and "Captivity" lines were a fixed brown, dim on dark */
+.era .cp{color:var(--ink2)}
