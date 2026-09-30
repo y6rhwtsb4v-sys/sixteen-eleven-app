@@ -181,13 +181,16 @@ def main():
                     try:
                         call('POST', '/v1/subscriptionPrices', {'data': {
                             'type': 'subscriptionPrices', 'attributes': {'preserveCurrentPrice': False},
+                            # the price point already belongs to its storefront
                             'relationships': {'subscription': rel('subscriptions', sid),
-                                              'subscriptionPricePoint': rel('subscriptionPricePoints', ppid),
-                                              'territory': rel('territories', terr)}}})
+                                              'subscriptionPricePoint': rel('subscriptionPricePoints', ppid)}}})
                         n += 1
                     except Exception as e:
-                        print('       %s: %s' % (terr, str(e)[:160]))
-                return '%d storefronts' % n
+                        if n == 0 or terr == 'USA':
+                            print('       %s: %s' % (terr, ' '.join(str(e).split())[:700]))
+                if n == 0:
+                    raise RuntimeError('no storefront took a price')
+                return '%d of %d storefronts' % (n, len(points))
             step('prices from $' + s['price'], prices)
 
         try:
@@ -220,8 +223,11 @@ def main():
                                                   'territory': rel('territories', terr)}}})
                             n += 1
                         except Exception as e:
-                            print('       %s: %s' % (terr, str(e)[:160]))
-                    return '%d storefronts' % n
+                            if n == 0:
+                                print('       %s: %s' % (terr, ' '.join(str(e).split())[:700]))
+                    if n == 0:
+                        raise RuntimeError('no storefront took the trial')
+                    return '%d of %d storefronts' % (n, len(set(priced)))
                 step('2-week free trial', trial)
 
         try:
