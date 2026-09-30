@@ -163,8 +163,12 @@ platform :ios do
     people = Spaceship::ConnectAPI::User.all.map do |u|
       { email: u.email || u.username, firstName: u.first_name.to_s, lastName: u.last_name.to_s }
     end.reject { |p| p[:email].to_s.empty? }
-    unless people.empty?
-      Spaceship::ConnectAPI.post_bulk_beta_tester_assignments(beta_group_id: team.id, beta_testers: people)
+    people.each do |p|
+      begin
+        Spaceship::ConnectAPI.post_beta_tester_assignment(beta_group_ids: [team.id], attributes: p)
+      rescue StandardError => e
+        UI.important("#{p[:email]}: #{e.message}")   # usually: already a tester
+      end
     end
     UI.success("Team group: #{people.map { |p| p[:email] }.join(', ')}")
 
