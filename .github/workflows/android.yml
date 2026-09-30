@@ -38,7 +38,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      # GitHub's Ubuntu machines already carry the Android SDK (ANDROID_HOME);
+      # Gradle fetches the platform it needs. setup-android is not used: it asks
+      # sdkmanager for the retired "tools" package, which now fails.
       - run: npm install
       - run: bash scripts/prepare.sh android
       - name: Build the bundle
