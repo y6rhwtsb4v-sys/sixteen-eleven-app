@@ -192,8 +192,10 @@ platform :ios do
       notify_external_testers: true,
       uses_non_exempt_encryption: false,
       changelog: ENV.fetch('WHAT_TO_TEST', 'Read, study and listen. Try the narrated chapters with the screen locked, and tell us anything that reads or sounds wrong.'),
+      # a language by name: fastlane's 'default' only updates languages that
+      # already exist, and a new app has none
       localized_app_info: {
-        'default' => {
+        'en-US' => {
           feedback_email: 'scribe@sixteeneleven.bible',
           marketing_url: 'https://app.sixteeneleven.bible',
           privacy_policy_url: 'https://app.sixteeneleven.bible/privacy.html',
