@@ -876,6 +876,21 @@ function savePlace(){
 /* Ships with the built-in sheets; anything the reader edits is stored and
    replaces them on load, so edits survive but nothing is lost on first run. */
 function defaultSheets(){ return JSON.parse(JSON.stringify(META.sheets||[])); }
+/* "50 Basics" once shipped with the app and was saved into every phone's
+   sheets. It is retired: its own entries (b1, b2...) go; anything the reader
+   added to it stays, and the sheet stays only if something of theirs is left. */
+function dropRetiredSheets(list){
+  var changed=false;
+  var out=list.filter(function(sh){
+    if(!sh||sh.id!=='basics50') return true;
+    var keep=(sh.items||[]).filter(function(it){ return !(it&&/^b\d+$/.test(it.id||'')); });
+    if(keep.length!==(sh.items||[]).length){ changed=true; sh.items=keep; }
+    if(!keep.length){ changed=true; return false; }
+    return true;
+  });
+  if(changed) Store.set('strata:sheets',out);
+  return out;
+}
 
 function loadAll(cb){
   Store.get('strata:highlights').then(function(h){
@@ -885,7 +900,7 @@ function loadAll(cb){
     S.notes=migrateNotes(n);   /* notes written before the fuller shape */
     return Store.get('strata:sheets');
   }).then(function(sh){
-    S.sheets=(Array.isArray(sh)&&sh.length)?sh:defaultSheets();
+    S.sheets=(Array.isArray(sh)&&sh.length)?dropRetiredSheets(sh):defaultSheets();
     return Store.get('strata:voice');
   }).then(function(v){
     if(v&&typeof v==='object'){
@@ -1981,9 +1996,7 @@ function vLibrary(){
   h+='<div class="covers">';
   h+=list.map(function(bk){ return coverHTML(bk); }).join('');
   /* after the books, as the design's shelf opens straight onto Genesis */
-  if(S.cat==='all'||S.cat==='apoc'){
-    h+=coverHTML({apoc:1,name:'The Apocrypha',sub:'14 books'},null,'apoc');
-  }
+  if(S.cat==='all'||S.cat==='apoc') h+=apocCover();
   /* the tracker sits at the end of the shelf as a board of its own */
   if(S.cat==='all'||S.cat==='tracker') h+=trackerCover();
   if(S.cat==='all'||S.cat==='atlas') h+=atlasCover();
@@ -2038,14 +2051,72 @@ function coverHTML(bk, _x, force){
     '</div>';
 }
 
+/* The four boards at the end of the shelf (Apocrypha, Tracker, Atlas, Word
+   study) are bound as one set: the same plate as a painted book, in dark
+   leather, with a gold-tooled frame, a gold emblem and the title in the
+   books' small capitals. Each keeps its own leather colour; the count sits
+   under the plate, as it does under every book. */
+function specialCover(o){
+  return '<div class="shelfbk">'+
+    '<button class="cover hasart special sp-'+o.kind+'" '+o.attr+' aria-label="'+esc(o.label||o.title)+'">'+
+      '<span class="sleather"></span>'+
+      '<span class="semb" aria-hidden="true"><svg viewBox="0 0 100 100">'+o.emblem+'</svg></span>'+
+      '<span class="ctool"></span>'+
+      '<span class="cbody"><span class="srule" aria-hidden="true"></span>'+
+        '<span class="ct">'+esc(o.title)+'</span></span>'+
+    '</button>'+
+    '<span class="cn">'+esc(o.caption)+'</span></div>';
+}
+var EMBLEM={
+  /* a scroll, rolled at both ends, with a seal */
+  scroll:'<g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'+
+    '<rect x="25" y="16" width="50" height="11" rx="5.5"/><rect x="25" y="73" width="50" height="11" rx="5.5"/>'+
+    '<path d="M30 27v46M70 27v46"/>'+
+    '<path d="M38 37h24M38 44.5h24M38 52h17M38 59.5h21" stroke-width="1.6" opacity=".7"/></g>'+
+    '<circle cx="21" cy="21.5" r="3" fill="currentColor"/><circle cx="79" cy="21.5" r="3" fill="currentColor"/>'+
+    '<circle cx="21" cy="78.5" r="3" fill="currentColor"/><circle cx="79" cy="78.5" r="3" fill="currentColor"/>'+
+    '<path d="M60 66l-3 12 5-3 5 3-3-12" fill="currentColor" opacity=".8"/>'+
+    '<circle cx="62" cy="63" r="6.5" fill="currentColor"/>',
+  /* a compass rose */
+  compass:'<g fill="none" stroke="currentColor" stroke-linecap="round">'+
+    '<circle cx="50" cy="50" r="35" stroke-width="2.2"/><circle cx="50" cy="50" r="29" stroke-width="1.2" opacity=".5"/>'+
+    '<path d="M27 27l5 5M73 27l-5 5M27 73l5-5M73 73l-5-5" stroke-width="1.8" opacity=".7"/></g>'+
+    '<path d="M50 12l6 32 32 6-32 6-6 32-6-32-32-6 32-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'+
+    '<path d="M50 12l6 32-6 6zM88 50l-32 6-6-6zM50 88l-6-32 6-6zM12 50l32-6 6 6z" fill="currentColor"/>'+
+    '<circle cx="50" cy="50" r="3" fill="currentColor"/>',
+  /* a medallion with the letterforms */
+  letters:'<g fill="none" stroke="currentColor"><circle cx="50" cy="50" r="35" stroke-width="2.2"/>'+
+    '<circle cx="50" cy="50" r="29.5" stroke-width="1.2" opacity=".5"/></g>'+
+    '<path d="M50 11l3 4-3 4-3-4zM50 81l3 4-3 4-3-4zM11 50l4-3 4 3-4 3zM81 50l4-3 4 3-4 3z" fill="currentColor"/>'+
+    '<text x="50" y="60" text-anchor="middle" font-size="27" fill="currentColor">Aa</text>'
+};
+/* the Tracker's emblem is a dial: the ring fills as chapters are marked
+   read, around the house numerals */
+function trackerEmblem(tp){
+  var r=35, c=2*Math.PI*r, f=tp.total?tp.done/tp.total:0;
+  if(f>0) f=Math.max(f,0.015);
+  var ticks='';
+  for(var k=0;k<24;k++){
+    var a=k*Math.PI/12, x1=50+40*Math.sin(a), y1=50-40*Math.cos(a),
+        x2=50+(k%6?42.5:44)*Math.sin(a), y2=50-(k%6?42.5:44)*Math.cos(a);
+    ticks+='M'+x1.toFixed(1)+' '+y1.toFixed(1)+'L'+x2.toFixed(1)+' '+y2.toFixed(1);
+  }
+  return '<path d="'+ticks+'" stroke="currentColor" stroke-width="1.3" opacity=".55"/>'+
+    '<circle cx="50" cy="50" r="'+r+'" fill="none" stroke="currentColor" stroke-width="3" opacity=".22"/>'+
+    (f>0?'<circle class="sarc" cx="50" cy="50" r="'+r+'" fill="none" stroke="currentColor" stroke-width="3.4" '+
+      'stroke-linecap="round" stroke-dasharray="'+(c*f).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 50 50)"/>':'')+
+    '<text x="50" y="46" text-anchor="middle" font-size="15" fill="currentColor">XVI</text>'+
+    '<path d="M39 52h22" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'+
+    '<text x="50" y="69" text-anchor="middle" font-size="15" fill="currentColor">XI</text>';
+}
+function apocCover(){
+  return specialCover({kind:'apoc', attr:'data-apoc="1"', title:'The Apocrypha',
+    caption:'14 books', emblem:EMBLEM.scroll});
+}
 function trackerCover(){
   var tp=totalProgress();
-  return '<button class="cover istracker" data-a="opentracker">'+
-    '<span class="art mark" aria-hidden="true"><i>XVI</i><b></b><i>XI</i></span>'+
-    '<span class="ct">Tracker</span>'+
-    '<span class="cn">'+tp.pct+'% read</span>'+
-    (tp.done?'<span class="cbar"><i style="width:'+tp.pct+'%"></i></span>':'')+
-    '</button>';
+  return specialCover({kind:'tracker', attr:'data-a="opentracker"', title:'Tracker',
+    label:'Tracker, '+tp.pct+'% read', caption:tp.pct+'% read', emblem:trackerEmblem(tp)});
 }
 
 function vTracker(){
@@ -3653,15 +3724,17 @@ function vSheets(){
   var h=screenHead({
     eyebrow:'Study sheets',
     title:'Study',
-    sub:S.sheets.length+(S.sheets.length===1?' sheet':' sheets')+
-        ' \u00b7 tap a reference to open it',
+    sub:S.sheets.length
+      ? S.sheets.length+(S.sheets.length===1?' sheet':' sheets')+' \u00b7 tap a reference to open it'
+      : 'Your own studies',
     action:shAction('newsheet',I.plus,'New study sheet',true),
     chips:S.sheets.map(function(x){
       return '<button class="chip" data-sheet="'+esc(x.id)+'">'+esc(x.name)+'</button>';
     }).join('')
   });
   if(!S.sheets.length)
-    return h+'<div class="empty">No study sheets yet.</div>'+
+    return h+'<div class="empty">No study sheets yet. Start one with a question, '+
+      'then gather the scriptures that answer it.</div>'+
       '<button class="btn" data-a="newsheet">New study sheet</button>';
   h+=S.sheets.map(function(sh){
     var n=sh.items.length;
@@ -5273,7 +5346,7 @@ function gate(why){
 var PAYWHY={
   study:['Go deeper with Study','Word study, study sheets, every map and more.'],
   words:['Word study, without limits','You have used today’s '+FREE_LOOKUPS+' free lookups. Study opens every word.'],
-  sheets:['Study sheets','Guided studies that walk a theme through the whole Bible.'],
+  sheets:['Study sheets','Your own studies: a question, and the scriptures that answer it.'],
   tags:['Tags and linked verses','Gather notes by theme and tie them to every verse they touch.'],
   folders:['Bookmark folders','Keep your saved verses in folders of your own.'],
   atlas:['The whole atlas','Every map, from the patriarchs to Paul’s journeys.'],
@@ -5307,7 +5380,7 @@ function drawPaywall(){
   if(!audioFirst){
     h+='<ul class="pwlist">'+[
       'Word study without limits: Webster’s 1913, where words come from, the thesaurus, Strong’s Hebrew and Greek',
-      'Study sheets that walk a theme through the whole Bible',
+      'Study sheets: gather the scriptures that answer a question',
       'Tags and linked verses in your notes, and bookmark folders',
       'The whole atlas, every era',
       'Two books open at once on a tablet',
@@ -5372,9 +5445,9 @@ function narrHint(b, n){
 /* the Study tab when Study is not yours: what it is, and the way in */
 function studyTeaser(){
   return screenHead({title:'Study'})+
-    '<div class="teaser"><p class="tlead">Study sheets walk a theme through the whole Bible: '+
-    'covenant, the Passover, the names of God, the kingdom. Each gathers the passages, '+
-    'asks the questions and leaves room for your notes.</p>'+
+    '<div class="teaser"><p class="tlead">Study sheets are yours to build: ask a question, '+
+    'gather the scriptures that answer it, and keep your notes beside them. '+
+    'Tap any reference to open it.</p>'+
     '<button class="btn" data-pwopen="sheets">Open Study</button>'+
     '<p class="vnote" style="margin-top:12px">Reading, listening, highlights, notes and search stay free.</p></div>';
 }
@@ -5631,9 +5704,8 @@ function vPlate(){
 }
 
 function atlasCover(){
-  return '<button class="cover isatlas" data-a="openatlas">' +
-    '<span class="art"><svg viewBox="0 0 100 100">' + MOTIF.mountain + '</svg></span>' +
-    '<span class="ct">Atlas</span><span class="cn">13 eras</span></button>';
+  return specialCover({kind:'atlas', attr:'data-a="openatlas"', title:'Atlas',
+    caption:'13 eras', emblem:EMBLEM.compass});
 }
 
 function vAtlas(){
@@ -5746,9 +5818,8 @@ function lexLookup(word){
   });
 }
 function wordsCover(){
-  return '<button class="cover iswords" data-a="openwords">'+
-    '<span class="wmark" aria-hidden="true">Aa</span>'+
-    '<span class="ct">Word study</span><span class="cn">Dictionary</span></button>';
+  return specialCover({kind:'words', attr:'data-a="openwords"', title:'Word study',
+    caption:'Dictionary', emblem:EMBLEM.letters});
 }
 function lookWord(w){
   w=String(w||'').toLowerCase().replace(/[^a-z]/g,'');

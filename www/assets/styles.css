@@ -2578,3 +2578,39 @@ body.immersive .pane[data-screen="reader"]>.pv{padding-top:calc(22px + var(--sat
 .apocrow .am,.apocrow .as{color:var(--ink2)}
 /* the eras' "Power" and "Captivity" lines were a fixed brown, dim on dark */
 .era .cp{color:var(--ink2)}
+
+/* ================= THE FOUR BOARDS =================
+   Apocrypha, Tracker, Atlas and Word study end the shelf as one bound set:
+   the painted books' plate and spine, in dark leather with a gold-tooled
+   double frame, a gold emblem and the title in the books' small capitals.
+   The count sits under the plate like every book's. */
+.libwrap .cover.special{background:var(--lth2)}
+.sp-apoc{--lth1:#5A1C1F;--lth2:#260A0C}
+.sp-tracker{--lth1:#4A3320;--lth2:#1E140B}
+.sp-atlas{--lth1:#223A41;--lth2:#0D1A1E}
+.sp-words{--lth1:#2F3A27;--lth2:#121810}
+.sleather{position:absolute;top:0;right:0;bottom:0;left:0;z-index:0;border-radius:3px 7px 7px 3px;
+  background:
+    radial-gradient(120% 80% at 30% 16%,rgba(255,228,184,.16),transparent 58%),
+    radial-gradient(150% 115% at 50% 46%,transparent 48%,rgba(0,0,0,.5)),
+    repeating-linear-gradient(118deg,rgba(255,255,255,.014) 0 2px,rgba(0,0,0,.022) 2px 5px),
+    linear-gradient(168deg,var(--lth1),var(--lth2))}
+.semb{position:absolute;z-index:2;left:21%;right:16%;top:13%;display:block;color:#CFAA5F;
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.6)) drop-shadow(0 0 7px rgba(207,170,95,.16))}
+.semb svg{display:block;width:100%;height:auto;overflow:visible}
+.semb text{font-family:var(--serif);font-weight:600;letter-spacing:.03em}
+.semb .sarc{color:#E6C47C}
+.libwrap .cover.special .ctool{border-color:rgba(207,170,95,.55)}
+.libwrap .cover.special .ctool::after{content:'';position:absolute;top:3px;right:3px;bottom:3px;left:3px;
+  border:1px solid rgba(207,170,95,.24);border-radius:2px}
+.libwrap .cover.special .cbody{bottom:14px}
+.libwrap .cover.special .ct{color:#F2E4C4;font-size:13px}
+.srule{position:relative;display:block;width:42%;height:1px;margin:0 auto 8px;
+  background:linear-gradient(90deg,transparent,rgba(207,170,95,.85),transparent)}
+.srule::after{content:'';position:absolute;left:50%;top:50%;width:5px;height:5px;
+  margin:-2.5px 0 0 -2.5px;background:#CFAA5F;transform:rotate(45deg)}
+.libwrap .cover.special:hover{box-shadow:inset 4px 0 0 rgba(0,0,0,.35),0 8px 20px rgba(20,10,4,.3)}
+.libwrap .cover.special:focus-visible{outline:2px solid #CFAA5F;outline-offset:3px}
+/* titles stay inside the gold frame, wrapping rather than running past it */
+.libwrap .cover.special .cbody{left:15px;right:12px;width:auto}
+.libwrap .cover.special .ct{white-space:normal;overflow-wrap:break-word}
