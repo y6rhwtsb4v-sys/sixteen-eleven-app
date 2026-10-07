@@ -2684,35 +2684,37 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulati
    sheet and brown-black ink as the early morning, dimmed and warmed so it is
    gentle in a dark room, lying on a deep warm brown rather than on black.
    Everything printed on the page takes the page's own inks. */
-html[data-theme="dark"] body .pane.pg-paper[data-screen="reader"]>.pv{background:#221B15 !important}
-[data-theme="dark"] .pane.pg-paper[data-screen="reader"]::before{background:#221B15}
+/* Night with Paper chosen: only the reading area is paper, the very page of
+   the early morning (its cream ground and its sheet); the bar at the top, the
+   tab bar, the listening bar and everything else keep the night's colours. */
+html[data-theme="dark"] body .pane.pg-paper[data-screen="reader"]>.pv{background:#F4EEE5 !important}
+html[data-theme="dark"] body .pane.pg-paper[data-screen="reader"]>.pv,
 [data-theme="dark"] .rd.paper{
-  --paper:#C6B28C; --bg:#C6B28C; --card:#D0BD98;
-  --ink:#271D13; --ink-dark:#271D13; --ink2:#5C4A33; --ink3:#6E5B40; --ink-mid:#5C4A33;
-  --line:rgba(88,64,32,.22); --blue:#8C2E22; --blue-l:rgba(140,46,34,.12);
-  --wj:#862A1D; --wj-paper:#862A1D;
+  --paper:#FBF6EC; --bg:#F4EEE5; --card:#FBF8F3;
+  --ink:#1D1814; --ink-dark:#1D1814; --ink2:#554A40; --ink3:#76685B; --ink-mid:#6A5B4D;
+  --line:rgba(60,40,25,.12); --blue:#9A2B22; --blue-l:#EAE1D4;
+  --wj:#A3281E; --wj-paper:#8E2420;
   color-scheme:light;
+  color:var(--ink)}
+[data-theme="dark"] .rd.paper{
   color:var(--ink-dark);
-  background:
-    radial-gradient(ellipse 120% 100% at 50% 50%,
-      transparent 55%, rgba(92,62,24,.10) 82%, rgba(80,52,18,.20) 100%),
-    var(--paper) url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=) repeat;
-  background-blend-mode:multiply,multiply;
-  box-shadow:0 1px 2px rgba(0,0,0,.55),0 10px 30px rgba(0,0,0,.5),
-             inset 0 0 80px rgba(90,60,22,.22)}
+  background:var(--paper) url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=) repeat;
+  background-blend-mode:multiply;
+  box-shadow:0 1px 2px rgba(60,48,30,.10),0 6px 22px rgba(60,48,30,.09),
+             inset 0 0 60px rgba(120,100,70,.06)}
 [data-theme="dark"] .rd.paper::before{
   box-shadow:inset 0 0 0 1px rgba(90,60,22,.18),
              inset 0 2px 5px rgba(90,60,22,.14),
              inset 0 -2px 5px rgba(90,60,22,.14)}
-[data-theme="dark"] .rd.paper .wj{color:#862A1D}
-[data-theme="dark"] .rd.paper .v sup{color:#6E5B40}
+[data-theme="dark"] .rd.paper .wj{color:#8E2420}
+[data-theme="dark"] .rd.paper .v sup{color:#6A5B4D}
 /* the five highlights, a little stronger so they show on the warmer sheet */
 [data-theme="dark"] .rd.paper .v.hl-yellow,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-yellow,[data-theme="dark"] .rd.paper.held .v.speaking.hl-yellow{background:rgba(196,146,30,.30);box-shadow:inset 3px 0 0 rgb(176,128,22)}
 [data-theme="dark"] .rd.paper .v.hl-green,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-green,[data-theme="dark"] .rd.paper.held .v.speaking.hl-green{background:rgba(86,150,90,.28);box-shadow:inset 3px 0 0 rgb(70,130,74)}
 [data-theme="dark"] .rd.paper .v.hl-blue,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-blue,[data-theme="dark"] .rd.paper.held .v.speaking.hl-blue{background:rgba(74,128,184,.26);box-shadow:inset 3px 0 0 rgb(64,112,166)}
 [data-theme="dark"] .rd.paper .v.hl-pink,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-pink,[data-theme="dark"] .rd.paper.held .v.speaking.hl-pink{background:rgba(196,86,100,.26);box-shadow:inset 3px 0 0 rgb(176,72,88)}
 [data-theme="dark"] .rd.paper .v.hl-purple,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-purple,[data-theme="dark"] .rd.paper.held .v.speaking.hl-purple{background:rgba(132,104,196,.26);box-shadow:inset 3px 0 0 rgb(116,90,180)}
-html[data-theme="dark"] body .pane.pg-paper[data-screen="reader"]>.top{background:#221B15 !important;border-color:rgba(230,210,180,.08) !important}
+
 
 /* ---- adding a cross reference ----
    The box shared a row with two full-width buttons and was squeezed to a

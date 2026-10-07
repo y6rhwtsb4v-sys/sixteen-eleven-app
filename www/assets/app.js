@@ -1919,9 +1919,7 @@ function renderTop(){
         pe.classList.toggle('pg-paper', S.reading!==null&&S.page==='paper'); } }
     if(CUR==='A') document.body.setAttribute('data-screen',scr);
   }catch(e){}
-  /* Night on paper follows the page in and out of the reading screen */
-  var npNow=!!document.querySelector('.pane.pg-paper');
-  if(npNow!==S.npWas){ S.npWas=npNow; applyTheme(); }
+
 }
 
 
@@ -5562,15 +5560,8 @@ function applyTheme(){
      phone. Auto now resolves to a real light or dark. */
   var t=S.theme||'auto';
   var resolved=(t==='auto')?(systemDark()?'dark':'light'):t;
-  /* Night on Paper is the early-morning page itself: the cream sheet on the
-     cream backdrop, not a sheet lying on black. So while a chapter is open on
-     paper, the reading screen takes the morning's colours whatever the hour. */
-  var np=false;
-  try{ np=resolved==='dark'&&!!document.querySelector('.pane.pg-paper'); }catch(e){}
-  if(np) resolved='light';
   try{
     var r=document.documentElement;
-    if(np) r.setAttribute('data-night-paper','1'); else r.removeAttribute('data-night-paper');
     r.setAttribute('data-theme',resolved);
     r.setAttribute('data-theme-choice',t);
     /* the phone's own top bar takes this colour; it was the old navy */
