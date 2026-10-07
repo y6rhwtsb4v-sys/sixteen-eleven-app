@@ -625,7 +625,7 @@ function nativeShareFile(name, blob){
         if(/cancel/i.test(m)) return {ok:true, shared:false};
         throw e;
       });
-  }).catch(function(){ return {ok:false}; });
+  }).catch(function(e){ CARD_ERR=CARD_ERR||String((e&&e.message)||e||''); return {ok:false}; });
 }
 function downloadNotes(){
   var t=notesAsText();
@@ -5491,7 +5491,7 @@ function dataUrlBlob(u){
   for(var i=0;i<n;i++) a[i]=bin.charCodeAt(i);
   return new Blob([a],{type:(/data:([^;]+)/.exec(parts[0])||[0,'image/png'])[1]});
 }
-var CARD_IMG=null;
+var CARD_IMG=null, CARD_ERR='';
 function makeVerseCard(b, c, v){
   var ref=vRef(b,c,v), text=vText(b,c,v), cv=null;
   try{ cv=drawVerseCard(ref, text, 'King James Version (KJV)'); }catch(e){ cv=null; }
@@ -5511,7 +5511,18 @@ function shareVerseCard(b, c, v){
 }
 function shareCardImage(card){
   if(payNative()){
-    return nativeShareFile(card.name, card.blob).then(function(r){
+    /* On iPhone and iPad the picture goes straight to the system's share
+       sheet as a picture, through the app's own native code; the file route
+       through the Share plugin is the fallback, and the picture on screen
+       the last resort. */
+    var viaNative=(payPlatform()==='ios'&&Narrator&&Narrator.shareImage)
+      ? Promise.resolve(Narrator.shareImage({data:String(card.url).split(',')[1]||''}))
+          .then(function(){ return {ok:true}; }, function(e){ CARD_ERR=String((e&&e.message)||e||''); return {ok:false}; })
+      : Promise.resolve({ok:false});
+    return viaNative.then(function(r){
+      if(r.ok) return r;
+      return nativeShareFile(card.name, card.blob);
+    }).then(function(r){
       return r.ok?{ok:true,msg:''}:{ok:false,msg:'The share sheet would not open, so here is the picture.'};
     });
   }
@@ -5534,6 +5545,7 @@ function showCardImage(card, msg){
     '<div class="ref">'+esc(card.ref)+'</div>'+
     '<img class="cardimg" src="'+card.url+'" alt="'+esc(card.ref)+' as a picture">'+
     '<p class="vnote">'+esc(msg||'')+(msg?' ':'')+'Press and hold the picture to save it or share it.</p>'+
+    (msg&&CARD_ERR?'<p class="vnote" style="opacity:.6;font-size:12px">('+esc(CARD_ERR.slice(0,120))+')</p>':'')+
     '<div class="row2">'+
       '<button class="btn" data-a="cardshare">Share</button>'+
       '<button class="btn sec" data-a="cardsave">Save</button></div>'+
@@ -8158,7 +8170,7 @@ document.addEventListener('click',inPane(function(ev){
   if(d.a==='cardshare'){ if(CARD_IMG) shareCardImage(CARD_IMG); return; }
   if(d.a==='cardsave'){ if(!CARD_IMG) return;
     /* in the app a web download goes nowhere: the share sheet has Save Image */
-    if(payNative()) nativeShareFile(CARD_IMG.name, CARD_IMG.blob);
+    if(payNative()) shareCardImage(CARD_IMG);
     else saveFile(CARD_IMG.name, CARD_IMG.blob);
     return; }
   if(d.a==='cardclose'){ closeSheet(); return; }

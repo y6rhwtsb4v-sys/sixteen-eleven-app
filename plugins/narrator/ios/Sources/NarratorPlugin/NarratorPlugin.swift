@@ -22,7 +22,8 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "seek", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setRate", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "shareImage", returnType: CAPPluginReturnPromise)
     ]
 
     private struct Clip {
@@ -133,6 +134,42 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
             if self.player.rate > 0 { self.player.rate = r }
             self.updateNowPlaying()
             call.resolve()
+        }
+    }
+
+    /// A verse picture handed straight to the system share sheet, as a picture
+    /// (Messages, Mail, Save Image, Instagram all take it), without going
+    /// through a file on disk first.
+    @objc func shareImage(_ call: CAPPluginCall) {
+        guard let b64 = call.getString("data"),
+              let data = Data(base64Encoded: b64, options: .ignoreUnknownCharacters),
+              let image = UIImage(data: data) else {
+            call.reject("The picture could not be read.")
+            return
+        }
+        DispatchQueue.main.async {
+            guard let host = self.bridge?.viewController else {
+                call.reject("Nothing to show the share sheet on.")
+                return
+            }
+            var top: UIViewController = host
+            while let shown = top.presentedViewController { top = shown }
+            let sheet = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+            if let pop = sheet.popoverPresentationController {
+                // an iPad shows the sheet as a popover, which needs somewhere to point
+                pop.sourceView = top.view
+                pop.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.maxY - 80,
+                                        width: 1, height: 1)
+                pop.permittedArrowDirections = []
+            }
+            sheet.completionWithItemsHandler = { _, completed, _, error in
+                if let error = error {
+                    call.reject(error.localizedDescription)
+                } else {
+                    call.resolve(["completed": completed])
+                }
+            }
+            top.present(sheet, animated: true, completion: nil)
         }
     }
 
