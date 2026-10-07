@@ -9,6 +9,14 @@
   font-display:swap;src:url(fonts/eb-garamond-italic.woff2) format('woff2')}
 @font-face{font-family:'Instrument Sans';font-style:normal;font-weight:400 600;
   font-display:swap;src:url(fonts/instrument-sans.woff2) format('woff2')}
+/* the maps' lettering (SIL OFL), subset to what the maps use */
+@font-face{font-family:'PT Sans';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/pt-sans.woff) format('woff')}
+@font-face{font-family:'PT Sans';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/pt-sans-bold.woff) format('woff')}
+@font-face{font-family:'PT Sans Caption';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/pt-sans-caption.woff) format('woff')}
+@font-face{font-family:'PT Sans Caption';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/pt-sans-caption-bold.woff) format('woff')}
+@font-face{font-family:'PT Serif';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/pt-serif.woff) format('woff')}
+@font-face{font-family:'PT Serif';font-style:italic;font-weight:400;font-display:swap;src:url(fonts/pt-serif-italic.woff) format('woff')}
+@font-face{font-family:'PT Serif';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/pt-serif-bold.woff) format('woff')}
 :root{
   --noteink:#9A2B22; --warnink:#8A6D1F; --warnbg:#FFF4DA; --stripe:#FAFBFC; --pill:#F1F2F6; --pillink:#655649;
   --capbg:#FFF5F5; --offbg:#F1F2F6; --offink:#A2958A;
@@ -288,6 +296,21 @@ input{font:inherit}
 .dch.rich::after{content:"";display:block;width:4px;height:4px;border-radius:50%;
   background:var(--blue);margin:3px auto 0}
 .dch.rich:hover::after{background:#fff}
+/* The chapter grid used the list rows' styling: full-width, padded, left-set
+   buttons in a five-column grid were wider than the drawer, so the whole list
+   slid sideways under a finger. Now it fits, and only scrolls up and down. */
+.drawer .dl{overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y}
+.drawer .dh .dback{display:block;min-height:32px;text-align:left}
+.drawer .dh .dtitle{padding:4px 0 0;font-size:20px}
+.drawer .dl .dchg{grid-template-columns:repeat(5,minmax(0,1fr))}
+.drawer .dl .dchg button.dch{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;width:auto;min-width:0;min-height:44px;padding:8px 0;
+  text-align:center;border:none;border-radius:10px;background:var(--bg);
+  color:var(--ink);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.drawer .dl .dchg button.dch.rich::after{margin:3px auto 0}
+.drawer .dl .dchg button.dch.read{color:var(--ink2)}
+.drawer .dl .dchg button.dch.cur{background:var(--blue);color:#fff}
+.drawer .dl .dchg button.dch.cur::after{background:#fff}
 
 /* ---------- search results ---------- */
 .res{display:block;width:100%;text-align:left;background:var(--card);border-radius:var(--rs);
@@ -618,7 +641,9 @@ button.ref:hover{background:var(--blue);color:#fff}
 /* ---------- back to top ---------- */
 /* left side, so it never collides with the + button on the Notes tab */
 #totop{position:fixed;left:calc(50% - 215px + 16px);
-  bottom:calc(132px + env(safe-area-inset-bottom));z-index:26;
+  /* clear of the listening bar (74px up, 66px tall) with a little air, not
+     resting on its edge */
+  bottom:calc(172px + env(safe-area-inset-bottom, 0px));z-index:26;
   width:42px;height:42px;border-radius:50%;background:rgba(255,253,249,.94);
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
   border:1px solid rgba(40,32,20,.10);color:var(--blue);
@@ -2289,7 +2314,7 @@ body.lay-tablet .sheet.on{-webkit-transform:none;transform:none}
 body.lay-tablet .rsheet{bottom:calc(env(safe-area-inset-bottom, 0px) + 96px)}
 /* back to top: clear of the player, at the right; with two sides each has
    its own scroll and the button would belong to neither, so it goes */
-body.lay-tab #totop{left:auto;right:24px;bottom:calc(env(safe-area-inset-bottom, 0px) + 180px)}
+body.lay-tab #totop{left:auto;right:24px;bottom:calc(env(safe-area-inset-bottom, 0px) + 200px)}
 body.lay-split #totop{display:none}
 
 /* ---- one screen, upright: a centred column ---- */
@@ -2587,7 +2612,7 @@ body.immersive .pane[data-screen="reader"]>.pv{padding-top:calc(22px + var(--sat
 .libwrap .cover.special{background:var(--lth2)}
 .sp-apoc{--lth1:#5A1C1F;--lth2:#260A0C}
 .sp-tracker{--lth1:#4A3320;--lth2:#1E140B}
-.sp-atlas{--lth1:#223A41;--lth2:#0D1A1E}
+.sp-atlas{--lth1:#24403A;--lth2:#0D1C18}
 .sp-words{--lth1:#2F3A27;--lth2:#121810}
 .sleather{position:absolute;top:0;right:0;bottom:0;left:0;z-index:0;border-radius:3px 7px 7px 3px;
   background:
@@ -2614,3 +2639,170 @@ body.immersive .pane[data-screen="reader"]>.pv{padding-top:calc(22px + var(--sat
 /* titles stay inside the gold frame, wrapping rather than running past it */
 .libwrap .cover.special .cbody{left:15px;right:12px;width:auto}
 .libwrap .cover.special .ct{white-space:normal;overflow-wrap:break-word}
+
+/* ---- the plates: marks for the places a verse names ---- */
+.pins .pin{pointer-events:none}
+.pins .pinhead{fill:#C0392B;stroke:#fff;stroke-linejoin:round}
+.pins .pineye{fill:#fff}
+.pins .pinring{fill:#C0392B;opacity:.22;animation:pinpulse 1.8s ease-in-out infinite}
+@keyframes pinpulse{0%,100%{opacity:.06}50%{opacity:.34}}
+@media (prefers-reduced-motion:reduce){.pins .pinring{animation:none;opacity:.2}}
+.pins .pinname{font-family:'PT Sans',sans-serif;font-weight:700;fill:#7A1D12;stroke:#fff;
+  paint-order:stroke;stroke-linejoin:round}
+.platemarks{display:flex;align-items:center;gap:9px;margin:0 0 10px;padding:8px 8px 8px 12px;
+  border-radius:10px;background:rgba(192,57,43,.13);color:#F3D9D3;font-size:13px;font-weight:600;line-height:1.4}
+.platemarks .pmk{width:10px;height:10px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+  background:#C0392B;box-shadow:0 0 0 2px #fff;flex:none;margin:0 3px 0 2px}
+.platemarks button{margin-left:auto;min-width:36px;min-height:36px;border-radius:8px;
+  background:rgba(255,255,255,.10);color:inherit;font-size:16px;flex:none}
+.pane[data-screen="atlas"] .platemarks{color:#EDE5D8}
+.pmine button.pchip{cursor:pointer}
+.chips button.chip.pl{cursor:pointer;border:none}
+
+/* ---- the phone's clock stays clear ----
+   Screens without a top bar scrolled their content up under the clock and
+   the Dynamic Island, and the whole page could be pulled down past it. A
+   band the colour of the page now sits over the status bar on those screens,
+   and nothing bounces the page itself. */
+html,body{overscroll-behavior:none}
+.pv{overscroll-behavior-y:contain}
+.pane::before{content:'';position:absolute;top:0;left:0;right:0;height:var(--sat);
+  z-index:32;pointer-events:none;background:var(--bg);display:none}
+.pane:not([data-screen="reader"]):not([data-screen="book"])::before,
+body.immersive .pane::before{display:block}
+.pane:not([data-screen="reader"]):not([data-screen="book"])::before{background:#E9D6CF}
+[data-theme="dark"] .pane:not([data-screen="reader"]):not([data-screen="book"])::before{background:var(--bg)}
+html[data-theme] .pane[data-screen="atlas"]:not([data-screen="reader"]):not([data-screen="book"])::before{background:#1C1917}
+/* No page zoom: a quick double tap or a sideways swipe with a second finger
+   on the glass was zooming the whole app, and turning the phone could
+   enlarge the text on its own. Text size lives in Aa. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulation}
+
+/* ---- Night, on paper ----
+   At night the Paper page was a black page with a faint grain: dark mode with
+   a texture, not paper. It is now a real page by lamplight: the same cream
+   sheet and brown-black ink as the early morning, dimmed and warmed so it is
+   gentle in a dark room, lying on a deep warm brown rather than on black.
+   Everything printed on the page takes the page's own inks. */
+html[data-theme="dark"] body .pane.pg-paper[data-screen="reader"]>.pv{background:#221B15 !important}
+[data-theme="dark"] .pane.pg-paper[data-screen="reader"]::before{background:#221B15}
+[data-theme="dark"] .rd.paper{
+  --paper:#C6B28C; --bg:#C6B28C; --card:#D0BD98;
+  --ink:#271D13; --ink-dark:#271D13; --ink2:#5C4A33; --ink3:#6E5B40; --ink-mid:#5C4A33;
+  --line:rgba(88,64,32,.22); --blue:#8C2E22; --blue-l:rgba(140,46,34,.12);
+  --wj:#862A1D; --wj-paper:#862A1D;
+  color-scheme:light;
+  color:var(--ink-dark);
+  background:
+    radial-gradient(ellipse 120% 100% at 50% 50%,
+      transparent 55%, rgba(92,62,24,.10) 82%, rgba(80,52,18,.20) 100%),
+    var(--paper) url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=) repeat;
+  background-blend-mode:multiply,multiply;
+  box-shadow:0 1px 2px rgba(0,0,0,.55),0 10px 30px rgba(0,0,0,.5),
+             inset 0 0 80px rgba(90,60,22,.22)}
+[data-theme="dark"] .rd.paper::before{
+  box-shadow:inset 0 0 0 1px rgba(90,60,22,.18),
+             inset 0 2px 5px rgba(90,60,22,.14),
+             inset 0 -2px 5px rgba(90,60,22,.14)}
+[data-theme="dark"] .rd.paper .wj{color:#862A1D}
+[data-theme="dark"] .rd.paper .v sup{color:#6E5B40}
+/* the five highlights, a little stronger so they show on the warmer sheet */
+[data-theme="dark"] .rd.paper .v.hl-yellow,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-yellow,[data-theme="dark"] .rd.paper.held .v.speaking.hl-yellow{background:rgba(196,146,30,.30);box-shadow:inset 3px 0 0 rgb(176,128,22)}
+[data-theme="dark"] .rd.paper .v.hl-green,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-green,[data-theme="dark"] .rd.paper.held .v.speaking.hl-green{background:rgba(86,150,90,.28);box-shadow:inset 3px 0 0 rgb(70,130,74)}
+[data-theme="dark"] .rd.paper .v.hl-blue,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-blue,[data-theme="dark"] .rd.paper.held .v.speaking.hl-blue{background:rgba(74,128,184,.26);box-shadow:inset 3px 0 0 rgb(64,112,166)}
+[data-theme="dark"] .rd.paper .v.hl-pink,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-pink,[data-theme="dark"] .rd.paper.held .v.speaking.hl-pink{background:rgba(196,86,100,.26);box-shadow:inset 3px 0 0 rgb(176,72,88)}
+[data-theme="dark"] .rd.paper .v.hl-purple,[data-theme="dark"] .rd.paper.aloud .v.speaking.hl-purple,[data-theme="dark"] .rd.paper.held .v.speaking.hl-purple{background:rgba(132,104,196,.26);box-shadow:inset 3px 0 0 rgb(116,90,180)}
+html[data-theme="dark"] body .pane.pg-paper[data-screen="reader"]>.top{background:#221B15 !important;border-color:rgba(230,210,180,.08) !important}
+
+/* ---- adding a cross reference ----
+   The box shared a row with two full-width buttons and was squeezed to a
+   sliver, so what you typed could not be seen. It has its own line now, and
+   the verse it names is shown under it as you type. */
+.vpop .prefadd{display:block;margin-top:12px}
+.vpop .prefadd .plab{display:block;margin:0 0 6px}
+.vpop .prefadd input{display:block;width:100%;height:42px;border-radius:12px;margin:0;font-size:16px}
+.vpop .prefprev{margin:8px 2px 0}
+.vpop .prefprev:empty{display:none}
+.vpop .prefv{font-size:13.5px;line-height:1.45;color:var(--ink);margin:0 0 6px}
+.vpop .prefv b{display:block;font-size:12.5px;color:var(--blue);font-weight:700;margin-bottom:2px}
+.vpop .prefv span{font-family:var(--serif)}
+.vpop .prefhint{margin:0;font-size:12.5px;color:var(--ink3)}
+.vpop .prefbtns{display:flex;gap:8px;margin-top:10px}
+.vpop .prefbtns .btn{width:auto;flex:1 1 0;min-height:40px;margin:0;padding:0 12px}
+
+/* ---- notes: references are links, the note saves itself ---- */
+.nref{display:inline;padding:0;margin:0;border:none;background:none;font:inherit;
+  color:var(--blue);font-weight:600;text-decoration:underline;text-decoration-thickness:1px;
+  text-underline-offset:2px;cursor:pointer;min-height:0;min-width:0}
+.nsaved{font-size:12.5px;color:var(--ink3);opacity:0;transition:opacity .25s}
+.nsaved.on{opacity:1}
+.nedbody{resize:none;overflow:hidden;min-height:200px}
+.nrefrow{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;
+  text-align:left;background:none;border:none;border-bottom:1px solid var(--line);
+  padding:10px 0;margin:0;cursor:pointer}
+.nrefrow .lkref{color:var(--blue);font-weight:600}
+.nrefrow .lktxt{font-family:var(--serif);font-size:15px;line-height:1.45;color:var(--ink2)}
+.lkgo{display:flex;flex-direction:column;align-items:flex-start;gap:2px;flex:1;min-width:0;
+  text-align:left;background:none;border:none;padding:0}
+.nrefhint{margin:0;font-size:13.5px;line-height:1.5;color:var(--ink3)}
+/* the tag box was 12px type in an 84px box: too small to hit on a tablet,
+   and small type makes iPhones and iPads zoom when it is tapped */
+.nedtags .tagadd input{width:150px;padding:8px 12px;font-size:16px;border-radius:999px}
+.nedtags .tagaddbtn{width:40px;height:40px;border-radius:20px;font-size:22px;background:var(--blue-l)}
+.nedtags .ntag{min-height:36px;padding:0 12px;font-size:14px}
+
+/* ---- while the keyboard is up ----
+   The app now shrinks to the space above the keyboard instead of being
+   pushed up under the clock, so the bars that sit at the foot would ride on
+   top of the keyboard. They step aside until it goes. */
+body.kb-open #nav,body.kb-open #player,body.kb-open #totop,
+body.kb-open .backfloat{display:none !important}
+body.kb-open .pv{padding-bottom:24px !important}
+
+/* ---- the verse as a picture ---- */
+.cardsheet .ref{font-weight:700;color:var(--blue);margin:2px 0 10px}
+.cardsheet .cardimg{display:block;width:100%;height:auto;border-radius:12px;
+  box-shadow:0 6px 24px rgba(0,0,0,.25);-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
+.cardsheet .vnote{margin:10px 2px 12px}
+.cardsheet .row2{display:flex;gap:8px;margin-bottom:8px}
+.cardsheet .row2 .btn{flex:1 1 0;width:auto}
+
+/* ---- search: every verse, its meaning, and the way to a passage ---- */
+.sdef{margin:4px 0 14px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+.sdef p{margin:4px 0 10px;font-size:15px;line-height:1.5;color:var(--ink)}
+.sdef i{color:var(--ink2)}
+.sres.sgo .sref{color:var(--blue)}
+.sgroup{margin:18px 0 6px}
+.ssec{margin:-2px 0 6px}
+.smore{margin:12px 0 4px}
+.wex{color:var(--ink2);font-style:italic}
+.scount b{color:var(--ink)}
+.pwcode{margin:12px 0 4px;padding:12px 14px;border-radius:12px;background:var(--blue-l);font-size:13.5px;line-height:1.5}
+.pwcode b{display:block;margin-bottom:4px;color:var(--ink)}
+.pwcode p{margin:0;color:var(--ink2)}
+
+/* ---- back, in the reader's own header ----
+   The floating arrow only came after scrolling, sat over the first words of
+   the text and was easy to miss on a tablet. The reader's header now carries
+   the way back itself, beside the chapter's name. */
+.top .rback{margin:0 -4px 0 -8px;flex:none}
+/* back always leads somewhere from a chapter: the way you came, else the book, else the library */
+.pane[data-screen="reader"] .backfloat{display:none !important}
+
+/* The verse card's reference was cut to "Deuterono…" beside the five actions
+   on a phone: it has a line of its own above them now, in full. */
+@media(max-width:520px){
+  .vpop .prow{flex-wrap:wrap}
+  .vpop .pref{flex:0 0 100%;white-space:normal;margin:0 0 4px;font-size:14px}
+  .vpop .pacts{margin-left:0;border-left:none;padding-left:0;flex:1 1 auto;justify-content:space-between}
+}
+
+/* a promotional code, typed into the paywall */
+.pwcodein label b{margin-bottom:8px}
+.pwcoderow{display:flex;gap:8px;align-items:stretch}
+.pwcoderow input{flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);font:inherit;font-size:16px;letter-spacing:.06em;text-transform:uppercase}
+.pwcoderow .btn{flex:none;width:auto;padding:0 16px;margin:0}
+.pwcodein .pwmsg{margin:8px 0 0}
+.pwlinkbtn{display:block;margin-top:10px;padding:0;color:var(--blue);font-size:13px;font-weight:600;text-align:left}
+.vpop .pnotechoice{margin:12px 0 2px;padding-bottom:10px;border-bottom:1px solid var(--popline)}

@@ -568,7 +568,7 @@ function notesAsText(){
   });
   list.forEach(function(n){
     if(n.b==null){
-      out.push('Unfiled');
+      out.push('General note');
     } else {
       out.push(vRef(n.b,n.c,n.v));
       var t=vText(n.b,n.c,n.v);
@@ -613,11 +613,19 @@ function nativeShareFile(name, blob){
     r.onerror=function(){ rej(r.error); };
     r.readAsDataURL(blob);
   }).then(function(b64){
-    return FS.writeFile({path:name, data:b64, directory:'CACHE'});
+    return FS.writeFile({path:name, data:b64, directory:'CACHE', recursive:true});
   }).then(function(w){
-    return SH.share({title:name, files:[w.uri]}).catch(function(){ /* closed the sheet */ });
-  }).then(function(){ return {ok:true, shared:true}; })
-    .catch(function(){ return {ok:false}; });
+    var uri=(w&&w.uri)||'';
+    if(!uri) throw new Error('no file');
+    return SH.share({title:name, files:[uri]}).then(function(){ return {ok:true, shared:true}; },
+      function(e){
+        /* closing the sheet is not a failure; anything else is, and then the
+           picture is shown instead of nothing happening at all */
+        var m=String((e&&(e.message||e.errorMessage))||e||'');
+        if(/cancel/i.test(m)) return {ok:true, shared:false};
+        throw e;
+      });
+  }).catch(function(){ return {ok:false}; });
 }
 function downloadNotes(){
   var t=notesAsText();
@@ -716,6 +724,13 @@ function legacyCopy(text){
 }
 function shareVerse(b,c,v){
   var text=verseForSharing(b,c,v);
+  if(payNative()){
+    try{
+      var SH=window.Capacitor.registerPlugin('Share');
+      return Promise.resolve(SH.share({text:text, dialogTitle:vRef(b,c,v)}))
+        .then(function(){return true;}).catch(function(){ return copyVerse(b,c,v); });
+    }catch(e){}
+  }
   if(navigator.share)
     return navigator.share({text:text}).then(function(){return true;})
       .catch(function(){ return false; });
@@ -791,6 +806,7 @@ function relatedTo(b,c,v){
 var S={tab:'bible', mode:'shelf', book:null, btab:'overview', ch:1,
        cat:'all', apocOpen:false, trackerOpen:false, atlasOpen:false,
        mapEra:null, mapFrame:null, plate:null, plateCache:{}, plateWait:{},
+       platePins:[], plateFocus:false, plateCenter:null,
        plateZoom:2, notesCopied:false, notesMsg:'',
        scrollWatched:0, orientTried:0, viewSig:null,
        navStack:[], navAt:-1, navMoving:0,
@@ -1388,7 +1404,11 @@ function restoreSnapshot(id){
 function watchSession(){
   if(S.sessionWatched||typeof document==='undefined') return;
   S.sessionWatched=1;
-  var save=function(){ takeSnapshot('session'); };
+  var save=function(){
+    /* a note being written is put away first, so it is in the snapshot too */
+    try{ (LAYOUT==='split'?['A','B']:[CUR]).forEach(function(p){
+      withPane(p,function(){ if(S.editing) commitNote(S.editing); }); }); }catch(e){}
+    takeSnapshot('session'); };
   try{
     document.addEventListener('visibilitychange',function(){
       if(document.visibilityState==='hidden') save();
@@ -1519,10 +1539,41 @@ function marksOf(parts, head){
 }
 /* Reading starts at verse startV (1 unless picking up where it was paused or
    stopped). Grouping into flowing passages is unchanged from there on. */
+/* What is said before a chapter, when it is read from the top: the book's
+   full title at its first chapter, as the 1611 printing heads it, then the
+   short form. voice/render_titles.py says the same words in the recorded
+   voice, so the two never disagree. */
+var NUM1=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve',
+  'thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+var NUM10=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+function numWords(n){
+  n=+n; var out=[];
+  if(n>=100){ out.push(NUM1[Math.floor(n/100)]+' hundred'); n%=100; }
+  if(n>=20) out.push(NUM10[Math.floor(n/10)]+(n%10?'-'+NUM1[n%10]:''));
+  else if(n) out.push(NUM1[n]);
+  return out.join(' ');
+}
+function spokenName(name){
+  return String(name).replace(/^([123]) /,function(m,d){ return ({'1':'First','2':'Second','3':'Third'})[d]+' '; });
+}
+function spokenTitle(b, ch){
+  if(!b) return '';
+  ch=+ch;
+  if(b.user) return b.name+(b.nch>1?', chapter '+numWords(ch):'')+'.';
+  if(ch===1){
+    var full=String(b.full||'').trim();
+    var head=(full&&full!==b.name)?full:spokenName(b.name);
+    head=spokenName(head.replace(/:\s*Called\b/,', called')).replace(/\s+/g,' ').replace(/\.$/,'');
+    if(b.nch===1) return head+'.';
+    return head+(b.name==='Psalms'?'. Psalm one.':'. Chapter one.');
+  }
+  if(b.name==='Psalms') return 'Psalm '+numWords(ch)+'.';
+  return spokenName(b.name)+', chapter '+numWords(ch)+'.';
+}
 function buildPassages(b, ch, startV){
   var vs=chapterOf(b,ch);
   startV=Math.max(1,startV||1);
-  var lead=startV===1?b.name+', chapter '+ch+'. ':'';
+  var lead=startV===1?spokenTitle(b,ch)+' ':'';
   var out=[], cur='', from=0, to=0, parts=[];
   function flush(){
     if(!cur) return;
@@ -1835,6 +1886,9 @@ function renderTop(){
     try{ var mv=moveFor(bk,S.ch); if(mv&&(mv.t||mv.title)) sub=mv.t||mv.title; }catch(e){}
     if(!sub) sub='King James \u00b7 '+S.ch+' of '+bk.nch;
     var pr=bookProgress(bk);
+    /* a way back to where you came from, always in reach at the top of the
+       reader (shown only when there is somewhere to go back to) */
+    h+='<button class="icon rback" data-a="navback" aria-label="Go back" title="Go back">'+svg(I.back)+'</button>';
     h+='<button class="ctitle left" data-a="toc" aria-label="Choose a chapter">'+
        '<span class="ct1">'+esc(bk.name)+' '+S.ch+
        '<i class="chev">'+svg(I.down)+'</i></span>'+
@@ -1861,9 +1915,13 @@ function renderTop(){
        which on a phone is the only one */
     var pe=paneEl(CUR);
     if(pe&&pe.setAttribute){ pe.setAttribute('data-screen',scr);
-      if(pe.classList) pe.classList.toggle('is-reader', S.reading!==null); }
+      if(pe.classList){ pe.classList.toggle('is-reader', S.reading!==null);
+        pe.classList.toggle('pg-paper', S.reading!==null&&S.page==='paper'); } }
     if(CUR==='A') document.body.setAttribute('data-screen',scr);
   }catch(e){}
+  /* Night on paper follows the page in and out of the reading screen */
+  var npNow=!!document.querySelector('.pane.pg-paper');
+  if(npNow!==S.npWas){ S.npWas=npNow; applyTheme(); }
 }
 
 
@@ -1994,13 +2052,16 @@ function vLibrary(){
   });
 
   h+='<div class="covers">';
-  h+=list.map(function(bk){ return coverHTML(bk); }).join('');
-  /* after the books, as the design's shelf opens straight onto Genesis */
+  /* Everything that is not one of the sixty-six comes first, so it is never
+     a long scroll past Revelation: the Apocrypha, the Atlas, Word study, the
+     Tracker, then the reader's own books. */
   if(S.cat==='all'||S.cat==='apoc') h+=apocCover();
-  /* the tracker sits at the end of the shelf as a board of its own */
-  if(S.cat==='all'||S.cat==='tracker') h+=trackerCover();
   if(S.cat==='all'||S.cat==='atlas') h+=atlasCover();
   if(S.cat==='all'||S.cat==='words') h+=wordsCover();
+  if(S.cat==='all'||S.cat==='tracker') h+=trackerCover();
+  if(S.cat==='all') h+=BOOKS.filter(function(bk){return bk.user;})
+    .map(function(bk){ return coverHTML(bk); }).join('');
+  h+=list.map(function(bk){ return coverHTML(bk); }).join('');
   h+='</div>';
 
   if(S.cat==='mine'&&!S.shelf.length)
@@ -2788,9 +2849,13 @@ function vProfile(){
     '<p><b>The facts.</b> Drawn from Flavius Josephus, <em>Antiquities of the Jews</em>, in William '+
     'Whiston\u2019s translation, each cited to book and chapter.</p>'+
     '<p><b>Chapter notes.</b> All 80 books have a scribe note, a historical setting and a '+
-    'chapter map. Sixteen have a written note on every chapter: the five books of the Law, '+
-    'Every chapter has a written note \u2014 all 1,362 of them, across all eighty '+
+    'chapter map, and every chapter has a written note \u2014 all 1,362 of them, across all eighty '+
     'books.</p>'+
+    '<p><b>The maps.</b> Four are from churchmaps.info, released by their author into the '+
+    'public domain, corrected for this app; six were drawn for it on the same relief. Places '+
+    'on the new maps, and the marks for the places a verse names, are from OpenBible.info\u2019s '+
+    'Bible geocoding data (CC BY 4.0). Coastlines and rivers checked against Natural Earth '+
+    '(public domain). Map lettering in PT Sans and PT Serif (SIL Open Font License).</p>'+
     '<p><b>Your highlights and notes</b> are stored on this device only. Nothing is uploaded. '+
     'If you open this file somewhere else, they will not follow you.</p>'+
     '<p><b>Sources.</b> King James Bible and Josephus\u2019s <em>Antiquities</em> from Project Gutenberg; '+
@@ -2899,6 +2964,73 @@ var NOTE_SCHEMA=2;
    put one there. It uses the same parser as the cross references in the verse
    sheet, so "Lk 18:13", "Luke 18.13" and "Luke 18:13" all resolve the same
    way, and a link keeps the verse key so tapping it opens the passage. */
+/* ---------- references written into a note ----------
+   Any reference typed in a note becomes a link by itself: "John 3:16",
+   "1 Cor. 13:4-7", "Deuteronomy 21:16-19", "Ps 23". Abbreviations need a
+   chapter and verse, so "is 3" or "am 5" in ordinary prose is left alone; a
+   bare chapter needs the book's full, capitalised name. */
+var NOTE_REF_RX=null;
+function noteRefRx(){
+  if(NOTE_REF_RX) return NOTE_REF_RX;
+  var names={};
+  BOOKS.forEach(function(b){ if(!b.user) names[normName(b.name)]=1; });
+  Object.keys(ALIAS||{}).forEach(function(a){ names[a]=1; });
+  var alts=Object.keys(names).filter(function(n){ return n&&n.length>=2; })
+    .sort(function(a,b){ return b.length-a.length; })
+    .map(function(n){
+      return n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')
+              .replace(/^([123]) /,'$1\\s*').replace(/ /g,'\\s+');
+    });
+  NOTE_REF_RX=new RegExp('(^|[^A-Za-z0-9])('+alts.join('|')+')\\.?\\s*(\\d{1,3})'+
+    '(?:\\s*:\\s*(\\d{1,3})(?:\\s*[-\\u2013\\u2014]\\s*(\\d{1,3}))?)?(?![0-9A-Za-z])','gi');
+  return NOTE_REF_RX;
+}
+function findRefs(text){
+  text=String(text||''); var out=[];
+  if(!BOOKS.length||!text) return out;
+  var rx=noteRefRx(), m;
+  rx.lastIndex=0;
+  while((m=rx.exec(text))){
+    var name=m[2], c=+m[3], v1=m[4]?+m[4]:null, v2=m[5]?+m[5]:null;
+    var bi=lookupBook(name);
+    var full=(bi>=0&&BOOKS[bi]&&normName(BOOKS[bi].name)===normName(name));
+    var start=m.index+m[1].length, end=m.index+m[0].length;
+    if(bi<0||!BOOKS[bi]){ continue; }
+    if(v1===null){
+      /* a bare chapter only for a full name written with a capital */
+      if(!(full||name.replace(/[^a-z]/gi,'').length>=4)||!/^[1-3A-Z]/.test(name)) continue;
+      if(BOOKS[bi].nch===1){ v1=c; c=1; }
+    }
+    else if(!full&&name.replace(/[^a-z]/gi,'').length<=3&&!/^[1-3A-Z]/.test(name)) continue;
+    if(!(c>=1&&c<=BOOKS[bi].nch)) continue;
+    var len=(BIBLE[String(bi)]&&BIBLE[String(bi)][String(c)])?BIBLE[String(bi)][String(c)].length:0;
+    if(v1&&len&&v1>len) continue;
+    if(v2&&v2<=v1) v2=null;
+    if(v2&&len&&v2>len) v2=len;
+    var label=BOOKS[bi].name+' '+(BOOKS[bi].nch===1?(v1||''):c+(v1?':'+v1:''))+(v2?'-'+v2:'');
+    out.push({start:start,end:end,b:bi,c:c,v1:v1,v2:v2,label:label});
+  }
+  return out;
+}
+/* text with its references as links; everything else escaped as it was */
+function linkRefs(text){
+  text=String(text||'');
+  var refs=findRefs(text), h='', at=0;
+  refs.forEach(function(r){
+    h+=esc(text.slice(at,r.start));
+    h+='<button class="nref" data-ref="'+vKey(r.b,r.c,r.v1||1)+'"'+(r.v2?' data-refend="'+r.v2+'"':'')+'>'+
+       esc(text.slice(r.start,r.end))+'</button>';
+    at=r.end;
+  });
+  return h+esc(text.slice(at));
+}
+/* the verses a note mentions, once each, in the order they are written */
+function noteRefList(e){
+  var seen={}, out=[];
+  findRefs((e.title||'')+'\n'+(e.body||'')).forEach(function(r){
+    if(seen[r.label]) return; seen[r.label]=1; out.push(r); });
+  return out;
+}
 function addNoteLink(note, raw){
   raw=String(raw||'').trim();
   if(!raw) return {ok:false,msg:'Type a reference, for example Luke 18:13.'};
@@ -2919,6 +3051,72 @@ function addNoteLink(note, raw){
   return {ok:true,msg:''};
 }
 
+/* ---------- notes save themselves ----------
+   Everything typed in the editor is written to the device a moment after you
+   stop, so closing the app, a call coming in, or tapping away loses nothing.
+   Done just closes the note. A brand-new note with nothing in it is never
+   kept. */
+var noteSaveTimer=null;
+function noteEmpty(e){
+  return !String(e.body||'').trim()&&!String(e.title||'').trim()&&!(e.tags||[]).length&&!(e.links||[]).length;
+}
+function commitNote(e){
+  if(!e) return null;
+  if(noteSaveTimer){ clearTimeout(noteSaveTimer); noteSaveTimer=null; }
+  var ex=e.id?S.notes.filter(function(x){return x.id===e.id;})[0]:null;
+  if(!ex){
+    if(noteEmpty(e)) return null;
+    if(!e.id) e.id='n'+Date.now()+Math.floor(Math.random()*999);
+    ex=migrateNote({id:e.id,b:e.b,c:e.c,v:e.v,ts:Date.now()});
+    S.notes.push(migrateNote(ex));
+  }
+  ex.body=String(e.body||''); ex.title=String(e.title||'');
+  ex.tags=(e.tags||[]).slice(); ex.links=(e.links||[]).map(function(l){return l.slice();});
+  ex.ts=Date.now(); e.ts=ex.ts;
+  migrateNote(ex);
+  saveNotes();
+  noteSavedSay('Saved');
+  return ex;
+}
+function queueNoteSave(){
+  if(noteSaveTimer) clearTimeout(noteSaveTimer);
+  noteSavedSay('');
+  /* the note itself, not whatever S.editing is by then: with two sides a
+     tap on the other one swaps S before this fires */
+  var e=S.editing;
+  noteSaveTimer=setTimeout(function(){ noteSaveTimer=null; if(e) commitNote(e); refreshNoteRefs(e); }, 450);
+}
+function noteSavedSay(t){
+  try{ var el=document.getElementById('nsaved'); if(el){ el.textContent=t; el.classList.toggle('on',!!t); } }catch(e){}
+}
+/* the "Verses in this note" list, redrawn in place so typing is never disturbed */
+function refreshNoteRefs(e){
+  e=e||S.editing;
+  try{ var el=document.getElementById('nrefs'); if(el&&e) el.innerHTML=noteRefsHTML(e); }catch(x){}
+}
+function noteRefsHTML(e){
+  var refs=noteRefList(e), legacy=(e.links||[]);
+  var shown={}; refs.forEach(function(r){ shown[r.label]=1; });
+  var h='';
+  if(!refs.length&&!legacy.length)
+    return '<p class="nrefhint">Write a reference anywhere in the note, like John 3:16 or '+
+      'Deuteronomy 21:16-19, and it becomes a link here and in the note.</p>';
+  h+=refs.map(function(r){
+    return '<button class="lkrow nrefrow" data-ref="'+vKey(r.b,r.c,r.v1||1)+'"'+(r.v2?' data-refend="'+r.v2+'"':'')+'>'+
+      '<span class="lkref">'+esc(r.label)+'</span>'+
+      '<span class="lktxt">'+esc(rangeText(r.b,r.c,r.v1||1,r.v2||0).slice(0,220))+'</span></button>';
+  }).join('');
+  /* verses linked by hand before links became automatic stay until removed */
+  h+=legacy.map(function(l,i){
+    if(shown[l[0]]) return '';
+    var k=l[2]?parseKey(l[2]):null;
+    return '<div class="lkrow"><'+(k?'button data-goverse="'+l[2]+'"':'span')+' class="lkgo">'+
+      '<span class="lkref">'+esc(l[0])+'</span>'+(l[1]?'<span class="lktxt">'+esc(l[1])+'</span>':'')+
+      '</'+(k?'button':'span')+'><button class="lkdel" data-dellink="'+i+'" aria-label="Remove '+esc(l[0])+
+      '">'+svg(I.close)+'</button></div>';
+  }).join('');
+  return h;
+}
 function migrateNote(n){
   if(!n||typeof n!=='object') return null;
   if(!n.id) n.id='n'+Date.now()+Math.floor(Math.random()*999);
@@ -2943,7 +3141,7 @@ function migrateNotes(list){
 function noteTitle(n){
   if(n.title) return n.title;
   if(n.b!=null) return vRef(n.b,n.c,n.v);
-  return 'Unfiled note';
+  return 'General note';
 }
 function allNoteTags(){
   var seen={}, out=[];
@@ -3014,82 +3212,210 @@ function vSearch(){
   var f=S.searchFilter||'All';
   return screenHead({title:'Search'})+
     '<div class="search"><svg viewBox="0 0 24 24">'+I.search+
-    '</svg><input id="q" placeholder="Search books, notes and text" value="'+esc(S.q)+'">'+
-    (S.q?'<button class="sclear" data-a="clearq" aria-label="Clear the search">\u00d7</button>':'')+
+    '</svg><input id="q" placeholder="A word, a phrase, or a reference like John 3:16" '+
+      'autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="'+esc(S.q)+'">'+
+    (S.q?'<button class="sclear" data-a="clearq" aria-label="Clear the search">×</button>':'')+
     '</div>'+
     '<div class="shchips schips">'+['All','Verses','Notes'].map(function(c){
       return '<button class="chip'+(f===c?' on':'')+'" data-sfilter="'+c+'">'+c+'</button>';
-    }).join('')+'</div>'+
+    }).join('')+
+    '<button class="chip'+(S.searchExact?' on':'')+'" data-a="sexact" aria-pressed="'+!!S.searchExact+'">Exact word</button>'+
+    '</div>'+
     (S.q.trim().length<2?historyHTML():'')+
     '<div id="results"></div>';
 }
-function runSearch(){
-  var out=document.getElementById('results'); if(!out) return;
-  var q=S.q.trim();
-  if(q.length<2){out.innerHTML='<p class="empty">Type at least two characters to search '+
-    '80 books and 36,000 verses.</p>';return;}
-  var safe=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), rx=new RegExp(safe,'i'), res=[];
-  BOOKS.forEach(function(b){
-    if(rx.test(b.name)||rx.test(b.summary)||rx.test(b.scribe))
-      res.push({r:b.name,t:b.summary,i:b.i,c:null});
-    Object.keys(b.chapters).forEach(function(n){
-      if(rx.test(b.chapters[n])) res.push({r:b.name+' '+n+' \u2014 note',t:b.chapters[n],i:b.i,c:+n});});
-    b.prophecies.forEach(function(p){
-      if(rx.test(p)) res.push({r:b.name+' \u2014 prophecy',t:p,i:b.i,c:null});});
+
+/* ---------- finding every verse a word is in ----------
+   Search used to stop at fifty verses and matched letters anywhere, so
+   "love" turned up "glove" and never reached most of the Bible. It now finds
+   every verse, as whole words, with the word's other forms: love, loved,
+   loveth, lovest, loving, lover. Only forms the Bible actually uses are
+   counted, so a made-up stem can never match. Exact word turns the forms off. */
+var IRREG_OF=null;
+function irregularOf(base){
+  if(!IRREG_OF){ IRREG_OF={}; Object.keys(LEX_IRREG).forEach(function(k){
+    var b=LEX_IRREG[k]; (IRREG_OF[b]=IRREG_OF[b]||[]).push(k); }); }
+  return IRREG_OF[base]||[];
+}
+function wordForms(word){
+  word=String(word||'').toLowerCase().replace(/[^a-z']/g,'');
+  if(!word) return [];
+  var voc=lexVocab(), out=[word], bases=lexCandidates(word.replace(/'/g,''));
+  if(LEX_IRREG[word]) bases.push(LEX_IRREG[word]);
+  bases.forEach(function(b){
+    if(b.length<2) return;
+    var f=[b,b+'s',b+'es',b+'ed',b+'d',b+'eth',b+'th',b+'est',b+'st',b+'edst',b+'dst',b+'ing',
+           b+'er',b+'ers',b+'r',b+'rs',b+'ly',b+'n',b+'en'];
+    if(/e$/.test(b)){ var st=b.slice(0,-1); f.push(st+'ing',st+'ed',st+'eth',st+'est',st+'er',st+'ers'); }
+    if(/[^aeiou][aeiou][bdgklmnprt]$/.test(b)){ var dd=b+b.slice(-1);
+      f.push(dd+'ed',dd+'eth',dd+'est',dd+'ing',dd+'er',dd+'ers'); }
+    if(/[^aeiou]y$/.test(b)){ var yy=b.slice(0,-1);
+      f.push(yy+'ies',yy+'ied',yy+'ieth',yy+'iest',yy+'iedst'); }
+    f=f.concat(irregularOf(b));
+    f.forEach(function(x){ if(voc[x]&&out.indexOf(x)<0) out.push(x); });
   });
-  FACTS.forEach(function(f){
-    if(rx.test(f.title)||rx.test(f.text))
-      res.push({r:'Josephus \u2014 '+f.cite,t:f.title,i:f.book,c:f.ch});});
-  var pending=!allBooksLoaded();
-  var hits=0;
-  for(var bi=0;bi<BOOKS.length&&hits<50;bi++){
-    var chs=BIBLE[String(bi)];
-    for(var cn in chs){
-      var vs=chs[cn];
+  return out;
+}
+function rxEsc(t){ return String(t).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+/* what to look for: one word and its forms, a phrase, or every word */
+function searchPattern(q){
+  var ws=String(q).toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[];
+  if(!ws.length) return null;
+  if(ws.length===1){
+    var forms=S.searchExact?[ws[0]]:wordForms(ws[0]);
+    if(!forms.length) forms=[ws[0]];
+    return {kind:'word', forms:forms, rx:new RegExp('\\b(?:'+forms.map(rxEsc).join('|')+')\\b','i'),
+            mark:new RegExp('\\b(?:'+forms.map(rxEsc).join('|')+')\\b','ig')};
+  }
+  var phrase=ws.map(rxEsc).join("[^A-Za-z0-9]+");
+  return {kind:'phrase', words:ws, rx:new RegExp('\\b'+phrase+'\\b','i'), mark:new RegExp('\\b'+phrase+'\\b','ig'),
+          each:ws.map(function(w){ var fs=S.searchExact?[w]:wordForms(w); if(!fs.length) fs=[w];
+            return new RegExp('\\b(?:'+fs.map(rxEsc).join('|')+')\\b','i'); }),
+          markAll:new RegExp('\\b(?:'+ws.map(function(w){ return (S.searchExact?[w]:wordForms(w)).concat([w]).map(rxEsc).join('|'); }).join('|')+')\\b','ig')};
+}
+function sectionOfBook(i){ return (i>=39&&i<=52)?'Apocrypha':(i<39?'Old Testament':'New Testament'); }
+function findVerses(pat){
+  var hits=[], all=false;
+  for(var bi=0;bi<BOOKS.length;bi++){
+    if(BOOKS[bi].user) continue;
+    var chs=BIBLE[String(bi)]; if(!chs) continue;
+    var cns=Object.keys(chs).sort(function(a,b){return a-b;});
+    for(var ci=0;ci<cns.length;ci++){
+      var vs=chs[cns[ci]];
       for(var v=0;v<vs.length;v++){
-        if(vs[v]&&rx.test(vs[v])){res.push({r:BOOKS[bi].name+' '+cn+':'+(v+1),t:vs[v],i:bi,c:+cn});
-          if(++hits>=50) break;}
+        var t=vs[v]; if(!t) continue;
+        if(pat.rx.test(t)) hits.push({b:bi,c:+cns[ci],v:v+1,t:t});
       }
-      if(hits>=50) break;
     }
   }
-  /* your own notes are searchable too, which the design's Notes filter implies */
+  /* a phrase that never occurs as written: every verse with all its words */
+  if(!hits.length&&pat.kind==='phrase'){
+    all=true;
+    for(var b2=0;b2<BOOKS.length;b2++){
+      if(BOOKS[b2].user) continue;
+      var ch2=BIBLE[String(b2)]; if(!ch2) continue;
+      for(var c2 in ch2){ var vv=ch2[c2];
+        for(var k=0;k<vv.length;k++){ var tt=vv[k]; if(!tt) continue;
+          if(pat.each.every(function(r){ return r.test(tt); })) hits.push({b:b2,c:+c2,v:k+1,t:tt}); } }
+    }
+    hits.sort(function(a,b){ return (a.b-b.b)||(a.c-b.c)||(a.v-b.v); });
+  }
+  return {hits:hits, all:all};
+}
+/* the meaning, beside the verses, for a single word */
+function searchDefinition(word){
+  var gl=glossLookup(word);
+  var h=gl?'<div class="sgloss">'+glossCard(gl.e, word)+'</div>':'';
+  var r=(S.sdef&&S.sdef.word===word)?S.sdef:null;
+  if(!r&&!S.sdefWait){
+    S.sdefWait=word;
+    lexLookup(word).then(function(res){ S.sdef=res; S.sdefWait=null;
+      if((S.q||'').trim().toLowerCase()===word) runSearch(true); })
+      .catch(function(){ S.sdefWait=null; });
+  }
+  if(r&&r.forms.length){
+    var f=r.forms[0], m=(f.modern||[])[0], w=(f.entries||[])[0];
+    var line=m?(m[0]?'<i>'+esc(m[0])+'</i> ':'')+esc(m[1]):(w&&w.d&&w.d[0]?esc(w.d[0].slice(0,220)):'');
+    if(line) h+='<div class="sdef"><div class="lab">Meaning</div><p><b>'+esc(f.head)+'</b> — '+line+'</p>'+
+      '<button class="chip" data-word="'+esc(word)+'">Full entry, its history and the Hebrew and Greek</button></div>';
+  }
+  return h;
+}
+function runSearch(keepPage){
+  var out=document.getElementById('results'); if(!out) return;
+  var q=S.q.trim();
+  if(!keepPage) S.searchShow=100;
+  if(q.length<2){out.innerHTML='<p class="empty">Type a word, a phrase or a reference. '+
+    'Every one of the 80 books and their 36,000 verses is searched.</p>';return;}
+  var f=S.searchFilter||'All', sec=S.searchSec||'All';
+  var h='', pending=!allBooksLoaded();
+  /* a reference goes straight to its passage */
+  var refs=[];
+  try{ refs=findRefs(q); }catch(e){}
+  if(!refs.length){ try{ var pr=parseRefs(q).filter(function(r){ return r.ok&&/\d/.test(q); });
+    pr.forEach(function(r){ refs.push({b:r.b,c:r.c,v1:r.v1,v2:r.v2,label:r.label}); }); }catch(e){} }
+  if(refs.length&&f!=='Notes'){
+    h+=refs.slice(0,4).map(function(r){
+      var v1=r.v1||1;
+      return '<button class="sres sgo" data-ref="'+vKey(r.b,r.c,v1)+'"'+(r.v2?' data-refend="'+r.v2+'"':'')+'>'+
+        '<span class="srow"><span class="sref">Go to '+esc(r.label)+'</span><span class="stype">Passage</span></span>'+
+        '<span class="stext">'+esc(rangeText(r.b,r.c,v1,r.v2||0).slice(0,240))+'</span></button>';
+    }).join('');
+  }
+  var pat=searchPattern(q);
+  var notes=[], books=[];
+  var safe=rxEsc(q), loose=new RegExp(safe,'i');
   S.notes.forEach(function(n){
     var hay=(n.title||'')+' '+(n.body||'');
-    if(rx.test(hay)) res.push({r:n.b==null?'Your note':vRef(n.b,n.c,n.v),t:n.title?n.title+' \u2014 '+n.body:n.body,
-      i:n.b==null?null:n.b,c:n.c,kind:'Note',nid:n.id});
+    if(loose.test(hay)||(pat&&pat.rx.test(hay))) notes.push(n);
   });
-  res.forEach(function(r){
-    if(!r.kind) r.kind=/:\d+$/.test(r.r)?'Verse':/Josephus/.test(r.r)?'Josephus':r.c?'Note':'Book';
-  });
-  /* verses first, as the design lists them, then notes, then whole books;
-     the order within each kind is kept */
-  var RANK={Verse:0,Note:1,Book:2,Josephus:3};
-  res=res.map(function(r,i){return [r,i];}).sort(function(a,b){
-    return (RANK[a[0].kind]-RANK[b[0].kind])||(a[1]-b[1]);}).map(function(x){return x[0];});
-  var f=S.searchFilter||'All';
-  if(f==='Verses') res=res.filter(function(r){return r.kind==='Verse';});
-  if(f==='Notes') res=res.filter(function(r){return r.kind==='Note';});
-  if(!res.length){
-    out.innerHTML='<p class="empty">Nothing found for \u201c'+esc(q)+'\u201d.'+
-      (pending?'<br><br>Some books are still loading, so the text search is not '+
-       'complete yet.':'')+'</p>';
-    return;}
-  /* the design's results: a count, then plain rows, the match in bold */
-  var gl=glossLookup(q);
-  var glHTML=gl?'<div class="sgloss">'+glossCard(gl.e, q)+'</div>':'';
-  out.innerHTML=glHTML+'<p class="scount">'+res.length+(res.length===1?' result':' results')+
-      ' for \u201c'+esc(q)+'\u201d</p>'+
-    (pending?'<p class="scount">Some books are still loading; results will be complete shortly.</p>':'')+
-    res.slice(0,60).map(function(r){
-    var t=esc(r.t);
-    try{t=t.replace(new RegExp('('+safe+')','ig'),'<b>$1</b>');}catch(e){}
-    var go=r.nid?'data-editnote="'+r.nid+'"':
-      'data-book="'+r.i+'"'+(r.c?' data-goch="'+r.c+'"':'');
-    return '<button class="sres" '+go+'>'+
-      '<span class="srow"><span class="sref">'+esc(r.r)+'</span><span class="stype">'+r.kind+'</span></span>'+
-      '<span class="stext">'+t+'</span></button>';
-  }).join('');
+  if(f==='All'){
+    BOOKS.forEach(function(b){
+      if(b.user) return;
+      if(loose.test(b.name)||loose.test(b.summary||'')||loose.test(b.scribe||'')) books.push({r:b.name,t:b.summary,i:b.i});
+      (b.prophecies||[]).forEach(function(p){ if(loose.test(p)) books.push({r:b.name+' — prophecy',t:p,i:b.i}); });
+    });
+    (FACTS||[]).forEach(function(x){
+      if(loose.test(x.title)||loose.test(x.text)) books.push({r:'Josephus — '+x.cite,t:x.title,i:x.book,c:x.ch}); });
+  }
+  var found=(pat&&f!=='Notes')?findVerses(pat):{hits:[],all:false};
+  var counts={'Old Testament':0,'New Testament':0,'Apocrypha':0};
+  found.hits.forEach(function(x){ counts[sectionOfBook(x.b)]++; });
+  var verses=sec==='All'?found.hits:found.hits.filter(function(x){ return sectionOfBook(x.b)===sec; });
+  /* the meaning of a single word sits above its verses */
+  if(pat&&pat.kind==='word'&&f!=='Notes'&&!refs.length) h+=searchDefinition(q.toLowerCase().replace(/[^a-z']/g,''));
+  if(f!=='Notes'&&pat&&!refs.length||found.hits.length){
+    var n=found.hits.length;
+    h+='<p class="scount"><b>'+n.toLocaleString()+(n===1?' verse':' verses')+'</b>'+
+      (found.all?' with all of these words':'')+
+      (pat&&pat.kind==='word'&&pat.forms.length>1?' · '+esc(pat.forms.slice(0,8).join(', '))+(pat.forms.length>8?'…':''):'')+
+      '</p>';
+    if(n) h+='<div class="shchips ssec">'+['All','Old Testament','New Testament','Apocrypha'].map(function(c){
+        var k=c==='All'?n:counts[c];
+        if(c!=='All'&&!k) return '';
+        return '<button class="chip'+(sec===c?' on':'')+'" data-ssec="'+c+'">'+c+' '+k.toLocaleString()+'</button>';
+      }).join('')+'</div>';
+    if(pending) h+='<p class="scount">Some books are still loading; the count will grow as they arrive.</p>';
+  }
+  if(f!=='Verses'&&notes.length){
+    h+='<div class="lab sgroup">Your notes</div>'+notes.slice(0,20).map(function(nn){
+      var t=nn.title?nn.title+' — '+nn.body:nn.body;
+      return '<button class="sres" data-editnote="'+nn.id+'"><span class="srow"><span class="sref">'+
+        esc(nn.b==null?'General note':vRef(nn.b,nn.c,nn.v))+'</span><span class="stype">Note</span></span>'+
+        '<span class="stext">'+markText(t.slice(0,240),pat,loose)+'</span></button>';
+    }).join('');
+  }
+  if(f!=='Notes'&&verses.length){
+    var shown=verses.slice(0,S.searchShow||100);
+    h+='<div class="lab sgroup">Verses</div>'+shown.map(function(x){
+      return '<button class="sres" data-goverse="'+vKey(x.b,x.c,x.v)+'">'+
+        '<span class="srow"><span class="sref">'+esc(BOOKS[x.b].name+' '+x.c+':'+x.v)+'</span></span>'+
+        '<span class="stext">'+markText(x.t,pat,null)+'</span></button>';
+    }).join('');
+    if(verses.length>shown.length)
+      h+='<button class="btn sec smore" data-a="smore">Show '+Math.min(100,verses.length-shown.length)+' more of '+
+        (verses.length-shown.length).toLocaleString()+'</button>';
+  }
+  if(f==='All'&&books.length){
+    h+='<div class="lab sgroup">In the books’ notes and Josephus</div>'+books.slice(0,20).map(function(r){
+      return '<button class="sres" data-book="'+r.i+'"'+(r.c?' data-goch="'+r.c+'"':'')+'>'+
+        '<span class="srow"><span class="sref">'+esc(r.r)+'</span></span>'+
+        '<span class="stext">'+markText(String(r.t||'').slice(0,240),null,loose)+'</span></button>';
+    }).join('');
+  }
+  if(!found.hits.length&&!notes.length&&!books.length&&!refs.length){
+    h+='<p class="empty">Nothing found for “'+esc(q)+'”.'+
+      (pending?'<br><br>Some books are still loading, so the text search is not complete yet.':'')+'</p>';
+  }
+  out.innerHTML=h;
+}
+function markText(t, pat, loose){
+  var x=esc(t);
+  try{
+    var rx=pat?(pat.kind==='phrase'&&pat.markAll?pat.markAll:pat.mark):(loose?new RegExp('('+loose.source+')','ig'):null);
+    if(rx){ rx.lastIndex=0; x=x.replace(rx,function(m){ return '<b>'+m+'</b>'; }); }
+  }catch(e){}
+  return x;
 }
 
 /* ================= VERSE ACTION SHEET ================= */
@@ -3197,7 +3523,7 @@ function popHTML(key){
   var rows=[];
   mine.forEach(function(lbl){
     var r=parseRefs(lbl)[0];
-    if(r&&r.ok) rows.push({b:r.b,c:r.c,v:r.v1||1,text:vText(r.b,r.c,r.v1||1)});
+    if(r&&r.ok) rows.push({b:r.b,c:r.c,v:r.v1||1,v2:r.v2||0,label:r.label,text:rangeText(r.b,r.c,r.v1||1,r.v2||0)});
   });
   rows=rows.concat(rel);
   var total=rows.length, ref=vRef(p.b,p.c,p.v);
@@ -3214,19 +3540,38 @@ function popHTML(key){
       popAct('pshare','share','Share')+
       popAct('pimage','image',S.popImaging===key?'Making\u2026':'Image')+'</span></div>';
   var more=S.popMore===key;
+  if(S.popNoteChoice===key){
+    /* Note, when you already have notes: a new one on this verse, or this
+       verse added to the end of one you have, in plain words */
+    h+='<div class="pnotechoice"><button class="pline" data-a="pnotenew">Start a new note on this verse</button>'+
+      '<div class="plab">Or add this verse to a note you already have</div><div class="pfiles">'+
+      S.notes.slice().sort(function(a,b){ return (b.ts||0)-(a.ts||0); }).slice(0,8).map(function(n){
+        return '<button class="pfile" data-pfilenote="'+esc(n.id)+'"><b>'+esc(noteTitle(n))+'</b>'+
+          (n.b!==null&&n.b!==undefined?'<span>'+esc(vRef(n.b,n.c,n.v))+'</span>':'')+'</button>';
+      }).join('')+'</div></div>';
+  }
   if(rows.length){
     h+='<div class="prels'+(more?' all':'')+'">'+(more?rows:rows.slice(0,2)).map(function(r){
       var t=r.text||'';
-      return '<button class="prel" data-goverse="'+vKey(r.b,r.c,r.v)+'">'+
-        '<span class="prr">'+esc(vRef(r.b,r.c,r.v))+'</span>'+
+      /* a range ("Deuteronomy 21:16-19") opens on its first verse with the
+         whole run marked */
+      return '<button class="prel" '+(r.v2>r.v
+          ? 'data-ref="'+vKey(r.b,r.c,r.v)+'" data-refend="'+r.v2+'"'
+          : 'data-goverse="'+vKey(r.b,r.c,r.v)+'"')+'>'+
+        '<span class="prr">'+esc(r.label||vRef(r.b,r.c,r.v))+'</span>'+
         '<span class="prt">'+esc(t.length>150?t.slice(0,150)+'…':t)+'</span></button>';
     }).join('')+'</div>';
   }
   if(more) h+=popMoreHTML(key, p, mine);
   if(S.popRefAdding===key){
-    h+='<div class="prefadd"><input id="prefin" placeholder="Isaiah 53:5" aria-label="Cross reference">'+
-       '<button class="btn sec" data-a="psaveref">Add</button>'+
-       '<button class="btn gh" data-a="pcancelref">Cancel</button></div>';
+    /* the box has a line of its own, and the verse it names is shown as you
+       type, so you can see what you are about to tie to this one */
+    h+='<div class="prefadd"><label class="plab" for="prefin">Cross reference</label>'+
+       '<input id="prefin" placeholder="e.g. Isaiah 53:5 or Deuteronomy 21:16-19" '+
+         'autocomplete="off" autocapitalize="words" spellcheck="false" value="'+esc(S.prefDraft||'')+'">'+
+       '<div class="prefprev" id="prefprev" aria-live="polite">'+refPreviewHTML(S.prefDraft||'')+'</div>'+
+       '<div class="prefbtns"><button class="btn sec" data-a="psaveref">Add</button>'+
+       '<button class="btn gh" data-a="pcancelref">Cancel</button></div></div>';
   }
   if(S.popMsg&&S.popMsgKey===key) h+='<p class="pmsg" role="status">'+esc(S.popMsg)+'</p>';
   h+='<div class="pfoot"><button class="pmore" data-a="pmore" aria-expanded="'+more+'">'+
@@ -3251,32 +3596,58 @@ function popMoreHTML(key, p, mine){
     var here=[];
     try{ here=placesInVerse(vText(p.b,p.c,p.v), vera); }catch(e){}
     if(here.length){
-      var plate=(platesForEra(vera||'roman')[0]||PLATES[0]);
+      var hn=here.map(function(x){ return x.n; });
+      var plate=plateForPlaces(vera, hn);
       h+='<div class="plab">On the map</div><div class="pmine">'+here.map(function(pl){
-        return '<span class="pchip">'+esc(pl.n)+'</span>'; }).join('')+
-        '<button class="pchip go" data-plate="'+esc(plate.id)+'">Open '+esc(plate.name)+'</button></div>';
+        var one=plateForPlaces(vera, [pl.n]);
+        return '<button class="pchip" data-plate="'+esc(one.id)+'" data-pins="'+esc(pl.n)+'">'+esc(pl.n)+'</button>'; }).join('')+
+        '<button class="pchip go" data-plate="'+esc(plate.id)+'" data-pins="'+esc(hn.join('|'))+'">Open '+esc(plate.name)+'</button></div>';
     }
   }
   if(S.marks[key]){
     var cur=folderOf(key), fs=bookmarkFolders();
     if(fs.indexOf(cur)===-1) fs.unshift(cur);
-    h+='<div class="plab">Saved in</div><div class="pmine">'+fs.map(function(f){
+    h+='<div class="plab">Saves folder for this verse</div><div class="pmine">'+fs.map(function(f){
       return '<button class="pchip'+(f===cur?' on':'')+'" data-pfolder="'+esc(f)+'" aria-pressed="'+(f===cur)+'">'+esc(f)+'</button>';
     }).join('')+'<span class="pnewf"><input id="pfolderin" placeholder="New folder" maxlength="32" aria-label="New folder">'+
       '<button class="pchip" data-a="pnewfolder" aria-label="Make this folder">+</button></span></div>';
   }
   if(S.notes.length){
     if(S.popFiling===key){
-      h+='<div class="plab">File this verse in</div><div class="pfiles">'+S.notes.slice().sort(function(a,b){
+      h+='<div class="plab">Add this verse to which of your notes?</div><div class="pfiles">'+S.notes.slice().sort(function(a,b){
           return (b.ts||0)-(a.ts||0); }).slice(0,8).map(function(n){
         return '<button class="pfile" data-pfilenote="'+esc(n.id)+'"><b>'+esc(noteTitle(n))+'</b>'+
           (n.b!==null&&n.b!==undefined?'<span>'+esc(vRef(n.b,n.c,n.v))+'</span>':'')+'</button>';
       }).join('')+'</div>';
     } else {
-      h+='<button class="pline" data-a="pfile">File it in one of your notes</button>';
+      h+='<button class="pline" data-a="pfile">Add this verse to a note you already have</button>';
     }
   }
   return h+'</div>';
+}
+/* what a typed reference resolves to: the verse (or the first and last of a
+   range) in full, or a word on why it does not resolve yet */
+/* the words of a verse, or of a short run of verses, numbered when more than one */
+function rangeText(b,c,v1,v2){
+  if(!v2||v2<=v1) return vText(b,c,v1)||'';
+  var t=[];
+  for(var v=v1;v<=v2&&v<v1+12;v++){ var x=vText(b,c,v); if(x) t.push(v+' '+x); }
+  if(v2>=v1+12) t.push('\u2026');
+  return t.join(' ');
+}
+function refPreviewHTML(raw){
+  raw=String(raw||'').trim();
+  if(!raw) return '';
+  var rs=[];
+  try{ rs=parseRefs(raw); }catch(e){}
+  var ok=rs.filter(function(r){ return r.ok; });
+  if(!ok.length) return '<p class="prefhint">Type a book, chapter and verse.</p>';
+  return ok.slice(0,3).map(function(r){
+    var v1=r.v1||1, v2=r.v2&&r.v2>v1?r.v2:v1, t=[];
+    for(var v=v1;v<=v2&&v<v1+6;v++){ var x=vText(r.b,r.c,v); if(x) t.push((v2>v1?v+' ':'')+x); }
+    if(v2>=v1+6) t.push('\u2026');
+    return '<div class="prefv"><b>'+esc(r.label)+'</b><span>'+esc(t.join(' '))+'</span></div>';
+  }).join('');
 }
 function popRoot(){
   var r=(LAYOUT==='split')?readerSide():null;
@@ -3305,6 +3676,11 @@ function placePop(reveal){
   v.classList.add('popsel');
   var rd=v.parentNode; if(rd&&rd.classList) rd.classList.add('popping');
   var card=w.firstChild;
+  var pin=w.querySelector&&w.querySelector('#prefin');
+  if(pin&&pin.addEventListener) pin.addEventListener('input',function(){
+    S.prefDraft=pin.value;
+    var pv=document.getElementById('prefprev'); if(pv) pv.innerHTML=refPreviewHTML(pin.value);
+  });
   /* narrow pages put the colours on a line of their own */
   try{ if(card.clientWidth<520) card.classList.add('compact'); }catch(e){}
   if(reveal) setTimeout(function(){ revealPop(card); },30);
@@ -3339,7 +3715,7 @@ function openPop(key){
   placePop(true);
 }
 function popReset(){
-  S.popMore=null; S.popRefAdding=null; S.popFiling=null; S.popMsg=''; S.popMsgKey=null; S.popImaging=null;
+  S.popMore=null; S.popRefAdding=null; S.popFiling=null; S.popMsg=''; S.popMsgKey=null; S.popImaging=null; S.popNoteChoice=null;
 }
 function popSay(msg){ S.popMsg=msg||''; S.popMsgKey=S.pop; if(msg) announce(msg); }
 function closePop(){
@@ -3370,12 +3746,14 @@ function openSheet(key){
   var vera=(bkp&&bkp.eras&&bkp.eras.length)?bkp.eras[bkp.eras.length-1]:null;
   var here=placesInVerse(vText(p.b,p.c,p.v), vera);
   if(here.length){
-    var plate=(platesForEra(vera||'roman')[0]||PLATES[0]);
+    var hn=here.map(function(x){ return x.n; });
+    var plate=plateForPlaces(vera, hn);
     h+='<div class="lab" style="margin-bottom:8px">On the map</div>';
     h+='<div class="chips" style="margin-bottom:6px">'+here.map(function(pl){
-      return '<span class="chip pl">'+esc(pl.n)+'</span>';
+      var one=plateForPlaces(vera, [pl.n]);
+      return '<button class="chip pl" data-plate="'+esc(one.id)+'" data-pins="'+esc(pl.n)+'">'+esc(pl.n)+'</button>';
     }).join('')+'</div>';
-    h+='<button class="btn gh" data-plate="'+esc(plate.id)+'" '+
+    h+='<button class="btn gh" data-plate="'+esc(plate.id)+'" data-pins="'+esc(hn.join('|'))+'" '+
        'style="margin-bottom:14px">Open '+esc(plate.name)+'</button>';
   }
   var mine=userRefs(p.b,p.c,p.v);
@@ -3383,9 +3761,11 @@ function openSheet(key){
     h+='<div class="lab" style="margin-bottom:8px">Your references</div>';
     h+='<div class="rels">'+mine.map(function(lbl){
       var r=parseRefs(lbl)[0];
-      var txt=(r&&r.ok)?vText(r.b,r.c,r.v1||1):'';
+      var txt=(r&&r.ok)?rangeText(r.b,r.c,r.v1||1,r.v2||0):'';
       return '<div class="rel mine">'+
-        ((r&&r.ok)?'<button class="relgo" data-goverse="'+vKey(r.b,r.c,r.v1||1)+'">':'<span class="relgo">')+
+        ((r&&r.ok)?'<button class="relgo" '+((r.v2||0)>(r.v1||1)
+            ? 'data-ref="'+vKey(r.b,r.c,r.v1||1)+'" data-refend="'+r.v2+'"'
+            : 'data-goverse="'+vKey(r.b,r.c,r.v1||1)+'"')+'>':'<span class="relgo">')+
         '<span class="rr">'+esc(lbl)+'</span>'+
         (txt?'<span class="rt">'+esc(txt.length>140?txt.slice(0,140)+'\u2026':txt)+'</span>':'')+
         ((r&&r.ok)?'</button>':'</span>')+
@@ -3445,7 +3825,7 @@ function openSheet(key){
   }
   if(S.notes.length){
     if(S.filing){
-      h+='<div class="lab" style="margin:14px 0 8px">File this verse in\u2026</div>';
+      h+='<div class="lab" style="margin:14px 0 8px">Add it to which note?</div>';
       h+='<div class="filelist">'+S.notes.slice().sort(function(a,b){
           return (b.ts||0)-(a.ts||0); }).slice(0,12).map(function(n){
         return '<button class="filerow" data-filenote="'+esc(n.id)+'">'+
@@ -3455,7 +3835,7 @@ function openSheet(key){
       }).join('')+'</div>';
       h+='<button class="btn gh" data-a="cancelfile">Cancel</button>';
     } else {
-      h+='<button class="btn gh" data-a="filenote">File it in one of your notes</button>';
+      h+='<button class="btn gh" data-a="filenote">Add this verse to one of your notes</button>';
     }
   }
   if(S.fileMsg) h+='<p class="vnote" style="margin:6px 0 12px">'+esc(S.fileMsg)+'</p>';
@@ -3491,8 +3871,8 @@ function noteFor(p){
   return S.notes.filter(function(x){return x.b===p.b&&x.c===p.c&&x.v===p.v;})[0];
 }
 function noteShelf(n){
-  if(n.b==null) return 'Unfiled';
-  var b=BK(n.b); if(!b) return 'Unfiled';
+  if(n.b==null) return 'General';
+  var b=BK(n.b); if(!b) return 'General';
   return b.apoc?'Apocrypha':(b.i<39?'Old Testament':'New Testament');
 }
 function vNotes(){
@@ -3501,9 +3881,10 @@ function vNotes(){
     return n.b==null || (BK(n.b) && vText(n.b,n.c,n.v));
   }).sort(function(a,b){return b.ts-a.ts;});
   var f=S.noteFilter||'All';
+  if(f==='Unfiled') f='General';          /* the old name for it */
   var list=all.filter(function(n){
     if(f==='All') return true;
-    if(['Old Testament','New Testament','Apocrypha','Unfiled'].indexOf(f)>-1)
+    if(['Old Testament','New Testament','Apocrypha','General'].indexOf(f)>-1)
       return noteShelf(n)===f;
     return (n.tags||[]).indexOf(f)>-1;          /* a tag tapped on a card */
   });
@@ -3516,7 +3897,7 @@ function vNotes(){
     '<p class="nsub">'+all.length+(all.length===1?' note':' notes')+' \u00b7 '+
       tags.length+(tags.length===1?' tag':' tags')+'</p>';
   var cats=['All','Old Testament','New Testament','Apocrypha'];
-  if(all.some(function(n){return noteShelf(n)==='Unfiled';})) cats.push('Unfiled');
+  if(all.some(function(n){return noteShelf(n)==='General';})) cats.push('General');
   if(cats.indexOf(f)===-1) cats.push(f);
   h+='<div class="shchips nchips">'+cats.map(function(c){
     return '<button class="chip'+(f===c?' on':'')+'" data-notefilter="'+esc(c)+'">'+
@@ -3544,27 +3925,61 @@ function noteHTML(n){
   /* The whole card opens the note; its tags filter the list. */
   return '<div class="ncard" role="button" tabindex="0" data-editnote="'+n.id+'">'+
     '<div class="ncrow"><span class="ncref">'+
-      esc(n.b==null?'Unfiled':vRef(n.b,n.c,n.v))+'</span>'+
+      esc(n.b==null?'General note':vRef(n.b,n.c,n.v))+'</span>'+
       '<span class="ncdate">'+esc(when)+'</span></div>'+
     '<div class="nctitle">'+esc(n.title||'Untitled')+'</div>'+
     (q?'<div class="ncverse">'+esc(q)+'</div>':'')+
-    (n.body?'<div class="ncbody">'+esc(n.body)+'</div>':'')+
+    (n.body?'<div class="ncbody">'+linkRefs(n.body)+'</div>':'')+
     ((n.tags&&n.tags.length)?'<div class="ntags">'+n.tags.map(function(t){
       return '<button class="ntag" data-notefilter="'+esc(t)+'">'+esc(t)+'</button>';
     }).join('')+'</div>':'')+
     '</div>';
 }
 
+function openNoteFor(key){
+  var np=parseKey(key), nx=noteFor(np);
+  S.tagDraft=''; S.linkDraft=''; S.linkMsg='';
+  S.editing=nx?{id:nx.id,b:nx.b,c:nx.c,v:nx.v,body:nx.body,title:nx.title||'',
+      tags:(nx.tags||[]).slice(),links:(nx.links||[]).map(function(l){return l.slice();}),
+      cat:nx.cat||'',ts:nx.ts}
+    :{id:null,b:np.b,c:np.c,v:np.v,body:'',title:'',tags:[],links:[]};
+  S.editFocusBody=!nx;
+  closeSheet(); closePop();
+  if(LAYOUT==='split'&&sideDest(otherSide(CUR))==='notes'){
+    S.noteReturn=false; S.tab='notes'; S.book=null; S.reading=null; render(); return;
+  }
+  /* remember where to come back to */
+  S.noteReturn=key;
+  S.tab='notes'; S.book=null; S.reading=null; render();
+}
+function closeNoteEditor(){
+  var e=S.editing; if(!e) return;
+  commitNote(e);
+  /* a note emptied of everything is gone, rather than left as a blank card */
+  if(e.id&&noteEmpty(e)){ S.notes=S.notes.filter(function(x){return x.id!==e.id;}); saveNotes(); }
+  S.editing=null; S.tagDraft=''; S.linkDraft=''; S.linkMsg='';
+  var back=S.noteReturn; S.noteReturn=false;
+  if(back&&navCanBack()){
+    navBack();
+    setTimeout(function(){
+      var el=document.querySelector('.rd .v[data-vs="'+back+'"]');
+      if(el){ bringIntoView(el,'center',false); }
+    },60);
+    return;
+  }
+  render();
+}
 function vNoteEdit(){
   var e=S.editing;
   var d=new Date(e.ts||Date.now()), now=new Date();
   var when=(d.toDateString()===now.toDateString())?'Today':
     d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
   var h='<div class="nedbar">'+
-    '<button class="backlink" data-a="savenote">\u2190 Notes</button>'+
+    '<button class="backlink" data-a="savenote">\u2190 '+(S.noteReturn?'Back':'Notes')+'</button>'+
+    '<span class="nsaved" id="nsaved" aria-live="polite"></span>'+
     '<button class="neddone" data-a="savenote">Done</button></div>';
   h+='<div class="ncrow ned"><span class="ncref">'+
-     esc(e.b==null?'Unfiled':vRef(e.b,e.c,e.v))+'</span>'+
+     esc(e.b==null?'General note':vRef(e.b,e.c,e.v))+'</span>'+
      '<span class="ncdate">'+esc(when)+'</span></div>';
   if(e.b!=null) h+='<div class="nedverse">'+esc(vText(e.b,e.c,e.v))+'</div>';
   h+='<input class="nedtitle" id="ntitle" placeholder="Title" maxlength="64" value="'+
@@ -3577,22 +3992,13 @@ function vNoteEdit(){
       return '<button class="ntag" data-deltag="'+i+'" aria-label="Remove the tag '+esc(t)+'">'+
         esc(t)+' <b aria-hidden="true">\u00d7</b></button>';
     }).join('')+
-    '<span class="tagadd"><input id="ntagadd" placeholder="Add tag" maxlength="28" value="'+
+    '<span class="tagadd"><input id="ntagadd" placeholder="Add a tag" maxlength="28" '+
+    'enterkeyhint="done" autocapitalize="none" autocomplete="off" value="'+
     esc(S.tagDraft||'')+'">'+
     '<button class="tagaddbtn" data-a="addtag" aria-label="Add this tag">+</button></span></div>';
 
-  h+='<div class="nedlab">Linked verses</div>';
-  if((e.links||[]).length)
-    h+='<div class="lklist">'+e.links.map(function(l,i){
-      return '<div class="lkrow"><span class="lkref">'+esc(l[0])+'</span>'+
-        (l[1]?'<span class="lktxt">'+esc(l[1])+'</span>':'')+
-        '<button class="lkdel" data-dellink="'+i+'" aria-label="Remove '+esc(l[0])+
-        '">'+svg(I.close)+'</button></div>';
-    }).join('')+'</div>';
-  h+='<div class="lkadd"><input id="nlink" placeholder="Link a verse, e.g. Luke 18:13" '+
-     'value="'+esc(S.linkDraft||'')+'">'+
-     '<button class="btn sec" data-a="addlink">Add</button></div>';
-  if(S.linkMsg) h+='<p class="vnote" style="margin:7px 2px 0">'+esc(S.linkMsg)+'</p>';
+  /* the verses the note mentions, found as it is written */
+  h+='<div class="nedlab">Verses in this note</div><div class="lklist" id="nrefs">'+noteRefsHTML(e)+'</div>';
   if(e.id) h+='<button class="neddel" data-delnote="'+e.id+'">Delete this note</button>';
   return h;
 }
@@ -4671,6 +5077,7 @@ function placesInVerse(text, era){
    belongs in it, you want it filed there. This appends the reference and the
    text to whichever note you pick. */
 function noteTitle(n){
+  if(n.title) return n.title;
   var first=String(n.body||'').split('\n')[0].trim();
   if(first) return first.length>52?first.slice(0,52)+'\u2026':first;
   return (n.b!==null&&n.b!==undefined)?vRef(n.b,n.c,n.v):'Untitled note';
@@ -4684,7 +5091,7 @@ function appendVerseToNote(noteId, key){
   n.body=n.body.trim()?(n.body.replace(/\s+$/,'')+'\n\n'+block):block;
   n.ts=Date.now();
   saveNotes();
-  return {ok:true,msg:'Filed in \u201c'+noteTitle(n)+'\u201d.'};
+  return {ok:true,msg:'Added to \u201c'+noteTitle(n)+'\u201d.'};
 }
 
 /* the eras, wrapped in the library panel like everything else reached from it */
@@ -5075,47 +5482,69 @@ function cardFileName(ref) {
     '.png';
 }
 
-/* Hand the picture to the phone. Share sheet where there is one \u2014 that is what
-   reaches Messages and the camera roll \u2014 and a download everywhere else. */
-function shareVerseCard(b, c, v) {
-  var ref = vRef(b, c, v), text = vText(b, c, v);
-  var cv;
-  try { cv = drawVerseCard(ref, text, 'King James Version (KJV)'); }
-  catch (e) { cv = null; }
-  if (!cv || !cv.toBlob) return Promise.resolve({ ok: false, msg: 'This browser cannot make the image.' });
-
-  return new Promise(function (res) {
-    cv.toBlob(function (blob) {
-      if (!blob) return res({ ok: false, msg: 'This browser cannot make the image.' });
-      var file = null;
-      try { file = new File([blob], cardFileName(ref), { type: 'image/png' }); } catch (e) {}
-      if (payNative()) {
-        saveFile(cardFileName(ref), blob).then(function (r) {
-          res(r.ok ? { ok: true, msg: '' } : { ok: false, msg: 'The image could not be shared.' });
-        });
-        return;
-      }
-      if (file && navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-        navigator.share({ files: [file], title: ref })
-          .then(function () { res({ ok: true, msg: '' }); })
-          .catch(function () { res({ ok: true, msg: '' }); });  /* cancelled is not an error */
-        return;
-      }
-      try {
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url; a.download = cardFileName(ref);
-        /* the app's own tap handler must not see this click: it would read it
-           as a tap outside the verse card and close it */
-        a.addEventListener('click', function (ev) { ev.stopPropagation(); });
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
-        res({ ok: true, msg: 'Image saved.' });
-      } catch (e) {
-        res({ ok: false, msg: 'This browser would not let the app save the image.' });
-      }
-    }, 'image/png');
+/* Hand the picture to the phone. It is drawn and turned into a file at once,
+   inside the tap, because a browser only lets a page open the share sheet
+   while it is still answering the tap; doing it in toBlob's callback came
+   too late, and nothing happened. The store apps hand the file to the
+   phone's own share sheet. If either way fails, the picture opens on screen
+   with Share and Save under it, and pressing on it saves it too. */
+function dataUrlBlob(u){
+  var parts=String(u).split(','), bin=atob(parts[1]||''), n=bin.length, a=new Uint8Array(n);
+  for(var i=0;i<n;i++) a[i]=bin.charCodeAt(i);
+  return new Blob([a],{type:(/data:([^;]+)/.exec(parts[0])||[0,'image/png'])[1]});
+}
+var CARD_IMG=null;
+function makeVerseCard(b, c, v){
+  var ref=vRef(b,c,v), text=vText(b,c,v), cv=null;
+  try{ cv=drawVerseCard(ref, text, 'King James Version (KJV)'); }catch(e){ cv=null; }
+  if(!cv||!cv.toDataURL) return null;
+  var url=cv.toDataURL('image/png'), blob=dataUrlBlob(url), name=cardFileName(ref), file=null;
+  try{ file=new File([blob], name, {type:'image/png'}); }catch(e){}
+  return {ref:ref, url:url, blob:blob, name:name, file:file};
+}
+function shareVerseCard(b, c, v){
+  var card=makeVerseCard(b,c,v);
+  if(!card) return Promise.resolve({ok:false, msg:'This device could not make the image.'});
+  CARD_IMG=card;
+  return shareCardImage(card).then(function(r){
+    if(!r.ok) showCardImage(card, r.msg);
+    return r;
   });
+}
+function shareCardImage(card){
+  if(payNative()){
+    return nativeShareFile(card.name, card.blob).then(function(r){
+      return r.ok?{ok:true,msg:''}:{ok:false,msg:'The share sheet would not open, so here is the picture.'};
+    });
+  }
+  if(card.file&&navigator.canShare&&navigator.share){
+    var can=false; try{ can=navigator.canShare({files:[card.file]}); }catch(e){}
+    if(can) return navigator.share({files:[card.file], title:card.ref})
+      .then(function(){ return {ok:true,msg:''}; })
+      .catch(function(e){
+        if(e&&e.name==='AbortError') return {ok:true,msg:''};     /* closed the sheet */
+        return {ok:false,msg:''};
+      });
+  }
+  return Promise.resolve({ok:false,msg:''});
+}
+/* the picture itself, with what can be done with it */
+function showCardImage(card, msg){
+  closePop();
+  S.sheet=null;
+  var h='<div class="grabzone"><div class="grab"></div></div><div class="cardsheet">'+
+    '<div class="ref">'+esc(card.ref)+'</div>'+
+    '<img class="cardimg" src="'+card.url+'" alt="'+esc(card.ref)+' as a picture">'+
+    '<p class="vnote">'+esc(msg||'')+(msg?' ':'')+'Press and hold the picture to save it or share it.</p>'+
+    '<div class="row2">'+
+      '<button class="btn" data-a="cardshare">Share</button>'+
+      '<button class="btn sec" data-a="cardsave">Save</button></div>'+
+    '<button class="btn gh" data-a="cardclose">Close</button></div>';
+  sheet.innerHTML=h;
+  if(sheet.style){ sheet.style.transition=''; sheet.style.transform=''; }
+  placeOverlays();
+  sheet.classList.add('on'); scrim.classList.add('on');
+  initSheetDrag();
 }
 
 /* ---------- theme ----------
@@ -5133,8 +5562,15 @@ function applyTheme(){
      phone. Auto now resolves to a real light or dark. */
   var t=S.theme||'auto';
   var resolved=(t==='auto')?(systemDark()?'dark':'light'):t;
+  /* Night on Paper is the early-morning page itself: the cream sheet on the
+     cream backdrop, not a sheet lying on black. So while a chapter is open on
+     paper, the reading screen takes the morning's colours whatever the hour. */
+  var np=false;
+  try{ np=resolved==='dark'&&!!document.querySelector('.pane.pg-paper'); }catch(e){}
+  if(np) resolved='light';
   try{
     var r=document.documentElement;
+    if(np) r.setAttribute('data-night-paper','1'); else r.removeAttribute('data-night-paper');
     r.setAttribute('data-theme',resolved);
     r.setAttribute('data-theme-choice',t);
     /* the phone's own top bar takes this colour; it was the old navy */
@@ -5219,9 +5655,32 @@ function testerLocked(){
   try{ return localStorage.getItem('strata:testerlock')==='1'; }catch(e){ return false; }
 }
 function testerOpen(){ return isTesterBuild()&&!testerLocked(); }
-function hasStudy(){ return testerOpen()||!PAY.on||!!PAY.ent.study; }
+function hasStudy(){ return testerOpen()||!PAY.on||!!PAY.ent.study||promoActive(); }
+/* Promotional codes typed into the app. SELAH gives a month of Study, once
+   per phone; it is kept on the phone with the day it runs out. */
+var PROMOS={SELAH:{days:30, what:'a month of Study'}};
+function promoActive(){ return !!(PAY.promo&&PAY.promo.until>Date.now()); }
+function promoUntilText(){
+  try{ return new Date(PAY.promo.until).toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}); }
+  catch(e){ return ''; }
+}
+function redeemPromo(raw){
+  var code=String(raw||'').trim().toUpperCase().replace(/\s+/g,'');
+  if(!code) return {ok:false, msg:'Type the code first.'};
+  var pr=PROMOS[code];
+  if(!pr) return {ok:false, msg:'That code is not one we know. Check the spelling, or if it is an App Store code, redeem it with Apple below.'};
+  if(PAY.promo&&PAY.promo.code===code){
+    return promoActive()?{ok:true, msg:'That code is already in use: Study is yours until '+promoUntilText()+'.'}
+                        :{ok:false, msg:'That code has already been used on this phone.'};
+  }
+  PAY.promo={code:code, from:Date.now(), until:Date.now()+pr.days*864e5};
+  Store.set('strata:promo',PAY.promo);
+  return {ok:true, msg:code+': '+pr.what+' is yours, until '+promoUntilText()+'.'};
+}
 function hasAudio(){ return testerOpen()||!PAY.on||!!PAY.ent.audio; }
 function payInit(){
+  try{ Store.get('strata:promo').then(function(p){
+    if(p&&p.code&&p.until){ PAY.promo=p; if(promoActive()){ applyLayout(); render(); } } }); }catch(e){}
   if(payNative()){
     PAY.on=true;
     /* what was bought is remembered for a week, so a phone offline in church
@@ -5232,6 +5691,9 @@ function payInit(){
     try{ PAY.plugin=window.Capacitor.registerPlugin('Purchases'); }catch(e){ PAY.plugin=null; }
     if(!PAY.plugin) return;
     var key=PAY.keys[payPlatform()]||PAY.keys.ios;
+    /* back from the App Store's code sheet or a purchase elsewhere */
+    try{ document.addEventListener('visibilitychange',function(){
+      if(document.visibilityState==='visible'&&PAY.redeemWatch&&Date.now()-PAY.redeemWatch<15*60000) payRecheck(); }); }catch(e){}
     Promise.resolve(PAY.plugin.configure({apiKey:key})).then(function(){
       try{ PAY.plugin.addCustomerInfoUpdateListener(function(ci){ payApply(ci); }); }catch(e){}
       return PAY.plugin.getCustomerInfo();
@@ -5332,8 +5794,28 @@ function payRestore(){
   Promise.resolve(PAY.plugin.restorePurchases()).then(function(r){ fin(r&&(r.customerInfo||r)); })
     .catch(function(){ PAY.busy=false; PAY.msg='The store could not be reached.'; payRedraw(); });
 }
+/* A code, such as SELAH for a free month. Apple and Google do not allow an
+   app to unlock what it sells with codes of its own, so the code is made in
+   App Store Connect and the Play Console and redeemed in the store's own
+   sheet, which then reports the free month back here like any purchase.
+   iPhone and iPad: Apple's code sheet opens straight away. Android: Google
+   takes a custom code inside the purchase sheet, so the monthly plan opens
+   with the way to its Redeem link spelled out. */
 function payRedeem(){
-  try{ if(PAY.plugin&&payPlatform()==='ios') PAY.plugin.presentCodeRedemptionSheet(); }catch(e){}
+  if(payPlatform()==='ios'){
+    try{ if(PAY.plugin) PAY.plugin.presentCodeRedemptionSheet(); }catch(e){}
+    /* Apple's sheet does not say when it closes: look again when the app
+       comes back to the front, and once more a little later */
+    PAY.redeemWatch=Date.now();
+    setTimeout(payRecheck, 20000);
+    return;
+  }
+  if(!PAY.open) openPaywall('study');
+  PAY.choice='monthly'; PAY.redeemHelp=true; drawPaywall();
+}
+function payRecheck(){
+  try{ if(PAY.plugin&&PAY.plugin.getCustomerInfo)
+    Promise.resolve(PAY.plugin.getCustomerInfo()).then(function(r){ payApply(r&&(r.customerInfo||r)); }).catch(function(){}); }catch(e){}
 }
 
 /* Asking for a paid feature: true when it may go ahead, otherwise the
@@ -5347,7 +5829,7 @@ var PAYWHY={
   study:['Go deeper with Study','Word study, study sheets, every map and more.'],
   words:['Word study, without limits','You have used today’s '+FREE_LOOKUPS+' free lookups. Study opens every word.'],
   sheets:['Study sheets','Your own studies: a question, and the scriptures that answer it.'],
-  tags:['Tags and linked verses','Gather notes by theme and tie them to every verse they touch.'],
+  tags:['Tags for your notes','Gather your notes by theme, and find them again by tag.'],
   folders:['Bookmark folders','Keep your saved verses in folders of your own.'],
   atlas:['The whole atlas','Every map, from the patriarchs to Paul’s journeys.'],
   split:['Two books open at once','On a tablet, read on one side and study on the other.'],
@@ -5363,7 +5845,7 @@ function openPaywall(why){
   drawPaywall();
   payLoadOfferings().then(function(){ if(PAY.open) drawPaywall(); });
 }
-function closePaywall(){ PAY.open=null; closeSheet(); }
+function closePaywall(){ PAY.open=null; PAY.redeemHelp=false; PAY.codeOpen=false; PAY.codeMsg=''; closeSheet(); }
 function drawPaywall(){
   if(!PAY.open||!sheet) return;
   var why=PAY.open, t=PAYWHY[why]||PAYWHY.study;
@@ -5381,7 +5863,7 @@ function drawPaywall(){
     h+='<ul class="pwlist">'+[
       'Word study without limits: Webster’s 1913, where words come from, the thesaurus, Strong’s Hebrew and Greek',
       'Study sheets: gather the scriptures that answer a question',
-      'Tags and linked verses in your notes, and bookmark folders',
+      'Tags to gather your notes by theme, and bookmark folders',
       'The whole atlas, every era',
       'Two books open at once on a tablet',
       'As many of your own books as you like'
@@ -5398,12 +5880,25 @@ function drawPaywall(){
   h+='<button class="btn pwbuy" data-pwbuy="'+pick[1]+'|'+pick[2]+'"'+(PAY.busy||owned?' disabled':'')+'>'+
      (owned?'You have this':PAY.busy?'One moment…':(pick[0]==='annual'?'Start 14 days free':'Continue'))+'</button>';
   if(PAY.msg) h+='<p class="pwmsg" role="status">'+esc(PAY.msg)+'</p>';
+  if(PAY.codeOpen){
+    h+='<div class="pwcode pwcodein"><label for="pwcode"><b>Have a code?</b></label>'+
+       '<div class="pwcoderow"><input id="pwcode" placeholder="Code" autocapitalize="characters" '+
+       'autocomplete="off" spellcheck="false" maxlength="24" enterkeyhint="done">'+
+       '<button class="btn sec" data-a="pwcodego">Redeem</button></div>'+
+       (PAY.codeMsg?'<p class="pwmsg" role="status">'+esc(PAY.codeMsg)+'</p>':'')+
+       (payNative()?'<button class="pwlinkbtn" data-a="pwredeem">An App Store or Google Play code? Redeem it with '+
+         (payPlatform()==='android'?'Google':'Apple')+'</button>':'')+'</div>';
+  }
+  if(PAY.redeemHelp&&payPlatform()==='android')
+    h+='<div class="pwcode"><b>Using a code</b><p>Tap Continue. In Google Play\u2019s sheet, tap the arrow beside '+
+       'the payment method, choose <i>Redeem code</i>, and enter your code. A free-month code '+
+       'means nothing is charged for the month, and you can cancel before it ends.</p></div>';
   h+='<p class="pwfine">'+(pick[0]==='annual'||pick[0]==='monthly'
       ?'Charged to your '+(payPlatform()==='android'?'Google':'Apple')+' account'+(pick[0]==='annual'?' when the 14 days end':'')+
        '. It renews automatically unless you cancel at least 24 hours before the end of the period; manage or cancel it in your account settings.'
       :'One payment, charged to your '+(payPlatform()==='android'?'Google':'Apple')+' account. No subscription.')+'</p>';
   h+='<div class="pwlinks"><button data-a="pwrestore">Restore purchases</button>'+
-     (payPlatform()==='ios'?'<button data-a="pwredeem">Have a code?</button>':'')+
+     '<button data-a="pwcodeopen">Have a code?</button>'+
      '<a href="'+esc(PAY.terms)+'" target="_blank" rel="noopener">Terms of Use</a>'+
      '<a href="'+esc(PAY.privacy)+'" target="_blank" rel="noopener">Privacy</a></div>';
   h+='<button class="pwwhy" data-a="pwwhy" aria-expanded="'+(!!PAY.why)+'">Why we charge</button>';
@@ -5416,17 +5911,21 @@ function drawPaywall(){
   placeOverlays();
   sheet.classList.add('on'); scrim.classList.add('on');
   try{ initSheetDrag(); }catch(e){}
+  var pci=document.getElementById('pwcode');
+  if(pci&&pci.addEventListener) pci.addEventListener('keydown',function(ev){
+    if(ev.key==='Enter'){ ev.preventDefault(); var b=document.querySelector('[data-a="pwcodego"]'); if(b) b.click(); } });
 }
 /* settings: what you have, and the doors to the store */
 function payCard(){
   if(!PAY.on) return '';
   var h='<div class="setgrp">Sixteen Eleven Study</div><div class="setcard pwcard">';
-  h+='<div class="setline"><span>Study</span><span>'+(PAY.ent.study?'Active':'Free')+'</span></div>';
+  h+='<div class="setline"><span>Study</span><span>'+(PAY.ent.study?'Active':promoActive()?'Active until '+esc(promoUntilText()):'Free')+'</span></div>';
   h+='<div class="setline"><span>Narrated Bible</span><span>'+(PAY.ent.audio?'Yours':'Psalms and John')+'</span></div>';
   h+='<div class="pwrow">'+
      (PAY.ent.study&&PAY.ent.audio?'':'<button class="btn sec" data-a="pwopen">See the plans</button>')+
      (PAY.mgmt?'<a class="btn gh" href="'+esc(PAY.mgmt)+'" target="_blank" rel="noopener">Manage subscription</a>':'')+
-     '<button class="btn gh" data-a="pwrestore2">Restore purchases</button></div>';
+     '<button class="btn gh" data-a="pwrestore2">Restore purchases</button>'+
+     (!PAY.ent.study?'<button class="btn gh" data-a="pwcodeopen">Redeem a code</button>':'')+'</div>';
   h+='<div class="setlab" style="margin:14px 0 8px">Keep the lamp lit</div>'+
      '<p class="setsub" style="margin:0 0 10px">A tip keeps the app free of ads. It unlocks nothing; it just helps.</p>'+
      '<div class="pwtips">'+[['tip_small','$1.99'],['tip_medium','$4.99'],['tip_large','$9.99']].map(function(t){
@@ -5507,11 +6006,22 @@ function recordedPassages(bi, ch, list){
   var vs=chapterOf(BK(bi),ch)||[];
   /* the audio may live on a CDN (Cloudflare R2): the manifest says where */
   var base=(S.voiceManifest&&S.voiceManifest._base)||VOICE_BASE;
-  return list.map(function(x){
+  var out=list.map(function(x){
     var parts=[];
     for(var n=x.v1;n<=x.v2;n++) if(vs[n-1]) parts.push([n,vs[n-1].length]);
     return {text:'', from:x.v1, to:x.v2, file:base+x.f, marks:marksOf(parts,0)};
   });
+  /* the chapter's title in the same voice, when it has been recorded; the
+     first verse is marked while it plays */
+  var t=recordedTitle(bi, ch);
+  if(t) out.unshift({text:'', from:0, to:0, file:base+t, marks:[], title:1});
+  return out;
+}
+function recordedTitle(bi, ch){
+  var m=S.voiceManifest, b=BK(bi);
+  if(!m||!m._titles||!b) return null;
+  var bt=m._titles[b.name];
+  return (bt&&bt[String(ch)])||null;
 }
 /* The chapters to hand the native player at once: this one, and while
    "continue" is on, the recorded chapters after it (up to about six hours),
@@ -5540,8 +6050,10 @@ function playRecorded(bookName, ch, fromVerse){
   });
   S.passages=recordedPassages(bi, ch, list);
   var v=Math.max(1,fromVerse||1), at=0, frac=0;
-  S.passages.forEach(function(p,k){ if(p.from<=v&&v<=p.to){ at=k;
+  S.passages.forEach(function(p,k){ if(!p.title&&p.from<=v&&v<=p.to){ at=k;
     (p.marks||[]).forEach(function(m){ if(m[0]===v) frac=m[1]; }); } });
+  /* from the top of the chapter, the title comes first */
+  if(v===1&&S.passages[0]&&S.passages[0].title){ at=0; frac=0; }
   S.speakAt=at; S.speakVerse=v;
   S.speaking=true;
   function segOf(i){ for(var k=segs.length-1;k>0;k--) if(i>=segs[k].start) return segs[k]; return segs[0]; }
@@ -5560,18 +6072,35 @@ function playRecorded(bookName, ch, fromVerse){
     if(sg.b!==S.speakB||sg.c!==S.speakC) movedOn(sg);
     var li=i-sg.start;
     S.speakAt=li; Glide.note(li,0);
-    if((i!==at||!frac)&&S.passages[li]) S.speakVerse=S.passages[li].from;
+    if((i!==at||!frac)&&S.passages[li]) S.speakVerse=S.passages[li].title?1:S.passages[li].from;
     paintSpeaking(); updatePlayerPlace(); });
   Speech.onProgress(function(i,f){
-    var sg=segOf(i), p=S.passages[i-sg.start]; if(!p||sg.c!==S.speakC||sg.b!==S.speakB) return;
+    var sg=segOf(i), p=S.passages[i-sg.start]; if(!p||p.title||sg.c!==S.speakC||sg.b!==S.speakB) return;
     Glide.note(i-sg.start,f);
     var nv=verseAt(p,f);
     if(nv!==S.speakVerse){ S.speakVerse=nv; paintSpeaking(); updatePlayerPlace(); } });
   Speech.onDone(chapterFinished);
   /* paused or played from the lock screen: the pill follows */
   Speech.onState(function(){ renderSpeakBar(); paintSpeaking(); });
-  Speech.playFiles(urls, at, frac, meta);
-  renderSpeakBar(); paintSpeaking();
+  function go(){ Speech.playFiles(urls, at, frac, meta); renderSpeakBar(); paintSpeaking(); }
+  /* Every chapter read from the top opens with its book and chapter. Until
+     the recorded voice has its own title clips, the device voice says the
+     title and the recording follows straight after. */
+  var said=false;
+  if(v===1&&!recordedTitle(bi, ch)&&typeof window!=='undefined'&&window.speechSynthesis&&
+     typeof SpeechSynthesisUtterance!=='undefined'){
+    try{
+      var u=new SpeechSynthesisUtterance(spokenTitle(BK(bi), ch));
+      u.rate=Speech.getRate(); if(Speech.getVoice()) u.voice=Speech.getVoice();
+      var fin=function(){ if(said) return; said=true; if(S.speaking) go(); };
+      u.onend=fin; u.onerror=fin;
+      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+      setTimeout(fin, 9000);          /* a voice that never reports its end */
+      renderSpeakBar(); paintSpeaking();
+      return true;
+    }catch(e){ said=true; }
+  }
+  go();
   return true;
 }
 
@@ -5623,58 +6152,179 @@ function navForward(){
   leaveReading(); render(); S.navMoving = 0; return true;
 }
 
-/* ---------- the surveyed plates ----------
-   Four maps from churchmaps.info, released by their author entirely into the
-   public domain. Shipped as SVG and fetched only when one is opened, so they
-   cost nothing until asked for. The relief rasters and the Russian and
-   Ukrainian label layers were stripped out: 13 MB of source down to under a
-   megabyte for all four.
+/* ---------- the plates ----------
+   Ten maps, one or more for every era. Four are churchmaps.info's, released
+   by their author entirely into the public domain, rebuilt here: every label
+   checked letter by letter against every other and against every town dot,
+   town names placed round their own dots, King James spellings, and the
+   handful of misplaced towns put where they stood. Six were drawn for this
+   app on the same relief, their places taken from OpenBible.info's
+   geocoding (CC BY 4.0) through each relief's fitted projection.
 
-   These sit alongside the drawn maps rather than replacing them. A plate is
-   far better cartography; the drawn maps are the ones that can highlight a
-   single place for a single verse and recolour themselves per era. */
+   Each is an SVG of labels and lines over one baked picture of the relief,
+   fetched only when opened. pins.json says where each of the app's places
+   falls on each plate: the cartographer's own dot where there is one, the
+   projected coordinates otherwise. A plate opened from a verse marks the
+   places the verse names. */
 /* the maps are separate files, which the one-file build cannot carry */
 var PLATES_AVAILABLE=true;
 /* cover art lives in separate files, which the one-file build cannot carry */
 var COVER_ART=true;
 var PLATES = [
-  {id:'palestine_new_testament', name:'Palestine in the New Testament',
-   eras:['roman'], note:'The land as Jesus and the apostles knew it.'},
-  {id:'exodus_and_canaan_conquest', name:'The Exodus and the conquest of Canaan',
-   eras:['wilderness','conquest','judges'],
-   note:'The route out of Egypt and the taking of the land.'},
-  {id:'ancient_world_patriarchs', name:'The ancient world of the patriarchs',
-   eras:['primeval','patriarchs','egypt'], note:'From Ur to Canaan to Egypt.'},
-  {id:'paul_journeys', name:"Paul's journeys",
-   eras:['roman'], note:'Every voyage, across the Roman world.'}
+  {id:"palestine_new_testament", name:"Palestine in the New Testament",
+   eras:["roman"], src:"cm", free:true,
+   note:"The land as Jesus and the apostles knew it.",
+   has:"fffffffffffff07b80000000000"},
+  {id:"ancient_world_patriarchs", name:"The ancient world of the patriarchs",
+   eras:["primeval", "patriarchs", "egypt"], src:"cm",
+   note:"From Ur to Canaan to Egypt, 2000 – 1600 BC.",
+   has:"fffffffffffffffffffd788fff8"},
+  {id:"exodus_and_canaan_conquest", name:"The Exodus and the conquest of Canaan",
+   eras:["egypt", "wilderness", "conquest", "judges"], src:"cm",
+   note:"The route out of Egypt and the taking of the land.",
+   has:"fffffffffffffffb80017800000"},
+  {id:"united_kingdom", name:"The kingdom of David and Solomon",
+   eras:["united"], src:"se",
+   note:"Israel at its widest, and the peoples made to serve it.",
+   has:"fffffffffffffefbe0000000008"},
+  {id:"divided_kingdom", name:"Israel and Judah, the divided kingdom",
+   eras:["divided"], src:"se",
+   note:"The two kingdoms and their neighbours, 930 – 722 BC.",
+   has:"fffffffffffff8fb80000000000"},
+  {id:"assyrian_empire", name:"The Assyrian Empire",
+   eras:["assyria", "divided"], src:"se",
+   note:"Nineveh’s empire, and Israel carried away.",
+   has:"fffffffffffffffffffdf8039e8"},
+  {id:"babylonian_empire", name:"The Babylonian Empire",
+   eras:["babylon"], src:"se",
+   note:"Nebuchadnezzar’s empire, and Judah’s exile.",
+   has:"fffffffffffffffffffdf8039e8"},
+  {id:"persian_empire", name:"The Persian Empire",
+   eras:["persia"], src:"se",
+   note:"From India unto Ethiopia, and the return to Jerusalem.",
+   has:"fffffffffffffffffffffbffffd"},
+  {id:"alexander_four_kingdoms", name:"Alexander and the four kingdoms",
+   eras:["greek"], src:"se",
+   note:"Alexander’s march, and the empire divided four ways.",
+   has:"fffffffffffffffffffffbffffd"},
+  {id:"paul_journeys", name:"Paul's journeys",
+   eras:["roman"], src:"cm",
+   note:"Every voyage, across the Roman world.",
+   has:"fffffffffffffffbe3017ffffff"}
 ];
+function plateById(id){
+  return PLATES.filter(function(p){ return p.id===id; })[0]||null;
+}
+function plateFree(id){ var p=plateById(id); return !!(p&&p.free); }
 function platesForEra(era){
   return PLATES.filter(function(p){ return p.eras.indexOf(era)>-1; });
+}
+/* has: one bit per place, in the order of META.maps.places, as hex */
+function plateHas(pl, name){
+  var M=META&&META.maps, i=-1;
+  if(!pl||!pl.has||!M||!M.places) return false;
+  for(var k=0;k<M.places.length;k++) if(M.places[k].n===name){ i=k; break; }
+  if(i<0) return false;
+  var c=parseInt(pl.has.charAt(i>>2),16);
+  return !!(c&(8>>(i&3)));
+}
+/* the plate for some places in a verse of some era: the era's own plate when
+   it shows them, else whichever plate shows the most of them */
+function plateForPlaces(era, names){
+  var own=platesForEra(era||'roman'), best=null, bs=-1;
+  PLATES.forEach(function(p){
+    var n=names.filter(function(x){ return plateHas(p,x); }).length;
+    var sc=n*10+(own.indexOf(p)>-1?5-own.indexOf(p):0);
+    if(sc>bs){ bs=sc; best=p; }
+  });
+  return best||own[0]||PLATES[0];
+}
+function plateUrl(f){
+  try{ return new URL('assets/maps/'+f, document.baseURI).href; }
+  catch(e){ return 'assets/maps/'+f; }
+}
+var PLATE_PINS=null, PLATE_PINS_WAIT=null;
+function loadPins(){
+  if(PLATE_PINS) return Promise.resolve(PLATE_PINS);
+  if(PLATE_PINS_WAIT) return PLATE_PINS_WAIT;
+  PLATE_PINS_WAIT=fetch(plateUrl('pins.json')).then(function(r){
+    if(!r.ok) throw new Error('pins '+r.status); return r.json();
+  }).then(function(j){ PLATE_PINS=j; PLATE_PINS_WAIT=null; return j; })
+    .catch(function(){ PLATE_PINS={}; PLATE_PINS_WAIT=null; return PLATE_PINS; });
+  return PLATE_PINS_WAIT;
 }
 function loadPlate(id){
   if(S.plateCache[id]!==undefined) return Promise.resolve(S.plateCache[id]);
   if(S.plateWait[id]) return S.plateWait[id];
-  var url;
-  try{ url=new URL('assets/maps/'+id+'.svg', document.baseURI).href; }
-  catch(e){ url='assets/maps/'+id+'.svg'; }
-  S.plateWait[id]=fetch(url).then(function(r){
+  S.plateWait[id]=Promise.all([fetch(plateUrl(id+'.svg')).then(function(r){
     if(!r.ok) throw new Error('plate '+r.status);
     return r.text();
-  }).then(function(t){
-    S.plateCache[id]=t; delete S.plateWait[id]; return t;
+  }), loadPins()]).then(function(t){
+    S.plateCache[id]=t[0]; delete S.plateWait[id]; return t[0];
   }).catch(function(e){
     S.plateCache[id]=''; delete S.plateWait[id]; return '';
   });
   return S.plateWait[id];
 }
+/* the marks for the places a verse names, drawn into the plate itself so they
+   move and scale with it; kept the same size on screen at every zoom */
+function platePinsSVG(id, z){
+  var names=S.platePins||[], P=PLATE_PINS&&PLATE_PINS[id];
+  if(!names.length||!P) return '';
+  var u=P.vb[2]/(100*(z||1)), out='';
+  names.forEach(function(n){
+    var q=P.pins[n]; if(!q) return;
+    var x=q[0], y=q[1], f=function(v){ return (+v).toFixed(1); };
+    out+='<g class="pin" data-pin="'+esc(n)+'">'+
+      '<circle class="pinring" cx="'+f(x)+'" cy="'+f(y)+'" r="'+f(u*1.5)+'"/>'+
+      '<path class="pinhead" d="M'+f(x)+','+f(y)+' C'+f(x-u*.25)+','+f(y-u*1.3)+' '+f(x-u*1.45)+','+f(y-u*2.1)+' '+
+        f(x-u*1.45)+','+f(y-u*3.25)+' A'+f(u*1.45)+','+f(u*1.45)+' 0 1 1 '+f(x+u*1.45)+','+f(y-u*3.25)+
+        ' C'+f(x+u*1.45)+','+f(y-u*2.1)+' '+f(x+u*.25)+','+f(y-u*1.3)+' '+f(x)+','+f(y)+'Z" style="stroke-width:'+f(u*.28)+'"/>'+
+      '<circle class="pineye" cx="'+f(x)+'" cy="'+f(y-u*3.25)+'" r="'+f(u*.55)+'"/>'+
+      /* where the plate has no name of its own for the place, the pin carries one */
+      (q[2]?'':'<text class="pinname" x="'+f(x+u*1.9)+'" y="'+f(y-u*2.6)+'" style="font-size:'+f(u*2.3)+
+        'px;stroke-width:'+f(u*.55)+'">'+esc(n)+'</text>')+
+      '</g>';
+  });
+  return out?'<g class="pins">'+out+'</g>':'';
+}
+/* after a redraw: put the marked place, or the middle the reader was looking
+   at before a zoom, back in the middle of the window */
+function plateKeepCenter(){
+  var fr=document.getElementById('plateframe');
+  if(fr&&fr.scrollWidth) S.plateCenter=[(fr.scrollLeft+fr.clientWidth/2)/fr.scrollWidth,
+                                       (fr.scrollTop+fr.clientHeight/2)/fr.scrollHeight];
+}
+function focusPlate(){
+  if(!S.plate) return;
+  var fr=document.getElementById('plateframe');
+  if(!fr) return;
+  if(S.plateFocus){
+    var pins=fr.querySelectorAll('.pin');
+    if(!pins.length){ S.plateFocus=false; return; }
+    var fb=fr.getBoundingClientRect(), x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+    for(var i=0;i<pins.length;i++){
+      var r=pins[i].getBoundingClientRect();
+      x0=Math.min(x0,r.left); y0=Math.min(y0,r.top); x1=Math.max(x1,r.right); y1=Math.max(y1,r.bottom);
+    }
+    fr.scrollLeft+=((x0+x1)/2-fb.left)-fr.clientWidth/2;
+    fr.scrollTop+=((y0+y1)/2-fb.top)-fr.clientHeight/2;
+    S.plateFocus=false; S.plateCenter=null;
+  } else if(S.plateCenter){
+    var c=S.plateCenter;
+    fr.scrollLeft=c[0]*fr.scrollWidth-fr.clientWidth/2;
+    fr.scrollTop=c[1]*fr.scrollHeight-fr.clientHeight/2;
+    S.plateCenter=null;
+  }
+}
 function vPlate(){
-  var pl=PLATES.filter(function(x){ return x.id===S.plate; })[0];
+  var pl=plateById(S.plate);
   if(!pl){ S.plate=null; return vAtlas(); }
   var h='<div class="libwrap libplain mapfull">';
   h+='<button class="back" style="color:var(--blue)" data-a="closeplate">&larr; Atlas</button>';
   h+='<div class="libhead"><h2>'+esc(pl.name)+'</h2><p>'+esc(pl.note)+'</p></div>';
   if(!PLATES_AVAILABLE){
-    return h+'<div class="plateload">The surveyed maps are separate files, so they '+
+    return h+'<div class="plateload">The maps are separate files, so they '+
       'are not carried in the single-file version of the app. They are in the '+
       'hosted version.</div></div>';
   }
@@ -5689,20 +6339,35 @@ function vPlate(){
        'Check your connection and try again.</div>';
   } else {
     var z=S.plateZoom||1;
+    var marked=(S.platePins||[]).filter(function(n){
+      return PLATE_PINS&&PLATE_PINS[pl.id]&&PLATE_PINS[pl.id].pins[n]; });
+    if(marked.length){
+      h+='<div class="platemarks"><span class="pmk" aria-hidden="true"></span>'+
+         esc(marked.join(' \u00b7 '))+
+         '<button data-a="clearpins" aria-label="Clear the marks">\u00d7</button></div>';
+    }
     h+='<div class="platebar">'+
        '<button data-platezoom="out" aria-disabled="'+(z<=1)+'">\u2212</button>'+
        '<span>'+(z*100)+'%</span>'+
        '<button data-platezoom="in" aria-disabled="'+(z>=6)+'">+</button>'+
        '<button class="fit" data-platezoom="fit">Fit</button>'+
        '</div>';
+    var svg=cached, pins=platePinsSVG(pl.id, z);
+    if(pins){ var at=svg.lastIndexOf('</svg>'); if(at>-1) svg=svg.slice(0,at)+pins+svg.slice(at); }
     h+='<div class="plate'+(z>1?' zoomed':'')+'" id="plateframe"><div class="platein" style="width:'+
-       (z*100)+'%">'+cached+'</div></div>';
+       (z*100)+'%">'+svg+'</div></div>';
     h+='<p class="vnote" style="margin:12px 2px 0">Use \u2212 and + to zoom, then drag to move. '+
-       'Public domain, from churchmaps.info.</p>';
+       (pl.src==='cm'?'Public domain, from churchmaps.info, corrected for this app.':
+        'Drawn for this app on churchmaps.info\u2019s relief (public domain); '+
+        'places from OpenBible.info (CC BY 4.0).')+'</p>';
   }
   return h+'</div>';
 }
 
+function eraRank(k){
+  for(var i=0;i<META.eras.length;i++) if(META.eras[i].key===k) return i;
+  return 99;
+}
 function atlasCover(){
   return specialCover({kind:'atlas', attr:'data-a="openatlas"', title:'Atlas',
     caption:'13 eras', emblem:EMBLEM.compass});
@@ -5725,10 +6390,11 @@ function vAtlas(){
       '<span class="ap">' + esc(pl.name) + '</span>' +
       '</button>';
   }).join('') + '</div>';
-  h += '<div class="lab" style="margin-top:22px;color:#D8B25E">Surveyed maps</div>';
-  h += '<p class="vnote" style="margin:0 0 10px 2px">Detailed cartography, ' +
-       'released into the public domain, from churchmaps.info.</p>';
-  h += PLATES.map(function(x){
+  h += '<div class="lab" style="margin-top:22px;color:#D8B25E">All the maps</div>';
+  h += '<p class="vnote" style="margin:0 0 10px 2px">Ten maps, from the patriarchs to Paul. ' +
+       'Four are from churchmaps.info, corrected; six were drawn for this app on the same relief.</p>';
+  h += PLATES.slice().sort(function(a, b){
+    return eraRank(a.eras[0]) - eraRank(b.eras[0]); }).map(function(x){
     return '<button class="plateref" data-plate="' + esc(x.id) + '">' +
       '<b>' + esc(x.name) + '</b><span>' + esc(x.note) + '</span></button>';
   }).join('');
@@ -5748,7 +6414,7 @@ function fmtSize(n){
    with it (Strong's). Everything is kept to the Bible's own vocabulary and
    fetched a letter at a time, so it costs nothing until it is used and then
    works offline. Old forms find their word: loveth finds love, spake speak. */
-var LEX={shard:{}, wait:{}, strongs:null, syn:null, vocab:null};
+var LEX={shard:{}, wait:{}, strongs:null, vocab:null};
 var LEX_IRREG={hath:'have',hast:'have',doth:'do',dost:'do',didst:'do',saith:'say',spake:'speak',
   brake:'break',gat:'get',begat:'beget',wist:'wit',wot:'wit',shalt:'shall',wilt:'will',art:'be',
   wast:'be',wert:'be',thee:'thou',thy:'thou',thine:'thou',ye:'you',men:'man',women:'woman',
@@ -5776,14 +6442,16 @@ function lexFetch(name){
   return (LEX.wait[name]=fetchJSON('assets/data/lex/'+name).catch(function(){
     delete LEX.wait[name]; return null; }));
 }
-function lexShard(letter){
-  if(LEX.shard[letter]!==undefined) return Promise.resolve(LEX.shard[letter]);
-  return lexFetch('w-'+letter+'.json').then(function(d){ LEX.shard[letter]=d||{}; return LEX.shard[letter]; });
+/* The dictionary is every word, not only the Bible's: Webster's 1913 for the
+   older senses the King James uses, WordNet for the plain modern meaning,
+   split by the first two letters so a lookup fetches one small file. */
+function lexKey(w){ w=String(w||''); return w.length>1?w.slice(0,2):w+'_'; }
+function lexShard(key){
+  if(LEX.shard[key]!==undefined) return Promise.resolve(LEX.shard[key]);
+  return lexFetch('d-'+key+'.json').then(function(d){ LEX.shard[key]=d||{}; return LEX.shard[key]; });
 }
 function lexExtras(){
-  var a=LEX.strongs?Promise.resolve(LEX.strongs):lexFetch('strongs.json').then(function(d){ LEX.strongs=d; return d; });
-  var b=LEX.syn?Promise.resolve(LEX.syn):lexFetch('syn.json').then(function(d){ LEX.syn=d; return d; });
-  return Promise.all([a,b]);
+  return LEX.strongs?Promise.resolve(LEX.strongs):lexFetch('strongs.json').then(function(d){ LEX.strongs=d; return d; });
 }
 /* every word of the Bible, with how often it occurs */
 function lexVocab(){
@@ -5801,21 +6469,44 @@ function lexVocab(){
 }
 function lexLookup(word){
   var cands=lexCandidates(word);
-  var letters=[];
-  cands.forEach(function(c){ if(letters.indexOf(c.charAt(0))<0) letters.push(c.charAt(0)); });
-  return Promise.all(letters.map(lexShard).concat([lexExtras()])).then(function(){
-    var forms=[], seen={};
+  var keys=[];
+  cands.forEach(function(c){ var k=lexKey(c); if(keys.indexOf(k)<0) keys.push(k); });
+  return Promise.all(keys.map(lexShard).concat([lexExtras()])).then(function(){
+    var forms=[], seen={}, syn=[];
     cands.forEach(function(c){
-      var sh=LEX.shard[c.charAt(0)]||{};
-      if(sh[c]&&!seen[c]){ seen[c]=1; forms.push({head:c, entries:sh[c]}); }
+      var e=(LEX.shard[lexKey(c)]||{})[c];
+      if(!e||seen[c]) return;
+      seen[c]=1;
+      forms.push({head:c, entries:e.w||[], modern:e.n||[]});
+      (e.y||[]).forEach(function(x){ if(x!==c&&syn.indexOf(x)<0) syn.push(x); });
     });
-    var syn=[], strongs=[], sseen={};
+    var strongs=[], sseen={};
     cands.forEach(function(c){
-      ((LEX.syn||{})[c]||[]).forEach(function(x){ if(syn.indexOf(x)<0) syn.push(x); });
       ((LEX.strongs&&LEX.strongs.i[c])||[]).forEach(function(k){ if(!sseen[k]){ sseen[k]=1; strongs.push(k); } });
     });
     return {word:String(word).toLowerCase(), forms:forms, syn:syn.slice(0,28), strongs:strongs.slice(0,16)};
   });
+}
+/* words beginning with what has been typed: the Bible's own first, the
+   commonest of them leading, then the rest of the dictionary */
+function lexSuggest(q){
+  var sh=LEX.shard[lexKey(q)];
+  if(sh===undefined){ lexShard(lexKey(q)).then(function(){ if(S.wordsOpen&&!S.wsel){ S.keepScroll=true; render();
+      var e=document.getElementById('wq'); if(e){ e.focus(); try{ e.setSelectionRange(e.value.length,e.value.length); }catch(x){} } } });
+    return null; }
+  var voc=lexVocab(), bible=[], other=[], seen={};
+  Object.keys(sh||{}).concat(LEX.words||[]).forEach(function(w){
+    if(seen[w]||w.indexOf(q)!==0) return; seen[w]=1;
+    (voc[w]?bible:other).push(w);
+  });
+  bible.sort(function(a,b){ return (voc[b]-voc[a])||(a<b?-1:1); });
+  /* words with a modern meaning are everyday words; Webster-only ones are
+     mostly archaic, so they come last */
+  var modern=function(w){ var e=(sh||{})[w]; return e&&e.n?0:1; };
+  other.sort(function(a,b){ return (modern(a)-modern(b))||(a.length-b.length)||(a<b?-1:1); });
+  /* the word itself, then the Bible's commonest, then everyday English */
+  var list=(seen[q]?[q]:[]).concat(bible.slice(0,14).filter(function(w){ return w!==q; }));
+  return list.concat(other.filter(function(w){ return w!==q; }).slice(0,Math.max(10,24-list.length)));
 }
 function wordsCover(){
   return specialCover({kind:'words', attr:'data-a="openwords"', title:'Word study',
@@ -5858,16 +6549,16 @@ function vWords(){
   var q=(S.wq||'').toLowerCase().replace(/[^a-z]/g,'');
   if(!S.wsel||q!==S.wsel){
     var voc=lexVocab(), list=[];
-    if(q.length>=2){
-      /* the word itself first, then the commonest words it begins */
-      for(var i=0;i<LEX.words.length;i++) if(LEX.words[i].indexOf(q)===0) list.push(LEX.words[i]);
-      list.sort(function(a,b){ return (a===q?-1:b===q?1:0)||(voc[b]-voc[a]); });
-      list=list.slice(0,16);
+    if(q.length>=1){
+      list=lexSuggest(q);
+      if(list===null){ return h+'<div class="empty"><span class="spin"></span> Looking\u2026</div></div>'; }
     } else list=['charity','conversation','ruddy','meet','prevent','quick','peradventure','wist','suffer','bowels','raiment','firmament'];
-    h+='<div class="lab" style="margin:6px 0 10px">'+(q.length>=2?'In the King James':'Try one')+'</div>';
+    h+='<div class="lab" style="margin:6px 0 10px">'+(q.length>=1?'Words':'Try one')+'</div>';
     h+='<div class="wsugg">'+list.map(function(w){
-      return '<button class="chip" data-word="'+w+'">'+esc(w)+(voc[w]?'<span class="wcount">'+voc[w]+'</span>':'')+'</button>';
-    }).join('')+(q.length>=2&&!list.length?'<p class="vnote">No word in the Bible begins with “'+esc(q)+'”.</p>':'')+'</div>';
+      return '<button class="chip" data-word="'+w+'">'+esc(w)+(voc[w]?'<span class="wcount" title="times in the King James">'+voc[w]+'</span>':'')+'</button>';
+    }).join('')+(q.length>=1&&!list.length?'<p class="vnote">No word in the dictionary begins with “'+esc(q)+'”. '+
+      'Press return to look it up anyway.</p>':'')+'</div>';
+    if(q.length>=1) h+='<p class="vnote">Numbers are how often a word comes in the King James Bible.</p>';
     return h+'</div>';
   }
   var w=S.wsel, n=lexVocab()[w]||0;
@@ -5882,22 +6573,35 @@ function vWords(){
   }
   if(!r){ return h+'<div class="empty"><span class="spin"></span> Looking it up…</div></div>'; }
   if(r.failed) return h+'<div class="empty">The dictionary could not be loaded. It needs a connection the first time.</div></div>';
-  var etyms=[];
-  r.forms.forEach(function(f){ f.entries.forEach(function(e){ if(e.e&&etyms.indexOf(e.e)<0) etyms.push(e.e); }); });
-  if(etyms.length) h+='<div class="wsec"><div class="lab">Where it comes from</div>'+
-    etyms.slice(0,3).map(function(t){ return '<p class="wetym">'+esc(t)+'</p>'; }).join('')+'</div>';
-  if(r.forms.length){
-    h+='<div class="wsec"><div class="lab">Dictionary · Webster’s 1913</div>';
-    r.forms.slice(0,3).forEach(function(f){
-      f.entries.slice(0,3).forEach(function(e){
-        h+='<div class="wentry"><div class="wform">'+esc(f.head)+(e.p?' <i>'+esc(e.p)+'</i>':'')+'</div>'+
-          e.d.slice(0,S.wmore?10:4).map(function(d){ return '<p class="wdef">'+esc(d)+'</p>'; }).join('')+'</div>';
-      });
+  /* today's meaning first, then the older senses the King James was made with */
+  var modern=r.forms.filter(function(f){ return f.modern&&f.modern.length; });
+  if(modern.length){
+    h+='<div class="wsec"><div class="lab">Meaning today</div>';
+    modern.slice(0,2).forEach(function(f){
+      h+='<div class="wentry"><div class="wform">'+esc(f.head)+'</div>'+
+        f.modern.slice(0,S.wmore?10:5).map(function(m){
+          return '<p class="wdef">'+(m[0]?'<i>'+esc(m[0])+'</i> ':'')+esc(m[1])+
+            (m[2]?' <span class="wex">\u201c'+esc(m[2])+'\u201d</span>':'')+'</p>'; }).join('')+'</div>';
     });
-    if(!S.wmore&&r.forms.some(function(f){ return f.entries.some(function(e){ return e.d.length>4; }); }))
-      h+='<button class="chip" data-a="wmore">Every sense</button>';
     h+='</div>';
   }
+  var etyms=[];
+  r.forms.forEach(function(f){ (f.entries||[]).forEach(function(e){ if(e.e&&etyms.indexOf(e.e)<0) etyms.push(e.e); }); });
+  if(etyms.length) h+='<div class="wsec"><div class="lab">Where it comes from</div>'+
+    etyms.slice(0,3).map(function(t){ return '<p class="wetym">'+esc(t)+'</p>'; }).join('')+'</div>';
+  var old=r.forms.filter(function(f){ return f.entries&&f.entries.length; });
+  if(old.length){
+    h+='<div class="wsec"><div class="lab">Dictionary · Webster’s 1913</div>';
+    old.slice(0,3).forEach(function(f){
+      f.entries.slice(0,3).forEach(function(e){
+        h+='<div class="wentry"><div class="wform">'+esc(f.head)+(e.p?' <i>'+esc(e.p)+'</i>':'')+'</div>'+
+          (e.d||[]).slice(0,S.wmore?10:4).map(function(d){ return '<p class="wdef">'+esc(d)+'</p>'; }).join('')+'</div>';
+      });
+    });
+    h+='</div>';
+  }
+  if(!S.wmore&&r.forms.some(function(f){ return (f.modern||[]).length>5||(f.entries||[]).some(function(e){ return (e.d||[]).length>4; }); }))
+    h+='<button class="chip" data-a="wmore">Every sense</button>';
   if(r.syn.length) h+='<div class="wsec"><div class="lab">Thesaurus</div><div class="wsugg">'+
     r.syn.map(function(x){ return '<button class="chip" data-word="'+esc(x)+'">'+esc(x)+'</button>'; }).join('')+'</div></div>';
   if(r.strongs.length) h+='<div class="wsec"><div class="lab">Hebrew and Greek · Strong’s</div>'+
@@ -5907,7 +6611,7 @@ function vWords(){
     h+='<div class="empty">Nothing found for “'+esc(w)+'”.</div>';
   h+='<p class="wcredit">Webster’s Revised Unabridged Dictionary (1913) and Strong’s Hebrew and Greek '+
     'dictionaries are in the public domain; Strong’s in the Open Scriptures edition (CC BY-SA). '+
-    'Synonyms from Webster and from Princeton WordNet 3.0.</p>';
+    'Today’s meanings and synonyms from Princeton WordNet 3.0 (WordNet 3.0 \u00a9 2006 Princeton University).</p>';
   return h+'</div>';
 }
 
@@ -6009,15 +6713,22 @@ function buildTOC(){
       'The books appear here once the scriptures have finished loading.</div>';
     return;
   }
+  var dh=document.getElementById('dh');
   if(S.drawerBook!==null&&BK(S.drawerBook)){
     var b=BK(S.drawerBook);
-    h+='<div class="sec"><button class="dback" data-a="drawerback">&larr; All books</button></div>';
-    h+='<div class="dtitle">'+esc(b.name)+'<span>'+b.nch+' chapters</span></div>';
+    /* the way back to every book stays in the drawer's head, so it is there
+       however far down a long book's chapters you have scrolled */
+    if(dh) dh.innerHTML='<button class="dback" data-a="drawerback">&larr; All books</button>'+
+      '<div class="dtitle">'+esc(b.name)+'<span>'+b.nch+(b.nch===1?' chapter':' chapters')+'</span></div>';
     h+='<div class="dchg">';
+    var here=(S.reading===b.i)?S.ch:0;
     for(var i=1;i<=b.nch;i++)
-      h+='<button class="dch'+(b.chapters[i]?' rich':'')+'" data-drawerch="'+i+'">'+i+'</button>';
+      h+='<button class="dch'+(b.chapters[i]?' rich':'')+(isRead(b.i,i)?' read':'')+
+         (i===here?' cur':'')+'" data-drawerch="'+i+'"'+
+         (i===here?' aria-current="true"':'')+'>'+i+'</button>';
     h+='</div>';
   } else {
+    if(dh) dh.textContent='The Bible';
     /* Settings used to sit beneath all eighty books, about four thousand
        pixels down. First, where it can be found. */
     h+='<button class="dset" data-a="showabout">'+svg(I.gear)+
@@ -6032,6 +6743,14 @@ function buildTOC(){
     });
   }
   toc.innerHTML=h;
+}
+/* A long book (Psalms has 150) opens with the chapter you are in on screen. */
+function scrollDrawerToCurrent(){
+  try{
+    var c=toc.querySelector('.dch.cur');
+    toc.scrollTop=0;
+    if(c&&c.offsetTop>toc.clientHeight*0.6) toc.scrollTop=c.offsetTop-toc.clientHeight*0.4;
+  }catch(e){}
 }
 function openDrawer(o){
   if(o) placeOverlays();
@@ -6413,8 +7132,67 @@ var layoutTimer=null;
 function measureHeight(){
   try{ document.documentElement.style.setProperty('--vh',(window.innerHeight*0.01)+'px'); }catch(e){}
 }
+/* the on-screen keyboard: a field has focus and the screen got shorter. On
+   a tablet held sideways that shorter screen looked like a phone's, so the
+   two sides folded into one under your fingers and the note, or the tag you
+   were adding, vanished. While typing, only a change of width relayouts. */
+var LAST_W=0;
+function typingNow(){
+  try{ var a=document.activeElement; if(!a) return false;
+    var t=(a.tagName||'').toLowerCase();
+    return t==='textarea'||(t==='input'&&!/^(button|checkbox|radio|range|file|submit)$/i.test(a.type||''))||a.isContentEditable;
+  }catch(e){ return false; }
+}
+function kbOpen(on){
+  try{ document.body.classList.toggle('kb-open', !!on); }catch(e){}
+}
+function watchKeyboard(){
+  if(S.kbWatched||typeof document==='undefined') return;
+  S.kbWatched=1;
+  var K=null;
+  try{ K=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Keyboard; }catch(e){}
+  if(K&&K.addListener){
+    try{
+      K.addListener('keyboardWillShow',function(){ kbOpen(true); });
+      K.addListener('keyboardDidShow',function(){ kbOpen(true); revealFocus(); });
+      K.addListener('keyboardWillHide',function(){ kbOpen(false); });
+    }catch(e){}
+  } else {
+    /* a browser: the visual viewport says how much the keyboard covers */
+    var vv=window.visualViewport;
+    if(vv&&vv.addEventListener) vv.addEventListener('resize',function(){
+      var cover=(window.innerHeight||0)-vv.height;
+      kbOpen(typingNow()&&cover>120);
+    });
+  }
+  var touch=false;
+  try{ touch=!!(window.matchMedia&&matchMedia('(pointer:coarse)').matches); }catch(e){}
+  document.addEventListener('focusout',function(){ setTimeout(function(){ if(!typingNow()) kbOpen(false); },60); });
+  /* on a touch screen a field taking focus means the keyboard is coming:
+     the floating bars step aside at once rather than covering the field */
+  document.addEventListener('focusin',function(){ if(typingNow()){ if(touch&&!K) kbOpen(true); setTimeout(revealFocus,320); } });
+}
+/* keep the field being typed in clear of the keyboard, inside its own side */
+function revealFocus(){
+  try{
+    var a=document.activeElement; if(!a||!typingNow()) return;
+    var sc=a.closest&&a.closest('.pv'); if(!sc) return;
+    var r=a.getBoundingClientRect(), s=sc.getBoundingClientRect();
+    var vh=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
+    var bottom=Math.min(s.bottom, vh)-16, top=s.top+60;
+    if(a.tagName.toLowerCase()==='textarea'&&r.height>vh*0.5){
+      /* a long note: bring the caret's line into view, not the box's foot */
+      return;
+    }
+    if(r.bottom>bottom) sc.scrollTop+=r.bottom-bottom;
+    else if(r.top<top) sc.scrollTop-=top-r.top;
+  }catch(e){}
+}
 function onResize(){
   measureHeight();
+  var w=window.innerWidth||0;
+  if(typingNow()&&w===LAST_W){ placeSplit(); return; }
+  LAST_W=w;
   if(layoutTimer) clearTimeout(layoutTimer);
   layoutTimer=setTimeout(function(){
     layoutTimer=null;
@@ -6426,6 +7204,8 @@ function onResize(){
 }
 function initLayout(){
   measureHeight();
+  LAST_W=window.innerWidth||0;
+  watchKeyboard();
   /* the second side is only opened once the saved place is known
      (openingChapter); until then this just sets the frame */
   LAYOUT=wantLayout();
@@ -6663,6 +7443,26 @@ var Glide=(function(){
   return {note:note, start:start, stop:stop, running:function(){ return !!raf; }};
 })();
 
+/* No pinch zoom on the app itself. iPhone ignores user-scalable=no in the
+   viewport tag, so a two-finger touch during a swipe could zoom the whole
+   page; WebKit's own gesture events are refused, except on a map plate,
+   which is meant to be pinched. */
+try{
+  ['gesturestart','gesturechange'].forEach(function(n){
+    document.addEventListener(n,function(e){
+      var t=e&&e.target;
+      if(t&&t.closest&&t.closest('.plate')) return;
+      try{ e.preventDefault(); }catch(x){}
+    },{passive:false});
+  });
+  document.addEventListener('touchmove',function(e){
+    if(e.touches&&e.touches.length>1){
+      var t=e.target; if(t&&t.closest&&t.closest('.plate')) return;
+      try{ e.preventDefault(); }catch(x){}
+    }
+  },{passive:false});
+}catch(e){}
+
 /* ================= RENDER ================= */
 function readingAnchor(){
   try{
@@ -6684,7 +7484,7 @@ function restoreAnchor(a){
    and the old code always put focus back in the note's body, so text meant
    for the title, a tag or a linked verse landed in the body instead and
    Add tag and Add pressed on an empty box. */
-var FIELDS=['ntitle','nbody','ntagadd','nlink','quicknote','bmfolderin','refin'];
+var FIELDS=['ntitle','nbody','ntagadd','nlink','quicknote','bmfolderin','refin','q','wq'];
 function fieldState(){
   try{
     var a=document.activeElement;
@@ -6721,6 +7521,7 @@ function render(){
   ensureSky();
   placeSplit();
   ['A','B'].forEach(function(p){ var pe=paneEl(p), v=paneEl(p,2); if(pe&&v) updateBackFloat(pe,v); });
+  try{ focusPlate(); }catch(e){}
 }
 function renderSide(quiet){
   /* a change of text size or page reflows the chapter; keep the verse you were
@@ -6784,10 +7585,13 @@ function renderInner(quiet){
      rebuilding it would lose its place and, in the reader, the lit verse */
   var same=!!quiet&&PANE_HTML[CUR]===h&&!S.readerOpts;
   PANE_HTML[CUR]=h;
+  var hadQ=false;
+  try{ hadQ=!!(document.activeElement&&document.activeElement.id==='q'&&view.contains(document.activeElement)); }catch(e){}
   if(!same) view.innerHTML=h;
   var sig=[S.tab,S.book,S.reading,S.ch,S.btab,S.mode,S.cat,S.sheet,
            S.apocOpen,S.trackerOpen,S.wordsOpen,S.wsel,S.editing&&S.editing.id,
            S.sheetEdit&&S.sheetEdit.kind,S.bibleBook].join('|');
+  var newView=sig!==S.viewSig;
   if(sig!==S.viewSig&&!quiet&&S.pop) closePop();   /* a new page: the card was for the old one */
   if(!S.keepScroll && sig!==S.viewSig) scrollToTop(true);
   if(sig!==S.viewSig) navRecord();
@@ -6800,14 +7604,18 @@ function renderInner(quiet){
     var q=document.getElementById('q');
     if(q){
       q.addEventListener('input',inPane(function(){
-        S.q=q.value; queueSearchRecord(S.q); runSearch();
+        S.q=q.value; S.searchSec='All'; queueSearchRecord(S.q); runSearch();
         /* the list only belongs on an empty field, so redraw as it clears */
         var showing=!!document.querySelector('.hist');
         if((S.q.trim().length<2)!==showing){ S.keepScroll=true; render(); }
       }));
       /* not when it is the other side being redrawn: that would pull the
          keyboard up over whatever you were doing */
-      if(!quiet) q.focus();
+      /* and only as the search opens, or while you are typing in it: after
+         a result was tapped the keyboard stays down */
+      if(!quiet&&(newView||hadQ)){ q.focus();
+        /* the caret at the end of what is there, never before it */
+        try{ var qe=q.value.length; q.setSelectionRange(qe,qe); }catch(e){} }
     }
     runSearch();
   }
@@ -6873,17 +7681,31 @@ function renderInner(quiet){
   /* everything typed in the editor is kept as it is typed, so a redraw, for
      whatever reason, can never throw away a title or a half-typed tag */
   var ntl=document.getElementById('ntitle');
-  if(ntl&&ntl.addEventListener) ntl.addEventListener('input',inPane(function(){
-    if(S.editing) S.editing.title=ntl.value; }));
+  if(ntl&&ntl.addEventListener){
+    ntl.addEventListener('input',inPane(function(){
+      if(S.editing){ S.editing.title=ntl.value; queueNoteSave(); } }));
+    ntl.addEventListener('blur',function(){ if(S.editing&&noteSaveTimer) commitNote(S.editing); });
+  }
   var nta=document.getElementById('ntagadd');
-  if(nta&&nta.addEventListener) nta.addEventListener('input',function(){ S.tagDraft=nta.value; });
+  if(nta&&nta.addEventListener) nta.addEventListener('input',function(){
+    S.tagDraft=nta.value;
+    /* a comma finishes a tag, as on most keyboards' tag boxes */
+    if(/,/.test(nta.value)){ var btn=document.querySelector('[data-a="addtag"]'); if(btn) btn.click(); }
+  });
   var nli=document.getElementById('nlink');
   if(nli&&nli.addEventListener) nli.addEventListener('input',function(){ S.linkDraft=nli.value; });
   var nb=document.getElementById('nbody');
   if(nb&&nb.addEventListener){
+    /* the box grows with what is written, so the page scrolls rather than a
+       little window inside it, and a tap lands where it is aimed instead of
+       the text jumping back to its top */
+    var grow=function(){ try{ nb.style.height='auto'; nb.style.height=Math.max(200,nb.scrollHeight+4)+'px'; }catch(e){} };
+    grow();
     nb.addEventListener('input',inPane(function(){
-      if(S.editing){ S.editing.body=nb.value; S.editCaret=nb.selectionStart; }
+      if(S.editing){ S.editing.body=nb.value; S.editCaret=nb.selectionStart; queueNoteSave(); }
+      grow();
     }));
+    nb.addEventListener('blur',function(){ if(S.editing&&noteSaveTimer){ commitNote(S.editing); refreshNoteRefs(); } });
     /* the body only takes focus when the editor first opens, never over a
        field you are typing in */
     if(S.editing&&S.editFocusBody&&!quiet){
@@ -6930,7 +7752,7 @@ document.addEventListener('click',inPane(function(ev){
     '[data-delref],[data-snap],[data-snapdl],[data-search],[data-forget],'+
     '[data-filenote],[data-gw],[data-pick],[data-pcolor],[data-word],[data-strong],'+
     '[data-pdelref],[data-pfolder],[data-pfilenote],'+
-    '[data-pwopen],[data-pwpick],[data-pwbuy],[data-pwtip],'+
+    '[data-pwopen],[data-pwpick],[data-pwbuy],[data-pwtip],[data-ssec],'+
     '[data-precept],[data-opennote]');
   /* the verse card: a tap anywhere outside it puts it away. A tap on another
      verse moves it there; on the same verse, or elsewhere in the text, that
@@ -6944,6 +7766,12 @@ document.addEventListener('click',inPane(function(ev){
   }
   if(!t) return;
   var d=t.dataset;
+  /* a tap that takes you somewhere else (a search result, a chapter, another
+     side) puts the keyboard away: the field it was typing in is left behind */
+  if(typingNow()&&(d.goverse||d.nav||d.pick||d.readch||d.drawerch||d.ch||d.book||d.opennote||d.open||d.ref)){
+    try{ var ae=document.activeElement; if(ae&&!t.contains(ae)&&ae.blur) ae.blur(); }catch(e){}
+    kbOpen(false);
+  }
 
   /* --- Study and the store --- */
   if(d.a==='addbook'&&!hasStudy()&&S.shelf.length>=FREE_BOOKS){
@@ -6956,11 +7784,26 @@ document.addEventListener('click',inPane(function(ev){
   if(d.pwtip){ payLoadOfferings().then(function(){ payBuy('tips', d.pwtip); }); return; }
   if(d.a==='pwrestore'||d.a==='pwrestore2'){ payRestore(); return; }
   if(d.a==='pwredeem'){ payRedeem(); return; }
+  if(d.a==='pwcodeopen'){
+    /* Apple allows only its own codes in an iPhone app: there, SELAH is an
+       App Store offer code, typed into Apple's own sheet */
+    if(payPlatform()==='ios'){ payRedeem(); return; }
+    if(!PAY.open) openPaywall('study');
+    PAY.codeOpen=true; PAY.codeMsg=''; drawPaywall();
+    setTimeout(function(){ var ci=document.getElementById('pwcode'); if(ci) try{ ci.focus(); }catch(e){} },60);
+    return; }
+  if(d.a==='pwcodego'){
+    var ce=document.getElementById('pwcode');
+    var cr=redeemPromo(ce?ce.value:'');
+    PAY.codeMsg=cr.msg; announce(cr.msg);
+    if(cr.ok&&promoActive()){ applyLayout(); render();
+      setTimeout(function(){ if(PAY.open&&PAY.codeOpen) closePaywall(); }, 2600); }
+    drawPaywall(); return; }
   if(d.a==='pwwhy'){ PAY.why=!PAY.why; drawPaywall(); return; }
   if(d.a==='pwclose'){ closePaywall(); return; }
   if((d.a==='addtag'||d.a==='addlink')&&!gate('tags')) return;
   if((d.bmfolder||d.a==='bmnewfolder'||d.pfolder||d.a==='pnewfolder')&&!gate('folders')) return;
-  if(d.plate&&d.plate!==PLATES[0].id&&!gate('atlas')) return;
+  if(d.plate&&!plateFree(d.plate)&&!gate('atlas')) return;
   if(d.sheet&&!gate('sheets')) return;
 
   /* --- the verse card --- */
@@ -6990,16 +7833,17 @@ document.addEventListener('click',inPane(function(ev){
   if(d.a==='pshare'){
     if(!S.pop) return;
     var ps=parseKey(S.pop);
-    if(navigator.share) shareVerse(ps.b,ps.c,ps.v);
-    else shareVerseCard(ps.b,ps.c,ps.v).then(function(r){ announce((r&&r.msg)||'Image ready.'); });
+    if(navigator.share||payNative()) shareVerse(ps.b,ps.c,ps.v);
+    else { copyVerse(ps.b,ps.c,ps.v); S.popCopied=S.pop; popSay('Copied, ready to paste.'); placePop(false); }
     return; }
   if(d.a==='pimage'){
     if(!S.pop||S.popImaging) return;
     var pik=S.pop, pi=parseKey(pik);
     S.popImaging=pik; placePop(false);
     shareVerseCard(pi.b,pi.c,pi.v).then(function(r){
+      S.popImaging=null;
       if(S.pop!==pik) return;
-      S.popImaging=null; popSay((r&&r.msg)||'Image ready.'); placePop(false);
+      popSay(r&&r.ok?'':(r&&r.msg)||''); placePop(false);
     });
     return; }
   if(d.a==='pmore'){
@@ -7009,7 +7853,7 @@ document.addEventListener('click',inPane(function(ev){
     placePop(false); return; }
   if(d.a==='paddref'){
     if(!S.pop) return;
-    S.popRefAdding=S.pop; S.popMsg=''; placePop(false);
+    S.popRefAdding=S.pop; S.popMsg=''; S.prefDraft=''; placePop(false);
     var pin=document.getElementById('prefin'); if(pin) try{ pin.focus(); }catch(e){}
     return; }
   if(d.a==='pcancelref'){ S.popRefAdding=null; S.popMsg=''; placePop(false); return; }
@@ -7017,7 +7861,7 @@ document.addEventListener('click',inPane(function(ev){
     if(!S.pop) return;
     var pr=parseKey(S.pop), prin=document.getElementById('prefin');
     var prr=addUserRef(pr.b,pr.c,pr.v,prin?prin.value:'');
-    if(prr.ok){ S.popRefAdding=null; }
+    if(prr.ok){ S.popRefAdding=null; S.prefDraft=''; }
     popSay(prr.msg); placePop(false); return; }
   if(d.pdelref){
     if(!S.pop) return;
@@ -7037,13 +7881,19 @@ document.addEventListener('click',inPane(function(ev){
   if(d.pfilenote){
     if(!S.pop) return;
     var pfr=appendVerseToNote(d.pfilenote, S.pop);
-    if(pfr.ok) S.popFiling=null;
+    if(pfr.ok){ S.popFiling=null; S.popNoteChoice=null; }
     popSay(pfr.msg); placePop(false); return; }
   if(d.plate&&S.pop){ closePop(); }
   if(d.a==='pnote'){
-    var pn=S.pop; closePop(); if(!pn) return;
-    S.sheet=pn; d={a:'notefor'};           /* then exactly as Note in the sheet */
+    var pn=S.pop; if(!pn) return;
+    /* a verse with its own note opens it; otherwise, with notes already
+       written, ask whether this is a new note or an addition to one */
+    if(!noteFor(parseKey(pn))&&S.notes.length&&S.popNoteChoice!==pn){
+      S.popNoteChoice=pn; S.popMsg=''; placePop(false); return; }
+    S.popNoteChoice=null; closePop(); openNoteFor(pn); return;
   }
+  if(d.a==='pnotenew'){
+    var pn2=S.pop; S.popNoteChoice=null; closePop(); if(pn2) openNoteFor(pn2); return; }
 
   /* --- bible browser + drawer --- */
   if(d.drawerbook){ S.drawerBook=+d.drawerbook; buildTOC(); return; }
@@ -7119,14 +7969,22 @@ document.addEventListener('click',inPane(function(ev){
     S.tab='library'; S.book=null; S.reading=null;
     closeSheet(); render(); return; }
   if(d.a==='closemap'){ S.mapEra=null; render(); return; }
-  if(d.plate){ S.plateZoom=1; S.atlasOpen=true; S.plate=d.plate; S.tab='library';
+  if(d.plate){
+    S.platePins=d.pins?String(d.pins).split('|'):[];
+    /* opened for a verse's places: a closer look, centred on them */
+    S.plateZoom=S.platePins.length?2:1; S.plateFocus=S.platePins.length>0; S.plateCenter=null;
+    S.atlasOpen=true; S.plate=d.plate; S.tab='library';
     S.book=null; S.reading=null; closeSheet(); render(); return; }
-  if(d.a==='closeplate'){ S.plate=null; render(); return; }
+  if(d.a==='closeplate'){ S.plate=null; S.platePins=[]; render(); return; }
+  if(d.a==='clearpins'){ S.platePins=[]; S.keepScroll=true; plateKeepCenter(); render(); return; }
   if(d.platezoom){
     var z=S.plateZoom||1;
+    plateKeepCenter();
     if(d.platezoom==='in')  S.plateZoom=Math.min(6, z+1);
     else if(d.platezoom==='out') S.plateZoom=Math.max(1, z-1);
-    else S.plateZoom=1;
+    else { S.plateZoom=1; S.plateCenter=null; }
+    /* the first step in from the whole map goes to the marked places */
+    if(z===1&&S.plateZoom>1&&(S.platePins||[]).length){ S.plateFocus=true; S.plateCenter=null; }
     S.keepScroll=true; render(); return; }
   if(d.mapframe){ S.mapFrame=d.mapframe; S.keepScroll=true; render(); return; }
   if(d.a==='closetracker'){ S.trackerOpen=false; render(); return; }
@@ -7203,6 +8061,7 @@ document.addEventListener('click',inPane(function(ev){
     saveSheets(); S.sheetEdit=null; render(); return; }
   if(d.ref){
     var r=parseKey(d.ref);
+    closePop(); closeSheet();
     stopSpeaking();
     S.book=r.b; S.reading=r.b; S.ch=r.c;
     S.jumpRef={key:d.ref, end:+(d.refend||0)};
@@ -7305,6 +8164,13 @@ document.addEventListener('click',inPane(function(ev){
     var w=parseKey(S.sheet);
     removeUserRef(w.b,w.c,w.v,d.delref);
     openSheet(S.sheet); return; }
+  if(d.a==='cardshare'){ if(CARD_IMG) shareCardImage(CARD_IMG); return; }
+  if(d.a==='cardsave'){ if(!CARD_IMG) return;
+    /* in the app a web download goes nowhere: the share sheet has Save Image */
+    if(payNative()) nativeShareFile(CARD_IMG.name, CARD_IMG.blob);
+    else saveFile(CARD_IMG.name, CARD_IMG.blob);
+    return; }
+  if(d.a==='cardclose'){ closeSheet(); return; }
   if(d.a==='cardverse'){
     if(!S.sheet) return;
     var qc=parseKey(S.sheet);
@@ -7335,28 +8201,12 @@ document.addEventListener('click',inPane(function(ev){
     S.fileMsg=res.msg; announce(res.msg);
     if(res.ok) S.filing=false;
     openSheet(S.sheet); render(); return; }
-  if(d.a==='notefor'&&LAYOUT==='split'&&S.sheet&&isVerseKey(S.sheet)&&
-     sideDest(otherSide(CUR))==='notes'){
-    /* two sides, and the other is Notes: the note opens there, in the full
-       editor, and the chapter stays where it is */
-    var np=parseKey(S.sheet), nx=noteFor(np);
-    S.tagDraft=''; S.linkDraft=''; S.linkMsg='';
-    S.editing=nx?{id:nx.id,b:nx.b,c:nx.c,v:nx.v,body:nx.body,title:nx.title||'',
-        tags:(nx.tags||[]).slice(),links:(nx.links||[]).map(function(l){return l.slice();}),
-        cat:nx.cat||'',ts:nx.ts}
-      :{id:null,b:np.b,c:np.c,v:np.v,body:'',title:'',tags:[],links:[]};
-    S.editFocusBody=true;
-    closeSheet(); S.tab='notes'; S.book=null; S.reading=null; render(); return; }
   if(d.a==='notefor'){
-    S.noteDraftOpen=true; S.fileMsg='';
-    if(S.sheet) openSheet(S.sheet);
-    setTimeout(function(){
-      var t=document.getElementById('quicknote');
-      if(t&&t.focus){
-        t.focus();
-        try{ if(t.setSelectionRange) t.setSelectionRange((t.value||'').length,(t.value||'').length); }catch(e){}
-      }
-    },30);
+    /* Note on a verse opens the whole note editor, with the verse at its head.
+       It used to raise the old verse sheet with a small box in it. With two
+       sides and Notes on the other, it opens there and the chapter stays put;
+       otherwise Back returns to the verse. */
+    if(S.sheet&&isVerseKey(S.sheet)) openNoteFor(S.sheet);
     return; }
   if(d.a==='cancelquick'){ S.noteDraftOpen=false; if(S.sheet) openSheet(S.sheet); return; }
   if(d.a==='savequick'){
@@ -7399,15 +8249,18 @@ document.addEventListener('click',inPane(function(ev){
     var ok=downloadNotes();
     S.notesMsg=ok?'Saved as a text file.':'This browser blocked the download.';
     render(); return; }
-  if(d.a==='newnote'){S.editFocusBody=true;
-    S.editing={id:null,b:null,c:null,v:null,body:''}; render(); return;}
+  if(d.a==='newnote'){S.editFocusBody=true; S.noteReturn=false;
+    S.tagDraft=''; S.linkDraft=''; S.linkMsg='';
+    S.editing={id:null,b:null,c:null,v:null,body:'',title:'',tags:[],links:[]}; render(); return;}
   if(d.a==='notetag'){
     if(S.editing){
       S.editing.tags=(S.editing.tags||[]);
     }
     return; }
   if(d.notefilter){ S.noteFilter=d.notefilter; S.keepScroll=true; render(); return; }
-  if(d.editnote){S.editFocusBody=true;
+  if(d.editnote){
+    /* an existing note opens without the keyboard, so a tap goes where it lands */
+    S.editFocusBody=false; S.noteReturn=false;
     var n=S.notes.filter(function(x){return x.id===d.editnote;})[0];
     /* Everything the note holds comes into the editor. It used to copy only
        the verse and body, so the title, tags and linked verses opened blank
@@ -7419,8 +8272,11 @@ document.addEventListener('click',inPane(function(ev){
       render(); }
     return;}
   if(d.delnote){
+    if(noteSaveTimer){ clearTimeout(noteSaveTimer); noteSaveTimer=null; }
     S.notes=S.notes.filter(function(x){return x.id!==d.delnote;});
-    saveNotes(); render(); return;}
+    saveNotes();
+    if(S.editing&&S.editing.id===d.delnote){ S.editing=null; S.noteReturn=false; }
+    render(); return;}
   if(d.open){
     var o=S.notes.filter(function(x){return x.id===d.open;})[0];
     if(o&&o.b!=null){S.book=o.b;S.reading=o.b;S.ch=o.c;S.tab='notes';render();}
@@ -7435,10 +8291,17 @@ document.addEventListener('click',inPane(function(ev){
     else {
       var ta=document.getElementById('ntagadd');
       var nt=(ta&&ta.value||S.tagDraft||'').trim();
-      if(nt&&S.editing.tags.indexOf(nt)===-1) S.editing.tags.push(nt);
+      nt.split(/\s*,\s*/).forEach(function(one){
+        one=one.replace(/^#/,'').trim().slice(0,28);
+        if(one&&S.editing.tags.indexOf(one)===-1&&S.editing.tags.length<8) S.editing.tags.push(one);
+      });
       S.tagDraft='';
+      if(ta) ta.value='';
     }
-    migrateNote(S.editing); S.keepScroll=true; render(); return; }
+    migrateNote(S.editing); commitNote(S.editing); S.keepScroll=true; render();
+    /* keep the tag box ready for the next one */
+    if(!d.deltag) setTimeout(function(){ var t2=document.getElementById('ntagadd'); if(t2) try{ t2.focus(); }catch(e){} },0);
+    return; }
   if(d.a==='addlink'){
     if(!S.editing) return;
     var li=document.getElementById('nlink');
@@ -7453,6 +8316,7 @@ document.addEventListener('click',inPane(function(ev){
   if(d.dellink){
     if(!S.editing||!S.editing.links) return;
     S.editing.links.splice(+d.dellink,1);
+    commitNote(S.editing);
     S.linkMsg=''; S.keepScroll=true; render(); return; }
   if(d.a==='savenote'){
     var e=S.editing; if(!e) return;
@@ -7460,28 +8324,7 @@ document.addEventListener('click',inPane(function(ev){
     if(body!==undefined) e.body=body;
     var ti=(document.getElementById('ntitle')||{}).value;
     if(ti!==undefined) e.title=ti;
-    /* tags are kept by Add tag and the x on each tag; the old comma field is
-       gone, and reading it could only ever wipe them */
-    if(!(e.body||'').trim()){S.editing=null;render();return;}
-    if(e.id){
-      var found=false;
-      S.notes.forEach(function(x){
-        if(x.id===e.id){
-          found=true;
-          x.body=e.body; x.title=e.title||''; x.tags=e.tags||[];
-          x.links=e.links||[]; x.ts=Date.now();
-          migrateNote(x);
-        }});
-      /* An edit whose note is no longer in the list would otherwise vanish on
-         save. Keep it instead: losing what someone wrote is the worst outcome
-         available here. */
-      if(!found) S.notes.push(migrateNote(e));
-    } else {
-      S.notes.push(migrateNote({id:'n'+Date.now()+Math.floor(Math.random()*999),
-        b:e.b,c:e.c,v:e.v,body:e.body,title:e.title||'',tags:e.tags||[],
-        links:e.links||[], ts:Date.now()}));
-    }
-    saveNotes(); S.editing=null; render(); return;}
+    closeNoteEditor(); return;}
   if(d.a==='cancelnote'){S.editing=null;S.linkDraft='';S.linkMsg='';render();return;}
 
   /* --- saves --- */
@@ -7541,6 +8384,9 @@ document.addEventListener('click',inPane(function(ev){
     S.focus=!(S.focus!==false); Store.set('strata:focus',S.focus);
     renderSpeakBar(); S.keepScroll=true; render(); return; }
   if(d.sfilter){ S.searchFilter=d.sfilter; S.keepScroll=true; render(); runSearch(); return; }
+  if(d.ssec){ S.searchSec=d.ssec; S.searchShow=100; runSearch(true); return; }
+  if(d.a==='sexact'){ S.searchExact=!S.searchExact; S.keepScroll=true; render(); return; }
+  if(d.a==='smore'){ S.searchShow=(S.searchShow||100)+100; runSearch(true); return; }
   if(d.a==='clearq'){ S.q=''; render(); runSearch();
     var qi=document.getElementById('q'); if(qi&&qi.focus) qi.focus(); return; }
   if(d.a==='togglewords'){
@@ -7552,7 +8398,14 @@ document.addEventListener('click',inPane(function(ev){
     S.scrollSpeed=+d.scrollspeed; Store.set('strata:scrollspeed',S.scrollSpeed);
     if(S.immersive) startAutoScroll();
     S.keepScroll=true; render(); return; }
-  if(d.a==='navback'){ if(!navBack()) closeSheet(); return; }
+  if(d.a==='navback'){
+    if(navBack()) return;
+    /* nowhere recorded to go back to (a tablet side opens straight onto a
+       chapter): back still means something, the book's page, then the library */
+    if(S.sheet){ closeSheet(); return; }
+    if(S.reading!==null){ leaveReading(); S.reading=null; render(); return; }
+    if(S.book!==null){ S.book=null; S.tab='library'; render(); return; }
+    return; }
   if(d.a==='navfwd'){ navForward(); return; }
   if(d.a==='search'){S.tab='search';S.book=null;S.reading=null;render();return;}
   if(d.search){
@@ -7571,7 +8424,10 @@ document.addEventListener('click',inPane(function(ev){
     S.tab='about'; S.book=null; S.reading=null; S.apocOpen=false; S.trackerOpen=false;
     loadSnapshots().then(render);
     render(); return; }
-  if(d.a==='toc'){S.drawerBook=null;buildTOC();openDrawer(true);return;}
+  /* The book's name at the top opens straight onto its chapters, the one you
+     are in marked; All books is one tap above them. */
+  if(d.a==='toc'){S.drawerBook=(S.reading!==null&&BK(S.reading))?S.reading:null;
+    buildTOC();openDrawer(true);scrollDrawerToCurrent();return;}
   if(d.mode){S.mode=d.mode;S.openEra=null;render();return;}
   if(d.era){S.openEra=(S.openEra===d.era?null:d.era);render();return;}
   if(d.sec){S.tab='library';S.mode='shelf';render();

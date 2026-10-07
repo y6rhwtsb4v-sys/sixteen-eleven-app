@@ -6,7 +6,8 @@
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#171412",
-    "limitsNavigationsToAppBoundDomains": false
+    "limitsNavigationsToAppBoundDomains": false,
+    "scrollEnabled": false
   },
   "android": {
     "backgroundColor": "#171412",
@@ -14,5 +15,10 @@
   },
   "server": {
     "androidScheme": "https"
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "native"
+    }
   }
 }
