@@ -2850,7 +2850,7 @@ function vProfile(){
     'chapter map, and every chapter has a written note \u2014 all 1,362 of them, across all eighty '+
     'books.</p>'+
     '<p><b>The maps.</b> Four are from churchmaps.info, released by their author into the '+
-    'public domain, corrected for this app; six were drawn for it on the same relief. Places '+
+    'public domain, corrected for this app; ten were drawn for it on the same relief. Places '+
     'on the new maps, and the marks for the places a verse names, are from OpenBible.info\u2019s '+
     'Bible geocoding data (CC BY 4.0). Coastlines and rivers checked against Natural Earth '+
     '(public domain). Map lettering in PT Sans and PT Serif (SIL Open Font License).</p>'+
@@ -6156,11 +6156,11 @@ function navForward(){
 }
 
 /* ---------- the plates ----------
-   Ten maps, one or more for every era. Four are churchmaps.info's, released
+   Fourteen maps, each era with its own. Four are churchmaps.info's, released
    by their author entirely into the public domain, rebuilt here: every label
    checked letter by letter against every other and against every town dot,
    town names placed round their own dots, King James spellings, and the
-   handful of misplaced towns put where they stood. Six were drawn for this
+   handful of misplaced towns put where they stood. Ten were drawn for this
    app on the same relief, their places taken from OpenBible.info's
    geocoding (CC BY 4.0) through each relief's fitted projection.
 
@@ -6178,14 +6178,30 @@ var PLATES = [
    eras:["roman"], src:"cm", free:true,
    note:"The land as Jesus and the apostles knew it.",
    has:"fffffffffffff07b80000000000"},
+  {id:"table_of_nations", name:"The table of nations",
+   eras:["primeval"], src:"se",
+   note:"The sons of Noah, and the lands of their families.",
+   has:"fffffffffffffffffffffbffffd"},
   {id:"ancient_world_patriarchs", name:"The ancient world of the patriarchs",
-   eras:["primeval", "patriarchs", "egypt"], src:"cm",
+   eras:["patriarchs", "primeval"], src:"cm",
    note:"From Ur to Canaan to Egypt, 2000 – 1600 BC.",
    has:"fffffffffffffffffffd788fff8"},
+  {id:"israel_in_egypt", name:"Israel in Egypt",
+   eras:["egypt"], src:"se",
+   note:"Joseph, Jacob’s family in Goshen, and the night they went out.",
+   has:"ffffffff98000e8000017800000"},
   {id:"exodus_and_canaan_conquest", name:"The Exodus and the conquest of Canaan",
-   eras:["egypt", "wilderness", "conquest", "judges"], src:"cm",
+   eras:["wilderness", "egypt"], src:"cm",
    note:"The route out of Egypt and the taking of the land.",
    has:"fffffffffffffffb80017800000"},
+  {id:"conquest_of_canaan", name:"The conquest of Canaan",
+   eras:["conquest"], src:"se",
+   note:"Jericho, Ai, and Joshua’s southern and northern campaigns.",
+   has:"fffffffffffff07a00000000000"},
+  {id:"twelve_tribes", name:"The twelve tribes and the judges",
+   eras:["judges", "conquest"], src:"se",
+   note:"Each tribe’s lot, Shiloh, and Dan’s move north.",
+   has:"fffffffffffff07a80000000000"},
   {id:"united_kingdom", name:"The kingdom of David and Solomon",
    eras:["united"], src:"se",
    note:"Israel at its widest, and the peoples made to serve it.",
@@ -6394,8 +6410,8 @@ function vAtlas(){
       '</button>';
   }).join('') + '</div>';
   h += '<div class="lab" style="margin-top:22px;color:#D8B25E">All the maps</div>';
-  h += '<p class="vnote" style="margin:0 0 10px 2px">Ten maps, from the patriarchs to Paul. ' +
-       'Four are from churchmaps.info, corrected; six were drawn for this app on the same relief.</p>';
+  h += '<p class="vnote" style="margin:0 0 10px 2px">Fourteen maps, from the table of nations to Paul. ' +
+       'Four are from churchmaps.info, corrected; ten were drawn for this app on the same reliefs.</p>';
   h += PLATES.slice().sort(function(a, b){
     return eraRank(a.eras[0]) - eraRank(b.eras[0]); }).map(function(x){
     return '<button class="plateref" data-plate="' + esc(x.id) + '">' +
