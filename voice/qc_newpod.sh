@@ -19,6 +19,12 @@ echo "== downloading the recordings"
 rclone copy r2:sixteen-eleven-audio/v1 bible --filter "- *-t.m4a" --filter "+ *.m4a" --filter "- *" --transfers 32 --checkers 32
 rclone copyto r2:sixteen-eleven-audio/v1/manifest.json manifest.json
 echo "clips: $(ls bible | wc -l)"
+# progress goes to R2 every few minutes so it can be read from outside the pod
+report() { for f in qc.log fix.log run-status.txt; do [ -f $f ] && rclone copyto $f r2:sixteen-eleven-audio/v1/_qc/$f --header-upload "Cache-Control: no-cache" --header-upload "Content-Type: text/plain" 2>/dev/null; done; true; }
+status() { echo "$(date -u +%FT%TZ) $*" >> run-status.txt; report; }
+( while sleep 300; do report; done ) &
+trap 'status "SCRIPT STOPPED at line $LINENO"' ERR
+status "downloaded $(ls bible | wc -l) clips"
 [ -x /workspace/qcenv/bin/python ] || python3 -m venv /workspace/qcenv
 /workspace/qcenv/bin/pip install -q faster-whisper nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*"
 [ -x /workspace/sixteen/venv/bin/python ] || python3 -m venv /workspace/sixteen/venv
@@ -35,8 +41,9 @@ open('list.txt', 'w').write(''.join("file 'bible/%s'\n" % f for f in clips))
 subprocess.run('ffmpeg -loglevel error -y -f concat -safe 0 -i list.txt -t 22 -ar 24000 -ac 1 my_voice.wav', shell=True, check=True)
 PY
 mkdir -p qc
+status "setup done, checking"
 echo "== checking every passage"
-/workspace/qcenv/bin/python -u qc_voice.py --out bible > qc.log 2>&1 || { echo "QC FAILED:"; tail -40 qc.log; exit 1; }
+/workspace/qcenv/bin/python -u qc_voice.py --out bible > qc.log 2>&1 || { echo "QC FAILED:"; tail -40 qc.log; status "QC FAILED"; exit 1; }
 python3 - <<'PY'
 import json, collections
 rs = {}
@@ -48,9 +55,18 @@ c = collections.Counter(i if isinstance(i, str) else i.get('kind', str(i)) for r
 print('QC-SUMMARY checked %d, flagged %d, by kind %s' % (len(rs), len(bad), dict(c)))
 print('QC-FLAGGED ' + ' '.join(sorted(r['stem'] for r in bad)))
 PY
+python3 -c "
+import json;rs={}
+for l in open('qc/results.jsonl'):
+  try: r=json.loads(l); rs[r['stem']]=r
+  except Exception: pass
+open('flagged.jsonl','w').write(''.join(json.dumps(r)+'\\n' for r in rs.values() if r.get('issues')))"
+rclone copyto flagged.jsonl r2:sixteen-eleven-audio/v1/_qc/flagged-before.txt --header-upload "Content-Type: text/plain" --header-upload "Cache-Control: no-cache" || true
+status "QC done: $(wc -l < flagged.jsonl) flagged"
 echo "== re-recording the flagged passages"
-python -u fix_voice.py --out bible --tries 4 > fix.log 2>&1 || true
+python -u fix_voice.py --out bible --tries 4 > fix.log 2>&1 || status "fix_voice exited with an error"
 tail -5 fix.log
+status "fix done: $(tail -1 fix.log)"
 echo "== uploading the new takes"
 python3 - <<'PY'
 import json, os
@@ -74,5 +90,7 @@ rclone copy bible r2:sixteen-eleven-audio/v1 --files-from changed.txt --transfer
 rclone copyto manifest.new.json r2:sixteen-eleven-audio/v1/manifest.json \
   --header-upload "Cache-Control: no-cache" --header-upload "Content-Type: application/json"
 cp qc/results.jsonl qc-results-final.jsonl
+rclone copyto qc-results-final.jsonl r2:sixteen-eleven-audio/v1/_qc/results-final.txt --header-upload "Content-Type: text/plain" --header-upload "Cache-Control: no-cache" || true
+status "QC-JOB-END $(wc -l < changed.txt) new takes uploaded"
 echo QC-JOB-END
 runpodctl stop pod "$RUNPOD_POD_ID" || true
