@@ -7,3 +7,4 @@ ios/App/App/public/
 android/app/src/main/assets/public/
 signing/
 ios-signing/
+__pycache__/
