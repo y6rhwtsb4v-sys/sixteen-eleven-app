@@ -9,19 +9,19 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq && apt-get install -y -qq ffmpeg python3-venv curl unzip git >/dev/null
 curl -fsSL https://rclone.org/install.sh | bash >/dev/null
 W=/workspace/voice-kit; mkdir -p $W/bible $W/data && cd $W
-git clone -q --depth 1 https://github.com/y6rhwtsb4v-sys/sixteen-eleven-app.git repo
+rm -rf repo; git clone -q --depth 1 https://github.com/y6rhwtsb4v-sys/sixteen-eleven-app.git repo
 cp repo/voice/*.py . && cp -r repo/www/assets/data/books data/books && cp repo/www/assets/data/meta.json data/
 export RCLONE_CONFIG=$W/.rclone.conf
 rclone config create r2 s3 provider=Cloudflare access_key_id="$R2_KEY" secret_access_key="$R2_SECRET" \
   endpoint="https://7d9e146a648c357c463c6e45c26861f4.r2.cloudflarestorage.com" acl=private no_check_bucket=true >/dev/null
 chmod 600 $RCLONE_CONFIG
 echo "== downloading the recordings"
-rclone copy r2:sixteen-eleven-audio/v1 bible --include "*.m4a" --exclude "*-t.m4a" --transfers 32 --checkers 32
+rclone copy r2:sixteen-eleven-audio/v1 bible --filter "- *-t.m4a" --filter "+ *.m4a" --filter "- *" --transfers 32 --checkers 32
 rclone copyto r2:sixteen-eleven-audio/v1/manifest.json manifest.json
 echo "clips: $(ls bible | wc -l)"
-python3 -m venv /workspace/qcenv
+[ -x /workspace/qcenv/bin/python ] || python3 -m venv /workspace/qcenv
 /workspace/qcenv/bin/pip install -q faster-whisper nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*"
-python3 -m venv /workspace/sixteen/venv
+[ -x /workspace/sixteen/venv/bin/python ] || python3 -m venv /workspace/sixteen/venv
 . /workspace/sixteen/venv/bin/activate
 pip install -q --upgrade pip && pip install -q chatterbox-tts soundfile numpy
 # the voice prompt, cut from chapters already recorded in the narrator's voice
@@ -36,7 +36,7 @@ subprocess.run('ffmpeg -loglevel error -y -f concat -safe 0 -i list.txt -t 22 -a
 PY
 mkdir -p qc
 echo "== checking every passage"
-/workspace/qcenv/bin/python -u qc_voice.py --out bible > qc.log 2>&1 || true
+/workspace/qcenv/bin/python -u qc_voice.py --out bible > qc.log 2>&1 || { echo "QC FAILED:"; tail -40 qc.log; exit 1; }
 python3 - <<'PY'
 import json, collections
 rs = {}
