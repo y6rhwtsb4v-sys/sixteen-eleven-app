@@ -13,8 +13,9 @@ curl -fsSL https://rclone.org/install.sh | bash >/dev/null
 W=/workspace/titles; mkdir -p $W/data $W/bible && cd $W
 for f in render_titles.py render_voice.py; do curl -fsSL $RAW/voice/$f -o $f; done
 curl -fsSL $RAW/www/assets/data/meta.json -o data/meta.json
-python3 -m venv venv && . venv/bin/activate
-pip install -q --upgrade pip && pip install -q chatterbox-tts soundfile numpy
+[ -x venv/bin/python ] || python3 -m venv venv
+. venv/bin/activate
+python -c 'import chatterbox' 2>/dev/null || { pip install -q --upgrade pip && pip install -q chatterbox-tts soundfile numpy; }
 # rclone, from the secrets (never written anywhere but this pod's disk)
 export RCLONE_CONFIG=$W/.rclone.conf
 rclone config create r2 s3 provider=Cloudflare access_key_id="$R2_KEY" secret_access_key="$R2_SECRET" \
@@ -32,7 +33,7 @@ for book, ch in (('Psalms', '23'), ('John', '1')):
 files = []
 for i, f in enumerate(clips):
     u = 'https://pub-0d19c7318a7940f3ad2c1f46e7d3ee17.r2.dev/v1/' + f.split('?')[0]
-    urllib.request.urlretrieve(u, 'p%d.m4a' % i); files.append('p%d.m4a' % i)
+    subprocess.run(['curl', '-fsSL', u, '-o', 'p%d.m4a' % i], check=True); files.append('p%d.m4a' % i)
 open('list.txt', 'w').write(''.join("file '%s'\n" % f for f in files))
 subprocess.run('ffmpeg -loglevel error -y -f concat -safe 0 -i list.txt -t 22 -ar 24000 -ac 1 my_voice.wav', shell=True, check=True)
 print('voice prompt from', clips)
