@@ -58,7 +58,7 @@ open('changed.txt','w').write(''.join(s+'.m4a\n' for s in r))
 json.dump(r,open('revs-$SHARD.json','w'))" 2>/dev/null || return 0
   rclone copy bible $R --files-from changed.txt --transfers 8 \
     --header-upload "Cache-Control: public, max-age=31536000, immutable" --header-upload "Content-Type: audio/mp4" 2>/dev/null || true
-  grep -v 'Sampling\|it/s\]' fix.log > fixlog.txt 2>/dev/null; up_text fixlog.txt fix-$SHARD.log
+  grep -v 'Sampling\|it/s\]' fix.log > fixlog.txt 2>/dev/null || true; up_text fixlog.txt fix-$SHARD.log
 }
 ( while sleep 300; do push || true; done ) &
 LOOP=$!
