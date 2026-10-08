@@ -18,7 +18,8 @@ rclone config create r2 s3 provider=Cloudflare access_key_id="$R2_KEY" secret_ac
   endpoint="https://7d9e146a648c357c463c6e45c26861f4.r2.cloudflarestorage.com" acl=private no_check_bucket=true >/dev/null
 chmod 600 $RCLONE_CONFIG
 R=r2:sixteen-eleven-audio/v1
-up_text() { rclone copyto "$1" "$R/_qc/$2" --header-upload "Cache-Control: no-cache" --header-upload "Content-Type: text/plain" 2>/dev/null || true; }
+# copy first: rclone refuses a file that is still being written to
+up_text() { cp "$1" "/tmp/up-$2" 2>/dev/null || return 0; rclone copyto "/tmp/up-$2" "$R/_qc/$2" --header-upload "Cache-Control: no-cache" --header-upload "Content-Type: text/plain" 2>/dev/null || true; }
 status() { echo "$(date -u +%FT%TZ) $*" >> status-$SHARD.txt; up_text status-$SHARD.txt status-$SHARD.txt; }
 
 rclone copyto $R/_qc/flagged-before.txt flagged.txt
@@ -57,7 +58,7 @@ open('changed.txt','w').write(''.join(s+'.m4a\n' for s in r))
 json.dump(r,open('revs-$SHARD.json','w'))" 2>/dev/null || return 0
   rclone copy bible $R --files-from changed.txt --transfers 8 \
     --header-upload "Cache-Control: public, max-age=31536000, immutable" --header-upload "Content-Type: audio/mp4" 2>/dev/null || true
-  up_text fix.log fix-$SHARD.log
+  grep -v 'Sampling\|it/s\]' fix.log > fixlog.txt 2>/dev/null; up_text fixlog.txt fix-$SHARD.log
 }
 ( while sleep 300; do push || true; done ) &
 LOOP=$!
