@@ -5713,7 +5713,10 @@ function payApply(ci){
   var a=(ci.entitlements&&ci.entitlements.active)||{};
   var was=PAY.ent.study+'/'+PAY.ent.audio;
   PAY.fresh=true;
-  PAY.ent={study:!!a.study, audio:!!a.audio};
+  /* the yearly Study plan carries the narrated Bible for as long as it runs */
+  var subs=[].concat(ci.activeSubscriptions||[]).concat(a.study&&a.study.productIdentifier?[a.study.productIdentifier]:[]);
+  var yearly=subs.some(function(id){ return /^study_annual/.test(String(id)); });
+  PAY.ent={study:!!a.study, audio:!!a.audio||yearly};
   PAY.mgmt=ci.managementURL||null;
   Store.set('strata:ent',{ent:PAY.ent, exp:Date.now()+7*864e5});
   if(PAY.ent.study+'/'+PAY.ent.audio!==was){ applyLayout(); S.keepScroll=true; render(); if(PAY.open) drawPaywall(); }
@@ -5765,7 +5768,7 @@ function payBuy(offering, id){
   if(PAY.test){
     setTimeout(function(){
       var pid=p.product.identifier;
-      var ent={study:PAY.ent.study||/study|lifetime/.test(pid), audio:PAY.ent.audio||/audio|lifetime/.test(pid)};
+      var ent={study:PAY.ent.study||/study|lifetime/.test(pid), audio:PAY.ent.audio||/audio|lifetime|study_annual/.test(pid)};
       Store.set('strata:enttest',ent);
       done({entitlements:{active:(function(){ var a={}; if(ent.study) a.study={}; if(ent.audio) a.audio={}; return a; })()}});
     },150);
@@ -5837,7 +5840,7 @@ var PAYWHY={
   atlas:['The whole atlas','Every map, from the patriarchs to Paul’s journeys.'],
   split:['Two books open at once','On a tablet, read on one side and study on the other.'],
   books:['Your own library','Add as many EPUB, PDF and text books as you like.'],
-  audio:['The narrated Bible','All 80 books read aloud in one human voice, offline. Psalms and John are free to hear.']
+  audio:['The narrated Bible','All 80 books read aloud in one human voice, offline. Psalms and John are free to hear. Yours for good, or with the yearly Study plan.']
 };
 function openPaywall(why){
   PAY.open=why||'study';
@@ -5854,16 +5857,17 @@ function drawPaywall(){
   var why=PAY.open, t=PAYWHY[why]||PAYWHY.study;
   var audioFirst=(why==='audio');
   var plans=[
-    ['annual','default','$rc_annual','Yearly',payPrice('default','$rc_annual','$29.99')+' a year','14 days free, then yearly. Cancel any time.'],
+    ['annual','default','$rc_annual','Yearly',payPrice('default','$rc_annual','$29.99')+' a year','Study and the narrated Bible. 14 days free, then yearly. Cancel any time.'],
     ['monthly','default','$rc_monthly','Monthly',payPrice('default','$rc_monthly','$3.99')+' a month',''],
     ['lifetime','default','$rc_lifetime','Lifetime (Founders)',payPrice('default','$rc_lifetime','$79.99')+' once','Study for good, and the narrated Bible.']];
   var audio=['audio','audio','audio','Narrated Bible',payPrice('audio','audio','$19.99')+' once','All 80 books in the narrator’s voice, for good.'];
-  if(audioFirst) plans=[audio, plans[2], plans[0]];
+  if(audioFirst) plans=[audio, plans[0], plans[2]];
   var h='<div class="grabzone"><div class="grab"></div></div><div class="paywall" role="dialog" aria-label="'+esc(t[0])+'">';
   h+='<div class="pwhead"><div class="pwkick">Sixteen Eleven '+(audioFirst?'Audio':'Study')+'</div>'+
      '<h2>'+esc(t[0])+'</h2><p>'+esc(t[1])+'</p></div>';
   if(!audioFirst){
     h+='<ul class="pwlist">'+[
+      'Yearly: the narrated Bible too, all 80 books in one voice',
       'Word study without limits: Webster’s 1913, where words come from, the thesaurus, Strong’s Hebrew and Greek',
       'Study sheets: gather the scriptures that answer a question',
       'Tags to gather your notes by theme, and bookmark folders',
@@ -5879,7 +5883,7 @@ function drawPaywall(){
       '<span class="pwpp">'+esc(p[4])+'</span></button>';
   }).join('')+'</div>';
   var pick=plans.filter(function(p){ return p[0]===PAY.choice; })[0]||plans[0];
-  var owned=(pick[0]==='audio')?hasAudio()&&PAY.on:(hasStudy()&&PAY.on&&pick[0]!=='lifetime')||(pick[0]==='lifetime'&&PAY.ent.study&&PAY.ent.audio);
+  var owned=(pick[0]==='audio')?(hasAudio()&&PAY.on):(pick[0]==='annual')?(PAY.on&&hasStudy()&&hasAudio()&&!promoActive()):(hasStudy()&&PAY.on&&pick[0]!=='lifetime')||(pick[0]==='lifetime'&&PAY.ent.study&&PAY.ent.audio);
   h+='<button class="btn pwbuy" data-pwbuy="'+pick[1]+'|'+pick[2]+'"'+(PAY.busy||owned?' disabled':'')+'>'+
      (owned?'You have this':PAY.busy?'One moment…':(pick[0]==='annual'?'Start 14 days free':'Continue'))+'</button>';
   if(PAY.msg) h+='<p class="pwmsg" role="status">'+esc(PAY.msg)+'</p>';
