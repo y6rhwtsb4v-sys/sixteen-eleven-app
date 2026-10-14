@@ -985,6 +985,9 @@ function loadAll(cb){
     return Store.get('strata:words');
   }).then(function(wm){
     if(typeof wm==='boolean') S.wordMeanings=wm;
+    return Store.get('strata:wordmark');
+  }).then(function(wk){
+    if(wk==='glow'||wk==='line'){ S.wordMark=wk; applyWordMark(); }
     return Store.get('strata:scrollspeed');
   }).then(function(sp){
     if(typeof sp==='number') S.scrollSpeed=sp;
@@ -2764,7 +2767,7 @@ function vRead(){
         (S.redLetters!==false)+'">Words of Christ in red</button></div>'+
         '<div class="rrow" style="margin-top:8px">'+
         '<button class="redtog" data-a="togglewords" aria-selected="'+
-        (S.wordMeanings!==false)+'">Underline old words to explain them</button></div>',
+        (S.wordMeanings!==false)+'">Mark old words to explain them</button></div>',
         ({paper:'Paper',plain:'Plain'})[S.page]||'Plain');
     h+=rGroup('look','Appearance',
         '<div class="rrow">'+['auto','light','dark'].map(function(t){
@@ -2878,7 +2881,9 @@ function vProfile(){
     seg('Text size',['XS','S','M','L','XL','XXL'].map(function(n,k){
       return '<button data-size="'+k+'" aria-selected="'+(S.textSize===k)+'">'+n+'</button>';}).join(''))+
     tog('Words of Christ in red','As in red-letter editions','togglered',S.redLetters!==false)+
-    tog('Word meanings','A dotted line under old words; tap one for its meaning','togglewords',S.wordMeanings!==false)+
+    tog('Word meanings',(wordMark()==='glow'?'Old words glow softly':'A dotted line under old words')+'; tap one for its meaning','togglewords',S.wordMeanings!==false)+
+    (S.wordMeanings!==false?seg('Mark old words',[['glow','Soft glow'],['line','Underline']].map(function(o){
+      return '<button data-wordmark="'+o[0]+'" aria-selected="'+(wordMark()===o[0])+'">'+o[1]+'</button>';}).join('')):'')+
     tog('Focus while listening','Dim every verse but the one being read','togglefocus',S.focus!==false)+
     tog('Keep the reader upright','Ignore device rotation','togglerotate',!!S.lockRotate)+
     '</div>';
@@ -5888,6 +5893,13 @@ function systemDark(){
   try{ return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches); }
   catch(e){ return false; }
 }
+/* how an old word with a meaning is marked: a soft glow (the default) or the
+   dotted underline. On <html>, so the reader, the tablet's other side and the
+   verse card all follow at once without a redraw. */
+function wordMark(){ return S.wordMark==='line'?'line':'glow'; }
+function applyWordMark(){
+  try{ document.documentElement.setAttribute('data-wordmark', wordMark()); }catch(e){}
+}
 function applyTheme(){
   /* Auto used to remove the attribute and leave the rest to a media query.
      The colour tokens followed, but every rule written as [data-theme="dark"]
@@ -5898,6 +5910,7 @@ function applyTheme(){
   try{
     var r=document.documentElement;
     r.setAttribute('data-theme',resolved);
+    applyWordMark();
     r.setAttribute('data-theme-choice',t);
     /* the phone's own top bar takes this colour; it was the old navy */
     var ms=document.querySelectorAll('meta[name="theme-color"]');
@@ -8563,7 +8576,7 @@ document.addEventListener('click',inPane(function(ev){
     '[data-kvoice],[data-svoice],[data-read],[data-userbook],[data-delbook],'+
     '[data-cat],[data-apoc],[data-size],[data-markread],[data-vq],[data-page],'+
     '[data-mapera],[data-mapframe],[data-plate],[data-platezoom],[data-settheme],'+
-    '[data-scrollspeed],[data-rsgroup],[data-savestab],[data-notefilter],'+
+    '[data-scrollspeed],[data-rsgroup],[data-savestab],[data-notefilter],[data-wordmark],'+
     '[data-dellink],[data-deltag],[data-bmfolder],[data-bmf],[data-sfilter],'+
     '[data-delref],[data-snap],[data-snapdl],[data-search],[data-forget],[data-smode],'+
     '[data-filenote],[data-gw],[data-pick],[data-pcolor],[data-word],[data-strong],'+
@@ -8950,6 +8963,9 @@ document.addEventListener('click',inPane(function(ev){
     return; }
   if(d.size!==undefined&&d.size!==''){S.keepScroll=true; S.textSize=+d.size; savePlace(); render(); return; }
   if(d.page){S.keepScroll=true; S.page=d.page; savePlace(); render(); return; }
+  if(d.wordmark){ S.wordMark=d.wordmark==='line'?'line':'glow'; Store.set('strata:wordmark',S.wordMark); applyWordMark();
+    announce(S.wordMark==='glow'?'Old words glow softly.':'Old words are underlined.');
+    S.keepScroll=true; render(); return; }
   /* data-settheme, not data-theme: the root's own data-theme="dark" selector
      matched the Night button too and painted it in dark-mode ink */
   if(d.settheme){S.keepScroll=true; setTheme(d.settheme); announce(d.settheme==='auto'
@@ -9233,7 +9249,7 @@ document.addEventListener('click',inPane(function(ev){
     var qi=document.getElementById('q'); if(qi&&qi.focus) qi.focus(); return; }
   if(d.a==='togglewords'){
     S.wordMeanings=!(S.wordMeanings!==false); Store.set('strata:words',S.wordMeanings);
-    announce(S.wordMeanings?'Old words are underlined.':'Word underlines are off.');
+    announce(S.wordMeanings?(wordMark()==='glow'?'Old words glow softly.':'Old words are underlined.'):'Old words are no longer marked.');
     S.keepScroll=true; render(); return; }
   if(d.a==='immersive'){ immersiveOn(); return; }
   if(d.scrollspeed){
