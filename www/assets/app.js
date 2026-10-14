@@ -174,7 +174,7 @@ var GLOSSARY=[
 ["rereward","rereward","o","The rear guard."],
 ["ringstraked","ringstraked","o","Marked with stripes or rings."],
 ["riotous","riotous","o","Wasteful; extravagant."],
-["ruddy","ruddy","o","Black."],
+["ruddy","ruddy","o","Red or reddish; of a fresh, healthy colour."],
 ["sackbut","sackbut","o","A stringed instrument."],
 ["scall","scall","o","A scab; a skin disease."],
 ["scrip","scrip","o","A small bag or pouch."],
@@ -344,8 +344,10 @@ function lookupBook(name){
   if(ALIAS[n]!==undefined) return ALIAS[n];
   n=n.replace(/s$/,'');
   if(ALIAS[n]!==undefined) return ALIAS[n];
+  /* the Bible only: an imported book sits at a position in BOOKS that is not
+     its id, so a reference to it would open the wrong book (or none) */
   for(var i=0;i<BOOKS.length;i++)
-    if(normName(BOOKS[i].name)===n) return i;
+    if(!BOOKS[i].user&&normName(BOOKS[i].name)===n) return BOOKS[i].i;
   return -1;
 }
 function parseRefs(text){
@@ -728,7 +730,11 @@ function shareVerse(b,c,v){
     try{
       var SH=window.Capacitor.registerPlugin('Share');
       return Promise.resolve(SH.share({text:text, dialogTitle:vRef(b,c,v)}))
-        .then(function(){return true;}).catch(function(){ return copyVerse(b,c,v); });
+        .then(function(){return true;}).catch(function(e){
+          /* closing the share sheet is a choice, not a failure: the
+             clipboard is left as it was */
+          if(/cancel/i.test(String((e&&(e.message||e.errorMessage))||e||''))) return false;
+          return copyVerse(b,c,v); });
     }catch(e){}
   }
   if(navigator.share)
@@ -754,9 +760,15 @@ function ensureXrefs(then){
     catch(e){ url='assets/data/xrefs.txt'; }
     xrefPending=fetch(url).then(function(r){ return r.ok?r.text():''; })
       .then(function(t){ META.xrefs=t; unpackXrefs(); })
-      .catch(function(){ META.xrefs=''; });
+      .catch(function(){ META.xrefs=''; })
+      .then(function(){
+        /* a failed fetch (offline) must not switch cross references off for
+           the whole session: the next verse card tries again */
+        if(!META.xrefs){ xrefPending=null; S.popXr=0; }
+      });
   }
-  xrefPending.then(function(){ if(then) then(); });
+  var pend=xrefPending||Promise.resolve();
+  pend.then(function(){ if(then) then(); });
 }
 function unpackXrefs(){
   if(XR||!META.xrefs) return;
@@ -866,14 +878,47 @@ var Store=(function(){
       try{ if(L){var v=L.getItem(k); return Promise.resolve(v?JSON.parse(v):null);} }catch(e){}
       return Promise.resolve(mem[k]!==undefined?mem[k]:null);
     },
+    /* A write that fails (the phone's storage full, mostly) used to vanish
+       silently, so a note said "Saved" and was gone on the next launch. Now
+       the key is remembered, retried, and the reader is told until it lands. */
     set:function(k,v){
       mem[k]=v;
-      if(hasArtifact) return window.storage.set(k,JSON.stringify(v)).catch(function(){});
-      try{ if(L) L.setItem(k,JSON.stringify(v)); }catch(e){}
+      if(hasArtifact) return window.storage.set(k,JSON.stringify(v)).then(function(){ storeOk(k); },
+        function(e){ storeFailed(k,e); });
+      try{ if(L){ L.setItem(k,JSON.stringify(v)); storeOk(k); } }
+      catch(e){ storeFailed(k,e); }
       return Promise.resolve();
+    },
+    failing:function(){ return Object.keys(STORE_FAILED).length>0; },
+    retry:function(){
+      Object.keys(STORE_FAILED).forEach(function(k){ if(mem[k]!==undefined) Store.set(k,mem[k]); });
     }
   };
 })();
+var STORE_FAILED={};
+function storeOk(k){
+  if(!STORE_FAILED[k]) return;
+  delete STORE_FAILED[k];
+  if(!Object.keys(STORE_FAILED).length) storeWarn(false);
+}
+function storeFailed(k,e){
+  var first=!STORE_FAILED[k];
+  STORE_FAILED[k]=Date.now();
+  if(first) storeWarn(true);
+  if(!storeFailed.timer) storeFailed.timer=setInterval(function(){
+    if(!Object.keys(STORE_FAILED).length){ clearInterval(storeFailed.timer); storeFailed.timer=null; return; }
+    Store.retry();
+  },30000);
+}
+function storeWarn(on){
+  try{
+    var el=document.getElementById('storewarn');
+    if(!el){ if(!on) return; el=document.createElement('div'); el.id='storewarn'; el.setAttribute('role','alert'); document.body.appendChild(el); }
+    el.innerHTML=on?'<span>This phone\u2019s storage is full, so your latest changes are not saved yet. '+
+      'Free some space, or download a backup in Settings.</span><button data-a="storeretry">Try again</button>':'';
+    el.className=on?'on':'';
+  }catch(e){}
+}
 
 function saveHl(){ Store.set('strata:highlights',S.hl); }
 function saveNotes(){ Store.set('strata:notes',S.notes); }
@@ -910,13 +955,14 @@ function dropRetiredSheets(list){
 
 function loadAll(cb){
   Store.get('strata:highlights').then(function(h){
-    S.hl=h||{};
+    S.hl=cleanHighlights(h);
     return Store.get('strata:notes');
   }).then(function(n){
     S.notes=migrateNotes(n);   /* notes written before the fuller shape */
     return Store.get('strata:sheets');
   }).then(function(sh){
-    S.sheets=(Array.isArray(sh)&&sh.length)?dropRetiredSheets(sh):defaultSheets();
+    var cs=cleanSheets(sh);
+    S.sheets=cs.length?dropRetiredSheets(cs):defaultSheets();
     return Store.get('strata:voice');
   }).then(function(v){
     if(v&&typeof v==='object'){
@@ -932,7 +978,7 @@ function loadAll(cb){
     }
     return Store.get('strata:bookmarks');
   }).then(function(bm){
-    if(bm&&typeof bm==='object') S.marks=bm;
+    if(bm&&typeof bm==='object') S.marks=cleanMarks(bm);
     return Store.get('strata:focus');
   }).then(function(fo){
     if(typeof fo==='boolean') S.focus=fo;
@@ -981,13 +1027,30 @@ function loadAll(cb){
       /* the Contrast page is retired: text size covers what it was for */
       if(S.page==='contrast') S.page='plain';
       if(typeof pl.red==='boolean') S.redLetters=pl.red;
-      if(BIBLE&&BIBLE[String(pl.b)]&&BIBLE[String(pl.b)][String(pl.c)]){
-        S.book=pl.b; S.reading=pl.b; S.ch=pl.c;
+      /* the place is kept whenever the book and chapter exist. The store
+         app loads books one by one, so the book may not be in memory yet:
+         the reader fetches it as it opens. Before, this required it loaded,
+         and every launch fell back to Proverbs 1 and saved over the place. */
+      var pb=(typeof pl.b==='number')?BK(pl.b):null;
+      if(pb&&!pb.user&&typeof pl.c==='number'&&pl.c>=1&&pl.c<=(pb.nch||0)){
+        S.book=pl.b; S.reading=pl.b; S.ch=pl.c; S.lastRead={b:pl.b,c:pl.c};
       }
     }
-    S.ready=true; cb();
+    S.ready=true;
+    /* the first paint has its own guard: an error drawing it used to land in
+       the catch below, which replaced the study sheets that had loaded fine
+       with the defaults (and the next save made that permanent) */
+    try{ cb(); }catch(e){ try{ console.error(e); }catch(_){} }
     loadShelf().then(function(){ if(S.shelf.length) render(); });
-  }).catch(function(){ S.sheets=defaultSheets(); S.ready=true; cb(); });
+  }).catch(function(e){
+    /* only fill in what did not load; never replace what did */
+    if(!Array.isArray(S.sheets)) S.sheets=defaultSheets();
+    if(!S.hl||typeof S.hl!=='object') S.hl={};
+    if(!Array.isArray(S.notes)) S.notes=[];
+    S.ready=true;
+    try{ cb(); }catch(_){}
+    loadShelf().then(function(){ if(S.shelf.length) render(); }).catch(function(){});
+  });
 }
 
 /* ---------- verse helpers ---------- */
@@ -1167,6 +1230,7 @@ var Speech=(function(){
   var synth=(typeof window!=='undefined'&&window.speechSynthesis)?window.speechSynthesis:null;
   var queue=[], idx=0, playing=false, paused=false, onTick=null, onDone=null, onProgress=null;
   var onState=null, nat=false, natHooked=false;  /* nat: the native player has the queue */
+  var sysErrs=0;
   var est=null;                   /* timing estimate, for voices that report no words */
   function report(i,f){ if(onProgress&&playing&&!paused) onProgress(i,Math.max(0,Math.min(1,f))); }
   function stopEst(){ if(est){ clearInterval(est); est=null; } }
@@ -1194,8 +1258,19 @@ var Speech=(function(){
       if(words||paused) return;
       report(i, Math.min(.99, (Date.now()-t0)/1000*14.5*rate/len));
     },250);
-    u.onend=function(){ stopEst(); if(playing&&!paused) sysAt(i+1); };
-    u.onerror=function(){ stopEst(); if(playing&&!paused) sysAt(i+1); };
+    u.onend=function(){ stopEst(); sysErrs=0; if(playing&&!paused) sysAt(i+1); };
+    /* A voice that fails on every passage (a network voice offline, a voice
+       that has been removed) used to race through the chapter and on into the
+       next ones, marking each read. Three failures in a row stop it instead. */
+    u.onerror=function(e){
+      stopEst();
+      var why=e&&e.error;
+      if(why==='interrupted'||why==='canceled') return;
+      if(++sysErrs>=3){ sysErrs=0; stop();
+        setTimeout(function(){ try{ stopSpeaking();
+          announce('The voice could not read this. Choose another voice in Read aloud.'); }catch(_){} },0);
+        return; }
+      if(playing&&!paused) sysAt(i+1); };
     try{ synth.speak(u); }catch(e){ stop(); }
   }
 
@@ -1308,7 +1383,9 @@ var Speech=(function(){
         items: queue.map(function(u,i){ var m=(meta&&meta[i])||{};
           return {url:u, title:m.title||'', album:m.album||''}; }),
         index: idx, fraction: startFrac||0, rate: rate, artist: 'Sixteen Eleven'
-      }).catch(function(){ nat=false; playing=false; if(onState) onState(); });
+      }).catch(function(){ nat=false; playing=false; if(onState) onState();
+        /* the player could not start: the page stops thinking it is reading */
+        setTimeout(function(){ try{ stopSpeaking(); announce('The narration could not start. Try again in a moment.'); }catch(_){} },0); });
       if(onTick) onTick(idx);
       return true;
     }
@@ -1365,13 +1442,20 @@ function snapshotPayload(){
   return {format:BACKUP_FORMAT, version:1,
           exported:new Date().toISOString(),
           highlights:S.hl, notes:S.notes, sheets:S.sheets, read:S.read,
-          userRefs:S.userRefs, textSize:S.textSize};
+          userRefs:S.userRefs, marks:S.marks, textSize:S.textSize};
 }
+/* A cheap digest of what would be saved: counts alone missed an edited note
+   or a changed colour, so the text itself goes in (as a short hash). */
 function dataFingerprint(){
-  return [Object.keys(S.hl).length, S.notes.length,
-          S.sheets.reduce(function(a,x){return a+x.items.length;},0),
-          Object.keys(S.read).length,
-          Object.keys(S.userRefs).length].join('.');
+  var n=[Object.keys(S.hl||{}).length, (S.notes||[]).length,
+         (S.sheets||[]).reduce(function(a,x){return a+((x&&x.items)||[]).length;},0),
+         Object.keys(S.read||{}).length, Object.keys(S.userRefs||{}).length,
+         Object.keys(S.marks||{}).length];
+  if(n.join('')==='000000') return '0.0.0.0.0';
+  var str='';
+  try{ str=JSON.stringify([S.hl,S.notes,S.sheets,S.userRefs,S.marks]); }catch(e){}
+  var h=5381; for(var i=0;i<str.length;i++) h=((h<<5)+h+str.charCodeAt(i))|0;
+  return n.join('.')+'.'+(h>>>0).toString(36);
 }
 function takeSnapshot(reason){
   if(!S.autoBackup || !Shelf.available()) return Promise.resolve(false);
@@ -1674,7 +1758,8 @@ function speakFrom(v){
   if(S.places) delete S.places[placeKey(S.reading,S.ch)];   /* taken up again */
   S.paintedVerse=null;
   S.speakB=S.reading; S.speakC=S.ch; /* which chapter is being read */
-  if(hasRecording(b.name, S.ch) && playRecorded(b.name, S.ch, v)) return;
+  /* only the Bible is narrated: an imported "John.txt" is read in its own words */
+  if(!b.user && hasRecording(b.name, S.ch) && playRecorded(b.name, S.ch, v)) return;
   S.passages=buildPassages(b, S.ch, v);
   var lines=S.passages.map(function(p){ return p.text; });
   Speech.onTick(function(i){
@@ -1716,7 +1801,17 @@ function chapterFinished(){
       S.speakB=nxt.b; S.speakC=nxt.c;   /* moving on is not leaving */
       render();
       clearTimeout(nextChapterTimer);
-      nextChapterTimer=setTimeout(function(){ nextChapterTimer=null; if(S.autoNext) speakFrom(1); },250);
+      /* the next book may still be downloading: wait for it, or the title
+         alone would be read and the chapter marked as heard */
+      var go=function(){ nextChapterTimer=null; if(S.autoNext&&S.speaking!==false) speakFrom(1); };
+      nextChapterTimer=setTimeout(function(){
+        var nb=BK(nxt.b);
+        if(nb&&!nb.user&&!bookLoaded(nb.i)){
+          nextChapterTimer=-1;
+          fetchBook(nb.i).then(function(){ if(nextChapterTimer===-1){ render(); go(); } })
+            .catch(function(){ nextChapterTimer=null; S.speaking=false; renderSpeakBar(); paintSpeaking(); });
+        } else go();
+      },250);
       return;
     }
   }
@@ -2606,6 +2701,10 @@ function renderPlayer(){
   if(LAYOUT!=='phone') refreshIsland();
 }
 
+var PS119=[['ALEPH','\u05d0'],['BETH','\u05d1'],['GIMEL','\u05d2'],['DALETH','\u05d3'],['HE','\u05d4'],['VAU','\u05d5'],
+  ['ZAIN','\u05d6'],['CHETH','\u05d7'],['TETH','\u05d8'],['JOD','\u05d9'],['CAPH','\u05db'],['LAMED','\u05dc'],['MEM','\u05de'],
+  ['NUN','\u05e0'],['SAMECH','\u05e1'],['AIN','\u05e2'],['PE','\u05e4'],['TZADDI','\u05e6'],['KOPH','\u05e7'],['RESH','\u05e8'],
+  ['SCHIN','\u05e9'],['TAU','\u05ea']];
 function vRead(){
   var b=BK(S.reading), n=S.ch;
   if(!bookLoaded(b.i)&&!b.user){
@@ -2666,7 +2765,7 @@ function vRead(){
         ({paper:'Paper',plain:'Plain'})[S.page]||'Plain');
     h+=rGroup('look','Appearance',
         '<div class="rrow">'+['auto','light','dark'].map(function(t){
-          return '<button data-theme="'+t+'" aria-selected="'+((S.theme||'auto')===t)+
+          return '<button data-settheme="'+t+'" aria-selected="'+((S.theme||'auto')===t)+
             '">'+({auto:'Match device',light:'Early morning',dark:'Night'})[t]+'</button>';}).join('')+
         '</div>',
         ({auto:'Match device',light:'Early morning',dark:'Night'})[S.theme||'auto']);
@@ -2719,7 +2818,11 @@ function vRead(){
           if((k+1)>=lo&&(k+1)<=hi) jump=' jump';
         }
       }
-      return '<span class="v'+(col?' hl-'+col:'')+jump+'" data-vs="'+key+'"><sup>'+(k+1)+'</sup>'+
+      /* Psalm 119's twenty-two stanzas carry the Hebrew letter each begins
+         with, as the King James prints them */
+      var st=(n===119&&!b.user&&b.name==='Psalms'&&k%8===0)?PS119[k/8]:null;
+      return (st?'<span class="ps119h" aria-hidden="true"><b>'+st[1]+'</b> '+st[0]+'</span>':'')+
+        '<span class="v'+(col&&CMAP[col]?' hl-'+col:'')+jump+'" data-vs="'+key+'"><sup>'+(k+1)+'</sup>'+
         (function(){
           var spans=S.redLetters===false?null:redFor(b.i,n,k+1);
           var body=spans?redLetter(v,spans):esc(v);
@@ -2764,7 +2867,7 @@ function vProfile(){
         '<div class="sethead">Settings</div>';
   h+='<div class="setgrp">Appearance</div><div class="setcard">'+
     seg('Theme',[['light','Early morning'],['dark','Night'],['auto','Match device']].map(function(o){
-      return '<button data-theme="'+o[0]+'" aria-selected="'+((S.theme||'auto')===o[0])+'">'+o[1]+'</button>';}).join(''))+
+      return '<button data-settheme="'+o[0]+'" aria-selected="'+((S.theme||'auto')===o[0])+'">'+o[1]+'</button>';}).join(''))+
     seg('Page',[['plain','Plain'],['paper','Paper']].map(function(o){
       return '<button data-page="'+o[0]+'" aria-selected="'+(S.page===o[0])+'">'+o[1]+'</button>';}).join(''))+
     '</div>';
@@ -2833,10 +2936,11 @@ function vProfile(){
     '<a class="btn sec" href="privacy.html" target="_blank" rel="noopener" '+
     'style="display:block;text-decoration:none">Read the privacy policy</a></div>';
   h+='<div class="h2">What this is</div><div class="card about">'+
-    '<p><b>The text.</b> The 66 books of the King James Bible, plus the 14 books of the Apocrypha. '+
-    'The 1611 printing used the old orthography, where <em>u</em> and <em>v</em> were interchangeable '+
-    'and a long <em>\u017f</em> stood for <em>s</em>; this edition carries modernised spelling, so '+
-    '<em>haue</em> reads as <em>have</em>, with the wording untouched.</p>'+
+    '<p><b>The text.</b> The 66 books of the King James Bible, plus the 14 books of the Apocrypha, '+
+    'in the 1769 Oxford standard text that most King James Bibles print today. The 1611 printing '+
+    'used the old orthography, where <em>u</em> and <em>v</em> were interchangeable and a long '+
+    '<em>\u017f</em> stood for <em>s</em>; the 1769 revision modernised the spelling and corrected '+
+    'the printers\u2019 errors, so <em>haue</em> reads as <em>have</em>.</p>'+
     '<p><b>The Apocrypha.</b> All 14 books, from the eBible.org King James + Apocrypha '+
     'release (the standardised 1769 text). An earlier build set these books from a scanned '+
     '1800 printing read by OCR; that version merged hundreds of verse divisions and damaged '+
@@ -2845,8 +2949,8 @@ function vProfile(){
     'traditionally printed as chapters 10\u201316. It appears here as chapters 1\u20137, keeping '+
     'each chapter\u2019s own verse numbers. 2 Esdras 7 has 70 verses, the King James numbering; '+
     'the fragment some modern editions insert at 7:36 is not part of this text.</p>'+
-    '<p><b>The facts.</b> Drawn from Flavius Josephus, <em>Antiquities of the Jews</em>, in William '+
-    'Whiston\u2019s translation, each cited to book and chapter.</p>'+
+    '<p><b>The facts.</b> Drawn from Flavius Josephus, <em>Antiquities of the Jews</em> (and, in one '+
+    'case, <em>The Jewish War</em>), in William Whiston\u2019s translation, each cited to book and chapter.</p>'+
     '<p><b>Chapter notes.</b> All 80 books have a scribe note, a historical setting and a '+
     'chapter map, and every chapter has a written note \u2014 all 1,362 of them, across all eighty '+
     'books.</p>'+
@@ -2858,7 +2962,7 @@ function vProfile(){
     '<p><b>Your highlights and notes</b> are stored on this device only. Nothing is uploaded. '+
     'If you open this file somewhere else, they will not follow you.</p>'+
     '<p><b>Sources.</b> King James Bible and Josephus\u2019s <em>Antiquities</em> from Project Gutenberg; '+
-    'the Apocrypha from the Internet Archive. All in the public domain.</p></div>';
+    'the Apocrypha from eBible.org. All in the public domain.</p></div>';
   return h;
 }
 
@@ -3074,7 +3178,7 @@ function commitNote(e){
   ex.ts=Date.now(); e.ts=ex.ts;
   migrateNote(ex);
   saveNotes();
-  noteSavedSay('Saved');
+  noteSavedSay(Store.failing()?'Not saved: storage is full':'Saved');
   return ex;
 }
 function queueNoteSave(){
@@ -3108,17 +3212,54 @@ function noteRefsHTML(e){
   /* verses linked by hand before links became automatic stay until removed */
   h+=legacy.map(function(l,i){
     if(shown[l[0]]) return '';
-    var k=l[2]?parseKey(l[2]):null;
-    return '<div class="lkrow"><'+(k?'button data-goverse="'+l[2]+'"':'span')+' class="lkgo">'+
+    var k=(typeof l[2]==='string'&&validKey(l[2]))?parseKey(l[2]):null;
+    return '<div class="lkrow"><'+(k?'button data-goverse="'+esc(l[2])+'"':'span')+' class="lkgo">'+
       '<span class="lkref">'+esc(l[0])+'</span>'+(l[1]?'<span class="lktxt">'+esc(l[1])+'</span>':'')+
       '</'+(k?'button':'span')+'><button class="lkdel" data-dellink="'+i+'" aria-label="Remove '+esc(l[0])+
       '">'+svg(I.close)+'</button></div>';
   }).join('');
   return h;
 }
+/* What a restore or a stored record may contain. A backup is a file anyone
+   could edit, and its values end up in the page, so every key, id and colour
+   is checked for its exact shape before it is kept. */
+function validKey(k){ return typeof k==='string'&&/^\d{1,4}:\d{1,3}:\d{1,3}$/.test(k); }
+function validId(x){ return typeof x==='string'&&/^[\w.:-]{1,64}$/.test(x); }
+function cleanHighlights(h){
+  var out={};
+  if(h&&typeof h==='object') for(var k in h) if(validKey(k)&&typeof h[k]==='string'&&CMAP[h[k]]) out[k]=h[k];
+  return out;
+}
+function cleanMarks(m){
+  var out={};
+  if(m&&typeof m==='object') for(var k in m){
+    var v=m[k]; if(!validKey(k)||!v||typeof v!=='object') continue;
+    out[k]={ts:typeof v.ts==='number'?v.ts:Date.now(), f:typeof v.f==='string'?v.f.slice(0,40):''};
+  }
+  return out;
+}
+function cleanSheet(sh){
+  if(!sh||typeof sh!=='object'||!validId(String(sh.id||''))) return null;
+  var items=Array.isArray(sh.items)?sh.items:[];
+  return {id:String(sh.id), name:typeof sh.name==='string'?sh.name.slice(0,120):'Study sheet',
+    desc:typeof sh.desc==='string'?sh.desc.slice(0,400):'',
+    items:items.filter(function(it){ return it&&typeof it==='object'; }).map(function(it,i){
+      return {id:validId(String(it.id||''))?String(it.id):('i'+Date.now()+i),
+        n:(typeof it.n==='number'&&isFinite(it.n))?it.n:(typeof it.n==='string'&&/^\d{1,6}$/.test(it.n))?+it.n:'',
+        q:typeof it.q==='string'?it.q:'', refs:typeof it.refs==='string'?it.refs:'',
+        note:typeof it.note==='string'?it.note:''};
+    })};
+}
+function cleanSheets(list){
+  if(!Array.isArray(list)) return [];
+  return list.map(cleanSheet).filter(Boolean);
+}
 function migrateNote(n){
   if(!n||typeof n!=='object') return null;
-  if(!n.id) n.id='n'+Date.now()+Math.floor(Math.random()*999);
+  if(!validId(n.id)) n.id='n'+Date.now()+Math.floor(Math.random()*999);
+  /* a note on a verse keeps its place only if the place is whole numbers */
+  if(n.b!=null&&!(Number.isFinite(+n.b)&&Number.isFinite(+n.c)&&Number.isFinite(+n.v))){ n.b=null; n.c=null; n.v=null; }
+  else if(n.b!=null){ n.b=+n.b; n.c=+n.c; n.v=+n.v; }
   if(typeof n.body!=='string') n.body=n.body==null?'':String(n.body);
   if(typeof n.ts!=='number') n.ts=Date.parse(n.ts)||Date.now();
   if(typeof n.title!=='string') n.title='';
@@ -3127,7 +3268,9 @@ function migrateNote(n){
                .map(function(t){ return t.trim().slice(0,28); }).slice(0,8);
   if(typeof n.cat!=='string') n.cat='';
   if(!Array.isArray(n.links)) n.links=[];
-  n.links=n.links.filter(function(l){ return Array.isArray(l)&&l.length; }).slice(0,12);
+  n.links=n.links.filter(function(l){ return Array.isArray(l)&&l.length; }).slice(0,12)
+    .map(function(l){ return [String(l[0]==null?'':l[0]).slice(0,80), l[1]==null?'':String(l[1]).slice(0,300),
+                               validKey(l[2])?l[2]:'']; });
   n.sv=NOTE_SCHEMA;
   return n;
 }
@@ -3211,7 +3354,7 @@ function vSearch(){
   var f=S.searchFilter||'All';
   return screenHead({title:'Search'})+
     '<div class="search"><svg viewBox="0 0 24 24">'+I.search+
-    '</svg><input id="q" placeholder="A word, a phrase, or a reference like John 3:16" '+
+    '</svg><input id="q" placeholder="A word, a phrase, or John 3:16" '+
       'autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="'+esc(S.q)+'">'+
     (S.q?'<button class="sclear" data-a="clearq" aria-label="Clear the search">×</button>':'')+
     '</div>'+
@@ -3314,7 +3457,9 @@ function searchDefinition(word){
   }
   if(r&&r.forms.length){
     var f=r.forms[0], m=(f.modern||[])[0], w=(f.entries||[])[0];
-    var line=m?(m[0]?'<i>'+esc(m[0])+'</i> ':'')+esc(m[1]):(w&&w.d&&w.d[0]?esc(w.d[0].slice(0,220)):'');
+    /* Webster's 1913 first: it gives the sense the Bible uses ("a man employed
+       in tending sheep"), where the modern list may lead with "a clergyman" */
+    var line=(w&&w.d&&w.d[0])?esc(w.d[0].slice(0,220)):m?(m[0]?'<i>'+esc(m[0])+'</i> ':'')+esc(m[1]):'';
     if(line) h+='<div class="sdef"><div class="lab">Meaning</div><p><b>'+esc(f.head)+'</b> — '+line+'</p>'+
       '<button class="chip" data-word="'+esc(word)+'">Full entry, its history and the Hebrew and Greek</button></div>';
   }
@@ -3379,7 +3524,7 @@ function runSearch(keepPage){
   if(f!=='Verses'&&notes.length){
     h+='<div class="lab sgroup">Your notes</div>'+notes.slice(0,20).map(function(nn){
       var t=nn.title?nn.title+' — '+nn.body:nn.body;
-      return '<button class="sres" data-editnote="'+nn.id+'"><span class="srow"><span class="sref">'+
+      return '<button class="sres" data-editnote="'+esc(nn.id)+'"><span class="srow"><span class="sref">'+
         esc(nn.b==null?'General note':vRef(nn.b,nn.c,nn.v))+'</span><span class="stype">Note</span></span>'+
         '<span class="stext">'+markText(t.slice(0,240),pat,loose)+'</span></button>';
     }).join('');
@@ -3408,13 +3553,22 @@ function runSearch(keepPage){
   }
   out.innerHTML=h;
 }
+/* the match is found in the plain text and each piece escaped on its own:
+   matching inside the escaped text turned "&lt;" into "&<b>lt</b>;" */
 function markText(t, pat, loose){
-  var x=esc(t);
+  t=String(t==null?'':t);
   try{
     var rx=pat?(pat.kind==='phrase'&&pat.markAll?pat.markAll:pat.mark):(loose?new RegExp('('+loose.source+')','ig'):null);
-    if(rx){ rx.lastIndex=0; x=x.replace(rx,function(m){ return '<b>'+m+'</b>'; }); }
+    if(rx){
+      var g=new RegExp(rx.source, rx.flags.indexOf('g')>-1?rx.flags:rx.flags+'g'), out='', last=0, m;
+      while((m=g.exec(t))){
+        if(!m[0]){ g.lastIndex++; continue; }
+        out+=esc(t.slice(last,m.index))+'<b>'+esc(m[0])+'</b>'; last=m.index+m[0].length;
+      }
+      return out+esc(t.slice(last));
+    }
   }catch(e){}
-  return x;
+  return esc(t);
 }
 
 /* ================= VERSE ACTION SHEET ================= */
@@ -3695,8 +3849,15 @@ function revealPop(card){
     var bottom=Math.min(s.bottom, window.innerHeight-reserve);
     var over=r.bottom+12-bottom;
     if(over>0){
-      var top=r.top-over-s.top;
-      if(top<60) over-= (60-top);
+      /* never past the point where the tapped verse would slip under the top
+         bar: the verse stays in sight, and a card too tall for what is left
+         simply scrolls with the page */
+      var vs=S.pop?document.querySelector('.rd [data-vs="'+S.pop+'"]'):null;
+      var topBar=document.getElementById('top'), tb=topBar?topBar.getBoundingClientRect().bottom:s.top;
+      var limitTop=Math.max(s.top, tb)+8;
+      var anchor=vs?vs.getBoundingClientRect().top:r.top;
+      var room=anchor-limitTop;
+      if(over>room) over=Math.max(0, room);
       if(over>0) bringIntoViewBy(sc, over);
     }
   }catch(e){}
@@ -3711,6 +3872,7 @@ function bringIntoViewBy(sc, dy){
 function openPop(key){
   closeSheet();
   S.pop=key; S.popCopied=null; popReset();
+  try{ document.body.classList.add('pop-open'); }catch(e){}
   placePop(true);
 }
 function popReset(){
@@ -3720,6 +3882,7 @@ function popSay(msg){ S.popMsg=msg||''; S.popMsgKey=S.pop; if(msg) announce(msg)
 function closePop(){
   if(!S.pop) return false;
   S.pop=null; S.popCopied=null; popReset();
+  try{ document.body.classList.remove('pop-open'); }catch(e){}
   clearPopDom(document);
   return true;
 }
@@ -3869,15 +4032,25 @@ function hexAlpha(hex, a){
 function noteFor(p){
   return S.notes.filter(function(x){return x.b===p.b&&x.c===p.c&&x.v===p.v;})[0];
 }
+/* Is this a verse that exists? A verse whose book is not in memory (one of
+   your own books, closed, or a Bible book still downloading) cannot be read
+   yet, but it is not stale: it is kept, and shown by its reference. */
+function verseKnown(b,c,v){
+  var bk=BK(b); if(!bk) return false;
+  if(vText(b,c,v)) return true;
+  if(bk.user||!bookLoaded(bk.i)) return c>=1&&(!bk.nch||c<=bk.nch)&&v>=1;
+  return false;
+}
 function noteShelf(n){
   if(n.b==null) return 'General';
   var b=BK(n.b); if(!b) return 'General';
+  if(b.user) return 'Your books';
   return b.apoc?'Apocrypha':(b.i<39?'Old Testament':'New Testament');
 }
 function vNotes(){
   if(S.editing) return vNoteEdit();
   var all=S.notes.filter(function(n){
-    return n.b==null || (BK(n.b) && vText(n.b,n.c,n.v));
+    return n.b==null || verseKnown(n.b,n.c,n.v);
   }).sort(function(a,b){return b.ts-a.ts;});
   var f=S.noteFilter||'All';
   if(f==='Unfiled') f='General';          /* the old name for it */
@@ -3897,6 +4070,7 @@ function vNotes(){
       tags.length+(tags.length===1?' tag':' tags')+'</p>';
   var cats=['All','Old Testament','New Testament','Apocrypha'];
   if(all.some(function(n){return noteShelf(n)==='General';})) cats.push('General');
+  if(all.some(function(n){return noteShelf(n)==='Your books';})) cats.push('Your books');
   if(cats.indexOf(f)===-1) cats.push(f);
   h+='<div class="shchips nchips">'+cats.map(function(c){
     return '<button class="chip'+(f===c?' on':'')+'" data-notefilter="'+esc(c)+'">'+
@@ -3922,7 +4096,7 @@ function noteHTML(n){
   var when=noteWhen(n.ts);
   var q=n.b==null?'':vText(n.b,n.c,n.v);
   /* The whole card opens the note; its tags filter the list. */
-  return '<div class="ncard" role="button" tabindex="0" data-editnote="'+n.id+'">'+
+  return '<div class="ncard" role="button" tabindex="0" data-editnote="'+esc(n.id)+'">'+
     '<div class="ncrow"><span class="ncref">'+
       esc(n.b==null?'General note':vRef(n.b,n.c,n.v))+'</span>'+
       '<span class="ncdate">'+esc(when)+'</span></div>'+
@@ -3998,7 +4172,7 @@ function vNoteEdit(){
 
   /* the verses the note mentions, found as it is written */
   h+='<div class="nedlab">Verses in this note</div><div class="lklist" id="nrefs">'+noteRefsHTML(e)+'</div>';
-  if(e.id) h+='<button class="neddel" data-delnote="'+e.id+'">Delete this note</button>';
+  if(e.id) h+='<button class="neddel" data-delnote="'+esc(e.id)+'">Delete this note</button>';
   return h;
 }
 
@@ -4039,9 +4213,8 @@ function bookmarkList(){
   var out=[];
   for(var k in S.marks){
     var p=parseKey(k);
-    if(!BK(p.b)) continue;
-    var t=vText(p.b,p.c,p.v);
-    if(!t) continue;                 /* stale reference: skip, do not show a blank */
+    if(!verseKnown(p.b,p.c,p.v)) continue;   /* stale reference: skip, do not show a blank */
+    var t=vText(p.b,p.c,p.v)||'';
     var mi=markInfo(k);
     out.push({key:k,b:p.b,c:p.c,v:p.v,text:t,ts:mi?mi.ts:0,folder:folderOf(k)});
   }
@@ -4053,8 +4226,8 @@ function savedList(){
   for(var k in S.hl){
     var p=parseKey(k);
     if(!BK(p.b)||!CMAP[S.hl[k]]) continue;
-    var t=vText(p.b,p.c,p.v);
-    if(!t) continue;            // stale reference: skip rather than show a blank card
+    if(!verseKnown(p.b,p.c,p.v)) continue;   // stale reference: skip rather than show a blank card
+    var t=vText(p.b,p.c,p.v)||'';
     out.push({key:k,b:p.b,c:p.c,v:p.v,color:S.hl[k],text:t});
   }
   return out;
@@ -4083,7 +4256,7 @@ function vSaves(){
     }).join('')+'</div>';
     var bl=cur==='All saves'?bm:bm.filter(function(x){return x.folder===cur;});
     return h+bl.map(function(x){
-      return '<button class="bmrow" data-goverse="'+x.key+'">'+
+      return '<button class="bmrow" data-goverse="'+esc(x.key)+'">'+
         '<span class="bmhead"><svg class="bmic" viewBox="0 0 24 24" aria-hidden="true">'+
           '<path d="M7 3.5h10v17l-5-3.8-5 3.8z"/></svg>'+
           '<span class="bmref">'+esc(vRef(x.b,x.c,x.v))+'</span>'+
@@ -4110,7 +4283,7 @@ function vSaves(){
   /* newest first, the verse drawn as if marked with the swatch */
   return h+list.slice().reverse().map(function(x){
     var c=CMAP[x.color]||COLORS[0];
-    return '<button class="hlrow" data-goverse="'+x.key+'">'+
+    return '<button class="hlrow" data-goverse="'+esc(x.key)+'">'+
       '<span class="bmhead"><i class="hldot" style="background:'+c.dot+'"></i>'+
         '<span class="bmref">'+esc(vRef(x.b,x.c,x.v))+'</span>'+
         '<span class="bmdate">'+esc(c.n)+'</span></span>'+
@@ -4167,7 +4340,7 @@ function vSheetDetail(){
   if(!items.length) return h+'<div class="empty">Nothing in this study sheet matches.</div>';
   h+=items.map(function(it){
     var refs=parseRefs(it.refs);
-    return '<div class="sq"><div class="sqh"><span class="sqn">'+(it.n||'')+'</span>'+
+    return '<div class="sq"><div class="sqh"><span class="sqn">'+esc(it.n||'')+'</span>'+
       '<span class="sqq">'+esc(it.q)+'</span></div>'+
       (it.note?'<div class="snote">'+esc(it.note)+'</div>':'')+
       '<div class="reflist">'+refs.map(function(r){
@@ -4586,7 +4759,10 @@ var Shelf=(function(){
         var t=d.transaction(name, mode), s=t.objectStore(name), out;
         out=fn(s);
         t.oncomplete=function(){ res(out&&out.result!==undefined?out.result:out); };
-        t.onerror=function(){ rej(t.error); };
+        t.onerror=function(){ rej(t.error||new Error('The save failed.')); };
+        /* a quota error at commit time fires only abort: without this an
+           import or a restore point would wait forever */
+        t.onabort=function(){ rej(t.error||new Error('There is not enough space on this phone.')); };
       });
     });
   }
@@ -4960,7 +5136,7 @@ function exportData(){
   var payload={
     format:BACKUP_FORMAT, version:1, exported:new Date().toISOString(),
     highlights:S.hl, notes:S.notes, sheets:S.sheets, read:S.read,
-    userRefs:S.userRefs,
+    userRefs:S.userRefs, marks:S.marks,
     place:{b:S.reading,c:S.ch}, textSize:S.textSize
   };
   var text=JSON.stringify(payload,null,1);
@@ -4980,11 +5156,13 @@ function mergeBackup(data){
   if(!data||[BACKUP_FORMAT,'sword-forge-backup'].indexOf(data.format)===-1)
     throw new Error('That is not a Sixteen Eleven backup file.');
   var added={hl:0,notes:0,sheets:0,read:0,refs:0};
-  if(data.highlights&&typeof data.highlights==='object'){
-    for(var k in data.highlights){
-      if(!S.hl[k]){ S.hl[k]=data.highlights[k]; added.hl++; }
-    }
-  }
+  var inHl=cleanHighlights(data.highlights);
+  for(var k in inHl){ if(!S.hl[k]){ S.hl[k]=inHl[k]; added.hl++; } }
+  /* bookmarks and their folders: before this they were never in a backup */
+  var inMk=cleanMarks(data.marks);
+  added.marks=0;
+  for(var mk in inMk){ if(!S.marks[mk]){ S.marks[mk]=inMk[mk]; added.marks++; } }
+  if(added.marks) Store.set('strata:bookmarks',S.marks);
   if(Array.isArray(data.notes)){
     var have={}; S.notes.forEach(function(n){ have[n.id]=1; });
     data.notes.forEach(function(n){
@@ -4994,11 +5172,11 @@ function mergeBackup(data){
   }
   if(Array.isArray(data.sheets)){
     var hs={}; S.sheets.forEach(function(x){ hs[x.id]=x; });
-    data.sheets.forEach(function(sh){
-      if(!sh||!sh.id) return;
+    cleanSheets(data.sheets).forEach(function(sh){
       if(!hs[sh.id]){ S.sheets.push(sh); added.sheets++; }
       else {
         var mine=hs[sh.id], ids={};
+        if(!Array.isArray(mine.items)) mine.items=[];
         mine.items.forEach(function(it){ ids[it.id]=1; });
         (sh.items||[]).forEach(function(it){
           if(it&&it.id&&!ids[it.id]){ mine.items.push(it); added.sheets++; }
@@ -5008,7 +5186,8 @@ function mergeBackup(data){
   }
   if(data.userRefs&&typeof data.userRefs==='object'){
     for(var uk in data.userRefs){
-      var incoming=data.userRefs[uk]||[];
+      if(!validKey(uk)||!Array.isArray(data.userRefs[uk])) continue;
+      var incoming=data.userRefs[uk].filter(function(x){ return typeof x==='string'; }).map(function(x){ return x.slice(0,80); });
       var have=S.userRefs[uk]||(S.userRefs[uk]=[]);
       incoming.forEach(function(lbl){
         if(have.indexOf(lbl)===-1){ have.push(lbl); added.refs=(added.refs||0)+1; }
@@ -5017,16 +5196,17 @@ function mergeBackup(data){
     saveUserRefs();
   }
   if(data.read&&typeof data.read==='object'){
-    for(var rk in data.read) if(!S.read[rk]){ S.read[rk]=data.read[rk]; added.read=(added.read||0)+1; }
+    for(var rk in data.read) if(/^\d{1,4}:\d{1,3}$/.test(rk)&&typeof data.read[rk]==='number'&&!S.read[rk]){ S.read[rk]=data.read[rk]; added.read=(added.read||0)+1; }
     saveRead();
   }
-  if(typeof data.textSize==='number') S.textSize=data.textSize;
+  if(typeof data.textSize==='number'&&data.textSize>=0&&data.textSize<=5) S.textSize=Math.round(data.textSize);
   saveHl(); saveNotes(); saveSheets();
   return added;
 }
 
 function importBackup(file){
-  return file.text().then(function(t){
+  /* fileText, not file.text(): Safari before 14 has no Blob.text() */
+  return fileText(file).then(function(t){
     var data;
     try{ data=JSON.parse(t); }
     catch(e){ throw new Error('That file is not readable JSON.'); }
@@ -5170,9 +5350,8 @@ function shelfGreeting(){
 function continueCard(){
   var b=null, ch=1, resumed=false;
   if(S.reading!==null && BK(S.reading)){ b=BK(S.reading); ch=S.ch||1; resumed=true; }
-  else {
-    var pl=Store.get('strata:place');
-    if(pl && BK(pl.b)){ b=BK(pl.b); ch=pl.c||1; resumed=true; }
+  else if(S.lastRead&&BK(S.lastRead.b)&&!BK(S.lastRead.b).user){
+    b=BK(S.lastRead.b); ch=S.lastRead.c||1; resumed=true;
   }
   if(!b){
     var n=nextUnread();
@@ -5701,7 +5880,9 @@ function payInit(){
     Promise.resolve(PAY.plugin.configure({apiKey:key})).then(function(){
       try{ PAY.plugin.addCustomerInfoUpdateListener(function(ci){ payApply(ci); }); }catch(e){}
       return PAY.plugin.getCustomerInfo();
-    }).then(function(r){ payApply(r&&(r.customerInfo||r)); }).catch(function(){});
+    }).then(function(r){ payApply(r&&(r.customerInfo||r));
+      return payLoadOfferings().then(function(){ if(PAY.open) drawPaywall(); if(WEL.open) drawWelcome(); });
+    }).catch(function(){});
     return;
   }
   if(payTestMode()){
@@ -5718,6 +5899,15 @@ function payApply(ci){
   var subs=[].concat(ci.activeSubscriptions||[]).concat(a.study&&a.study.productIdentifier?[a.study.productIdentifier]:[]);
   var yearly=subs.some(function(id){ return /^study_annual/.test(String(id)); });
   PAY.ent={study:!!a.study, audio:!!a.audio||yearly};
+  /* what is held, product by product: the plan buttons and plan changes go by
+     this, not by the entitlements (Yearly and Founders both give "study" and
+     "audio", but they are not the same thing to buy) */
+  var bought=[].concat(ci.allPurchasedProductIdentifiers||[]).concat(
+    (ci.nonSubscriptionTransactions||[]).map(function(t){ return t&&(t.productIdentifier||t.productId); }));
+  [a.study,a.audio].forEach(function(e){ if(e&&e.productIdentifier) bought.push(e.productIdentifier); });
+  var active=[].concat(ci.activeSubscriptions||[]).map(String).filter(function(id){ return /^study_/.test(id); });
+  PAY.owned={subs:active, life:bought.some(function(id){ return /^lifetime_founders/.test(String(id)); }),
+             audio:bought.some(function(id){ return /^audio_bible/.test(String(id)); })};
   PAY.mgmt=ci.managementURL||null;
   Store.set('strata:ent',{ent:PAY.ent, exp:Date.now()+7*864e5});
   if(PAY.ent.study+'/'+PAY.ent.audio!==was){ applyLayout(); S.keepScroll=true; render(); if(PAY.open) drawPaywall(); }
@@ -5739,10 +5929,57 @@ function payTestOfferings(){
 }
 function payLoadOfferings(){
   if(PAY.offerings) return Promise.resolve(PAY.offerings);
-  if(PAY.test){ PAY.offerings=payTestOfferings(); return Promise.resolve(PAY.offerings); }
+  if(PAY.test){ PAY.offerings=payTestOfferings(); if(PAY.trial==null) PAY.trial=true; return Promise.resolve(PAY.offerings); }
   if(!PAY.plugin) return Promise.resolve(null);
   return Promise.resolve(PAY.plugin.getOfferings()).then(function(o){
-    PAY.offerings=o||null; return PAY.offerings; }).catch(function(){ return null; });
+    PAY.offerings=o||null;
+    return payCheckTrial().then(function(){ return PAY.offerings; });
+  }).catch(function(){ return null; });
+}
+/* Is the free trial really on offer to this person? Someone who has had it
+   before, or is already subscribed, is charged at once, so the paywall must
+   not promise fourteen free days. true / false / null (could not tell). */
+function payCheckTrial(){
+  if(PAY.owned&&PAY.owned.subs&&PAY.owned.subs.length){ PAY.trial=false; return Promise.resolve(); }
+  var pk=payPkg('default','$rc_annual'), pr=pk&&pk.product;
+  if(payPlatform()==='android'){
+    /* Google lists only the offers this account can take */
+    var opt=pr&&(pr.defaultOption||null);
+    PAY.trial=!!((opt&&opt.freePhase)||(pr&&pr.introPrice&&+pr.introPrice.price===0));
+    return Promise.resolve();
+  }
+  if(!PAY.plugin||!PAY.plugin.checkTrialOrIntroductoryPriceEligibility){ PAY.trial=null; return Promise.resolve(); }
+  return Promise.resolve(PAY.plugin.checkTrialOrIntroductoryPriceEligibility({productIdentifiers:['study_annual']}))
+    .then(function(r){
+      var e=r&&(r.study_annual||(r.eligibility&&r.eligibility.study_annual));
+      var st=e&&(e.status!=null?e.status:e);
+      /* RevenueCat: 0 unknown, 1 not eligible, 2 eligible, 3 no offer */
+      PAY.trial=(st===2||st==='INTRO_ELIGIBILITY_STATUS_ELIGIBLE')?true
+               :(st===1||st===3||st==='INTRO_ELIGIBILITY_STATUS_INELIGIBLE'||st==='INTRO_ELIGIBILITY_STATUS_NO_INTRO_OFFER_EXISTS')?false:null;
+    }).catch(function(){ PAY.trial=null; });
+}
+/* the trial's words, only as far as they are true */
+function trialWords(kind){
+  var t=PAY.trial;
+  if(kind==='plan') return t===true?'Study and the narrated Bible. 14 days free, then yearly. Cancel any time.'
+    :t===false?'Study and the narrated Bible, billed yearly. Cancel any time.'
+    :'Study and the narrated Bible, billed yearly. First-time subscribers get 14 days free.';
+  if(kind==='button') return t===true?'Start 14 days free':'Continue';
+  if(kind==='fine') return t===true?' when the 14 days end':t===false?'':' (after the free trial, for a first subscription)';
+  if(kind==='welcome') return t===true?'Or try everything free for 14 days':'Or see Yearly and Monthly';
+  return '';
+}
+/* the plan already held, by product rather than by what it unlocks */
+function planOwned(id){
+  if(!PAY.on) return false;
+  var o=PAY.owned;
+  if(!o) return id==='audio'?hasAudio():(id==='lifetime'?(PAY.ent.study&&PAY.ent.audio):hasStudy()&&!promoActive());
+  var subs=o.subs||[], has=function(re){ return subs.some(function(x){ return re.test(x); }); };
+  if(id==='lifetime') return o.life;
+  if(id==='annual') return o.life||has(/^study_annual/);
+  if(id==='monthly') return o.life||has(/^study_monthly/)||has(/^study_annual/);
+  if(id==='audio') return hasAudio();
+  return false;
 }
 function payPkg(offering, id){
   var o=PAY.offerings; if(!o) return null;
@@ -5772,12 +6009,29 @@ function payBuy(offering, id){
       var pid=p.product.identifier;
       var ent={study:PAY.ent.study||/study|lifetime/.test(pid), audio:PAY.ent.audio||/audio|lifetime|study_annual/.test(pid)};
       Store.set('strata:enttest',ent);
-      done({entitlements:{active:(function(){ var a={}; if(ent.study) a.study={}; if(ent.audio) a.audio={}; return a; })()}});
+      var subs=(PAY.owned&&PAY.owned.subs||[]).slice();
+      if(/^study_/.test(pid)){ subs=subs.filter(function(x){ return !/^study_/.test(x); }); subs.push(pid); }
+      var held=((PAY.owned&&PAY.owned.life)?['lifetime_founders']:[]).concat((PAY.owned&&PAY.owned.audio)?['audio_bible']:[]);
+      if(!/^study_|^tip_/.test(pid)) held.push(pid);
+      done({entitlements:{active:(function(){ var a={}; if(ent.study) a.study={}; if(ent.audio) a.audio={}; return a; })()},
+            activeSubscriptions:subs, allPurchasedProductIdentifiers:held.concat(subs)});
     },150);
     return;
   }
-  Promise.resolve(PAY.plugin.purchasePackage({aPackage:p})).then(function(r){
+  var opts={aPackage:p}, pid0=String((p.product&&p.product.identifier)||'');
+  var cur=(PAY.owned&&PAY.owned.subs||[]).filter(function(x){ return x.split(':')[0]!==pid0.split(':')[0]; })[0];
+  /* Google Play keeps two subscriptions running side by side unless told the
+     new one replaces the old; Apple does this by itself within the group */
+  if(cur&&/^study_/.test(pid0)&&payPlatform()==='android')
+    opts.googleProductChangeInfo={oldProductIdentifier:cur.split(':')[0]};
+  var hadSub=cur||(PAY.owned&&PAY.owned.subs||[])[0];
+  Promise.resolve(PAY.plugin.purchasePackage(opts)).then(function(r){
     done(r&&(r.customerInfo||r));
+    if(/^lifetime/.test(pid0)&&hadSub){
+      PAY.msg='Thank you, Founder. Study is yours for good. Your '+(/annual/.test(hadSub)?'yearly':'monthly')+
+        ' plan still renews until you cancel it, so cancel it in your subscriptions.';
+      PAY.showManage=true; payRedraw();
+    }
   }).catch(function(e){
     PAY.busy=false;
     var cancelled=e&&(e.userCancelled||e.code==='1'||e.code===1||/cancel/i.test(String(e.message||'')));
@@ -5837,6 +6091,7 @@ var PAYWHY={
   study:['Go deeper with Study','Word study, study sheets, every map and more.'],
   founders:['Become a Founder','One payment, no subscription: Study and the narrated Bible, yours for good.'],
   trial:['Try Study free','Fourteen days of everything, the narrated Bible included. Cancel any time.'],
+  trialno:['Study Yearly','Study and the narrated Bible, every year. Cancel any time.'],
   words:['Word study, without limits','You have used today’s '+FREE_LOOKUPS+' free lookups. Study opens every word.'],
   sheets:['Study sheets','Your own studies: a question, and the scriptures that answer it.'],
   tags:['Tags for your notes','Gather your notes by theme, and find them again by tag.'],
@@ -5855,17 +6110,18 @@ function openPaywall(why){
   drawPaywall();
   payLoadOfferings().then(function(){ if(PAY.open) drawPaywall(); });
 }
-function closePaywall(){ PAY.open=null; PAY.redeemHelp=false; PAY.codeOpen=false; PAY.codeMsg=''; closeSheet(); }
+function closePaywall(){ PAY.open=null; PAY.showManage=false; PAY.redeemHelp=false; PAY.codeOpen=false; PAY.codeMsg=''; closeSheet();
+  if(AUD.offerWaiting) audOffer(); }
 function drawPaywall(){
   if(!PAY.open||!sheet) return;
-  var why=PAY.open, t=PAYWHY[why]||PAYWHY.study;
+  var why=PAY.open, t=PAYWHY[(why==='trial'&&PAY.trial!==true)?'trialno':why]||PAYWHY.study;
   var audioFirst=(why==='audio');
   /* Founders Lifetime leads: one payment, nothing recurring, which is what
      most people asked for. Yearly stays beside it for anyone who would rather
      not pay that much at once. */
   var plans=[
     ['lifetime','default','$rc_lifetime','Founders Lifetime',payPrice('default','$rc_lifetime','$79.99')+' once','Study and the narrated Bible, for good. No subscription.'+(foundersOpen()?' '+foundersNote()+'.':''),'Best value'],
-    ['annual','default','$rc_annual','Yearly',payPrice('default','$rc_annual','$29.99')+' a year','Study and the narrated Bible. 14 days free, then yearly. Cancel any time.'],
+    ['annual','default','$rc_annual','Yearly',payPrice('default','$rc_annual','$29.99')+' a year',trialWords('plan')],
     ['monthly','default','$rc_monthly','Monthly',payPrice('default','$rc_monthly','$4.99')+' a month','Study. Cancel any time.']];
   var audio=['audio','audio','audio','Narrated Bible',payPrice('audio','audio','$19.99')+' once','All 80 books in the narrator’s voice, for good.'];
   if(audioFirst) plans=[audio, plans[0], plans[1]];
@@ -5891,9 +6147,15 @@ function drawPaywall(){
       '<span class="pwpp">'+esc(p[4])+'</span></button>';
   }).join('')+'</div>';
   var pick=plans.filter(function(p){ return p[0]===PAY.choice; })[0]||plans[0];
-  var owned=(pick[0]==='audio')?(hasAudio()&&PAY.on):(pick[0]==='annual')?(PAY.on&&hasStudy()&&hasAudio()&&!promoActive()):(hasStudy()&&PAY.on&&pick[0]!=='lifetime')||(pick[0]==='lifetime'&&PAY.ent.study&&PAY.ent.audio);
+  var owned=planOwned(pick[0]);
   h+='<button class="btn pwbuy" data-pwbuy="'+pick[1]+'|'+pick[2]+'"'+(PAY.busy||owned?' disabled':'')+'>'+
-     (owned?'You have this':PAY.busy?'One moment…':(pick[0]==='annual'?'Start 14 days free':pick[0]==='lifetime'?'Become a Founder':'Continue'))+'</button>';
+     (owned?(PAY.owned&&PAY.owned.life&&pick[0]!=='audio'?'You are a Founder':'You have this'):PAY.busy?'One moment…':(pick[0]==='annual'?trialWords('button'):pick[0]==='lifetime'?'Become a Founder':'Continue'))+'</button>';
+  /* Founders over a running subscription: the store goes on billing it */
+  if(pick[0]==='lifetime'&&!owned&&PAY.owned&&PAY.owned.subs&&PAY.owned.subs.length)
+    h+='<p class="pwmsg">You have a Study subscription. Founders replaces it for good; after buying, cancel the subscription so it stops renewing.</p>';
+  if(PAY.showManage)
+    h+='<a class="btn sec pwmanage" href="'+esc(PAY.mgmt||(payPlatform()==='android'?'https://play.google.com/store/account/subscriptions':'https://apps.apple.com/account/subscriptions'))+
+       '" target="_blank" rel="noopener">Manage subscriptions</a>';
   if(PAY.msg) h+='<p class="pwmsg" role="status">'+esc(PAY.msg)+'</p>';
   if(PAY.codeOpen){
     h+='<div class="pwcode pwcodein"><label for="pwcode"><b>Have a code?</b></label>'+
@@ -5909,7 +6171,7 @@ function drawPaywall(){
        'the payment method, choose <i>Redeem code</i>, and enter your code. A free-month code '+
        'means nothing is charged for the month, and you can cancel before it ends.</p></div>';
   h+='<p class="pwfine">'+(pick[0]==='annual'||pick[0]==='monthly'
-      ?'Charged to your '+(payPlatform()==='android'?'Google':'Apple')+' account'+(pick[0]==='annual'?' when the 14 days end':'')+
+      ?'Charged to your '+(payPlatform()==='android'?'Google':'Apple')+' account'+(pick[0]==='annual'?trialWords('fine'):'')+
        '. It renews automatically unless you cancel at least 24 hours before the end of the period; manage or cancel it in your account settings.'
       :'One payment, charged to your '+(payPlatform()==='android'?'Google':'Apple')+' account. No subscription.')+'</p>';
   h+='<div class="pwlinks"><button data-a="pwrestore">Restore purchases</button>'+
@@ -6019,14 +6281,14 @@ function drawWelcome(){
     h='<div class="welpage"><div class="welin">'+
       '<div class="welkick">Step 3 of 3</div><h2>Become a Founder</h2>'+
       '<p class="welsub">The King James text stays free for everyone. Founders open the deeper tools and the narrated Bible, and keep the lamp lit.</p>'+
-      '<div class="welcard"><div class="welcardtop"><b>Founders Lifetime</b><span>'+esc(payPrice('default','$rc_lifetime','$79.99'))+' once</span></div>'+
+      '<div class="welcard"><div class="welcardtop"><b>Founders Lifetime</b>'+(function(){ var pp=payPrice('default','$rc_lifetime',PAY.test?'$79.99':''); return pp?'<span>'+esc(pp)+' once</span>':'<span>One payment</span>'; })()+'</div>'+
         (foundersOpen()?'<div class="welnote">'+esc(foundersNote())+'</div>':'')+
         '<ul><li>The narrated Bible: all 80 books in one voice, offline</li>'+
         '<li>Word study with Webster’s 1913 and Strong’s Hebrew and Greek</li>'+
         '<li>Study sheets, tags, folders and the whole atlas</li>'+
         '<li>One payment. No subscription, ever</li></ul>'+
         '<button class="btn welgo" data-w="founders">Become a Founder</button></div>'+
-      '<button class="btn sec weltrial" data-w="trial">Or try everything free for 14 days</button>'+
+      '<button class="btn sec weltrial" data-w="trial">'+esc(trialWords('welcome'))+'</button>'+
       '</div><div class="welfoot">'+dots+
       '<button class="btn gh welskip" data-w="done">Not now, start reading</button></div></div>';
   }
@@ -6190,7 +6452,7 @@ function recordedTitle(bi, ch){
    the web address. A re-recorded clip carries a new ?r= in the manifest, so
    a kept copy older than the manifest's is fetched again.
    Only the store apps keep audio; the website streams as before. */
-var AUD={on:false, dir:null, have:{}, want:{}, queue:[], active:0, errs:0, msg:'', sheet:false,
+var AUD={on:false, dir:null, have:{}, want:{}, queue:[], active:0, errs:0, msg:'', sheet:false, inflight:{}, tries:{},
          done:0, total:0, ready:false, offered:false};
 var AUD_WORKERS=3;
 function audPlain(f){ return String(f||'').split('?')[0]; }
@@ -6217,6 +6479,12 @@ function audBookFiles(name){
     if(t[ch]) out.push(t[ch]);
   });
   return out;
+}
+function audChapterLocal(bk, c, list){
+  if(!AUD.on) return false;
+  if(!(list||[]).every(function(x){ return !!audLocal(x.f); })) return false;
+  var t=recordedTitle(bk.i, c);
+  return !t||!!audLocal(t);
 }
 function audAllowed(name){ return hasAudio()||FREE_AUDIO.indexOf(name)>-1; }
 function audLocal(f){
@@ -6249,7 +6517,7 @@ function audBuildQueue(){
     if(!audAllowed(name)) return;
     audBookFiles(name).forEach(function(f){
       var p=audPlain(f);
-      if(AUD.have[p]===f||seen[p]) return;
+      if(AUD.have[p]===f||seen[p]||AUD.inflight[p]||(AUD.tries[p]||0)>=3) return;
       seen[p]=1; q.push({f:f, p:p, book:name});
     });
   });
@@ -6267,26 +6535,40 @@ function audResume(){
 }
 function audWork(){
   var it=AUD.queue.shift(); if(!it) return;
+  if(AUD.have[it.p]===it.f||AUD.inflight[it.p]){ if(AUD.queue.length) audWork(); return; }
   var base=(S.voiceManifest&&S.voiceManifest._base)||VOICE_CDN;
-  AUD.active++;
+  AUD.active++; AUD.inflight[it.p]=1;
   Promise.resolve(Narrator.download({url:base+it.f, name:it.p})).then(function(){
-    AUD.have[it.p]=it.f; AUD.done++; AUD.errs=0; audSaveSoon();
-  }).catch(function(){
-    AUD.errs++; AUD.queue.push(it);
+    AUD.have[it.p]=it.f; AUD.done++; AUD.errs=0; delete AUD.tries[it.p]; audSaveSoon();
+  }).catch(function(e){
+    /* one missing file must not stop the rest: each file gets three tries,
+       then is left out (and tried again on a later launch) */
+    AUD.tries[it.p]=(AUD.tries[it.p]||0)+1;
+    if(navigator.onLine===false||/offline|network|connection|timed out/i.test(String(e&&e.message||''))) AUD.errs++;
+    if(AUD.tries[it.p]<3) AUD.queue.push(it); else AUD.skipped=(AUD.skipped||0)+1;
   }).then(function(){
-    AUD.active--;
+    AUD.active--; delete AUD.inflight[it.p];
     if(AUD.errs>=6){
       AUD.queue=[]; AUD.msg='Paused: the connection dropped. It carries on by itself when you are back online.';
       audRedraw(); return;
     }
-    if(AUD.queue.length&&!AUD.stopped) audWork();
-    else if(!AUD.active){ audSave(); AUD.done=0; AUD.total=0; audRedraw(true); }
+    if(AUD.queue.length&&!AUD.stopped) setTimeout(audWork, AUD.errs?2000:0);
+    else if(!AUD.active){
+      audSave(); AUD.done=0; AUD.total=0;
+      if(AUD.skipped) AUD.msg=AUD.skipped+' passage'+(AUD.skipped===1?'':'s')+' could not be downloaded just now; they will be tried again later.';
+      AUD.skipped=0; audRedraw(true);
+    }
     audRedraw();
   });
 }
 function audWant(name){ AUD.want[name]=1; AUD.stopped=false; audSave(); audResume(); }
 function audWantAll(){ audNarratedBooks().forEach(function(n){ if(audAllowed(n)) AUD.want[n]=1; }); AUD.stopped=false; audSave(); audResume(); }
-function audStop(){ AUD.stopped=true; AUD.want={}; AUD.queue=[]; audSave(); AUD.msg='Stopped. What has downloaded stays.'; audRedraw(true); }
+function audStop(){
+  AUD.stopped=true; AUD.queue=[];
+  /* only the books still coming are let go; finished ones stay wanted, so a
+     re-recorded passage in them is still fetched later */
+  Object.keys(AUD.want).forEach(function(n){ var st=audBookState(n); if(!(st.total&&st.have===st.total)) delete AUD.want[n]; });
+  audSave(); AUD.msg='Stopped. What has downloaded stays.'; audRedraw(true); }
 function audRemove(names){
   var drop=[];
   names.forEach(function(name){
@@ -6387,7 +6669,9 @@ function drawAudioSheet(){
 /* after the narration is bought: the offer to keep it, once */
 function audOffer(){
   if(!AUD.on||AUD.offered||!hasAudio()) return;
-  AUD.offered=true; Store.set('strata:dloffered',Date.now());
+  /* bought from the paywall: wait until it is put away, then offer */
+  if(PAY.open||WEL.open){ AUD.offerWaiting=true; return; }
+  AUD.offered=true; AUD.offerWaiting=false; Store.set('strata:dloffered',Date.now());
   setTimeout(function(){ if(!PAY.open&&!WEL.open) openAudioSheet(); },600);
 }
 
@@ -6402,6 +6686,10 @@ function recordedSpan(bi, ch){
     var nx=nextChapterFrom(cur.b, cur.c); if(!nx) break;
     var bk=BK(nx.b); if(!bk) break;
     var l=recordedFor(bk.name, nx.c); if(!l) break;
+    /* with no connection, only what is on the phone can be queued: a remote
+       clip would fail, the player would skip it, and chapters would be marked
+       read without a word heard */
+    if(navigator.onLine===false&&!audChapterLocal(bk, nx.c, l)) break;
     out.push(nx); clips+=l.length; cur=nx;
   }
   return out;
@@ -8027,8 +8315,8 @@ function renderInner(quiet){
     importBackup(rf.files[0]).then(function(a){
       S.restoreErr=0;
       S.restoreMsg='Restored '+a.hl+' highlight'+(a.hl===1?'':'s')+', '+
-        a.notes+' note'+(a.notes===1?'':'s')+' and '+a.sheets+' study entr'+
-        (a.sheets===1?'y':'ies')+'.';
+        a.notes+' note'+(a.notes===1?'':'s')+', '+(a.marks||0)+' bookmark'+((a.marks||0)===1?'':'s')+
+        ' and '+a.sheets+' study entr'+(a.sheets===1?'y':'ies')+'.';
       render();
     }).catch(function(e){
       S.restoreErr=1; S.restoreMsg=(e&&e.message)||'That file could not be read.';
@@ -8131,7 +8419,7 @@ document.addEventListener('click',inPane(function(ev){
     '[data-drawerbook],[data-drawerch],'+
     '[data-kvoice],[data-svoice],[data-read],[data-userbook],[data-delbook],'+
     '[data-cat],[data-apoc],[data-size],[data-markread],[data-vq],[data-page],'+
-    '[data-mapera],[data-mapframe],[data-plate],[data-platezoom],[data-theme],'+
+    '[data-mapera],[data-mapframe],[data-plate],[data-platezoom],[data-settheme],'+
     '[data-scrollspeed],[data-rsgroup],[data-savestab],[data-notefilter],'+
     '[data-dellink],[data-deltag],[data-bmfolder],[data-bmf],[data-sfilter],'+
     '[data-delref],[data-snap],[data-snapdl],[data-search],[data-forget],'+
@@ -8179,6 +8467,14 @@ document.addEventListener('click',inPane(function(ev){
     return; }
   if(d.a==='pwcodego'){
     var ce=document.getElementById('pwcode');
+    /* In the store apps a code is the store's own: an app may not unlock what
+       it sells with codes of its own, and a code kept only on the phone could
+       be used again after a reinstall. The store checks it once per account. */
+    if(payNative()){
+      PAY.codeMsg=payPlatform()==='android'
+        ?'Codes are redeemed with Google Play: tap Continue on the monthly plan, then Redeem code in Google\u2019s sheet.'
+        :'Codes are redeemed with Apple: enter it in the sheet that opens.';
+      announce(PAY.codeMsg); payRedeem(); drawPaywall(); return; }
     var cr=redeemPromo(ce?ce.value:'');
     PAY.codeMsg=cr.msg; announce(cr.msg);
     if(cr.ok&&promoActive()){ applyLayout(); render();
@@ -8460,7 +8756,11 @@ document.addEventListener('click',inPane(function(ev){
   /* --- read aloud --- */
   if(d.a==='speak'){ speakFrom(startVerse()); return; }
   if(d.a==='pause'){ Speech.pause(); holdPlace(); renderSpeakBar(); paintSpeaking(); return; }
-  if(d.a==='resume'){ speakFrom(startVerse()); return; }
+  if(d.a==='resume'){
+    /* paused from the lock screen, headphones or a call: the native player
+       still holds its place, so it carries on from there, not from verse 1 */
+    if(Speech.isNative()&&Speech.isPaused()&&S.speaking){ Speech.resume(); renderSpeakBar(); paintSpeaking(); return; }
+    speakFrom(startVerse()); return; }
   if(d.a==='stopspeak'){ stopSpeaking(); return; }
   if(d.a==='readeropts'){
     S.readerOpts=!S.readerOpts;
@@ -8492,6 +8792,7 @@ document.addEventListener('click',inPane(function(ev){
     if(wasOn) setTimeout(function(){ if(Kokoro.ready()) speakFrom(at); },400);
     return; }
   if(d.markread){ markRead(S.reading,+d.markread); render(); return; }
+  if(d.a==='storeretry'){ Store.retry(); return; }
   /* --- narration kept on the phone --- */
   if(d.a==='dlopen'){ openAudioSheet(); return; }
   if(d.a==='dlclose'){ closeSheet(); return; }
@@ -8506,8 +8807,10 @@ document.addEventListener('click',inPane(function(ev){
     return; }
   if(d.size!==undefined&&d.size!==''){S.keepScroll=true; S.textSize=+d.size; savePlace(); render(); return; }
   if(d.page){S.keepScroll=true; S.page=d.page; savePlace(); render(); return; }
-  if(d.theme){S.keepScroll=true; setTheme(d.theme); announce(d.theme==='auto'
-      ?'Appearance follows your device.':'Appearance set to '+d.theme+'.'); return; }
+  /* data-settheme, not data-theme: the root's own data-theme="dark" selector
+     matched the Night button too and painted it in dark-mode ink */
+  if(d.settheme){S.keepScroll=true; setTheme(d.settheme); announce(d.settheme==='auto'
+      ?'Appearance follows your device.':'Appearance set to '+d.settheme+'.'); return; }
   if(d.a==='togglered'){ S.redLetters=(S.redLetters===false); savePlace(); render(); return; }
   if(d.read){
     if(S.readMode===d.read){ renderSpeakBar(); return; }

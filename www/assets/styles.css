@@ -2356,7 +2356,7 @@ body.lay-split #player .player.bar{position:absolute;left:12px;right:12px;max-wi
 .pane[data-w] .libwrap .covers{grid-gap:20px 14px;gap:20px 14px}
 /* full screen reading on a split tablet: the reading side takes the screen */
 body.lay-split.immersive .pane:not(.is-reader),body.lay-split.immersive #divider{display:none !important}
-body.lay-split.immersive .pane.is-reader{width:auto !important;flex:1 1 0%}
+body.lay-split.immersive .pane.is-reader{width:auto !important;flex:1 1 0% !important}
 body.lay-split.immersive #player{display:none}
 /* the reader shows the sky behind it on a tablet, as the design has it */
 body.lay-tablet .pane[data-screen="reader"]>.pv{background:transparent !important}
@@ -2905,3 +2905,32 @@ html.welcoming,html.welcoming body{overflow:hidden}
   display:inline-flex;align-items:center;justify-content:center}
 .dlsheet .dlbtn.on{background:var(--blue-l);border-color:transparent;color:var(--ink)}
 .dlsheet .dlbtn.wait{color:var(--ink2);border-style:dashed}
+
+/* storage full: told, not hidden */
+#storewarn{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 86px);z-index:390;
+  display:none;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;
+  background:#2A1C17;color:#F6EEE4;font-size:13.5px;line-height:1.4;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+#storewarn.on{display:flex}
+#storewarn span{flex:1}
+#storewarn button{flex:none;min-height:40px;border:0;border-radius:999px;padding:0 14px;
+  background:#F6EEE4;color:#2A1C17;font:inherit;font-weight:600;cursor:pointer}
+.paywall .pwmanage{display:block;width:100%;min-height:46px;margin-top:10px;text-align:center;text-decoration:none;line-height:46px;padding:0 16px}
+
+/* ---- from the October visual check ---- */
+/* the verse card is on top: the scroll-to-top button stands aside */
+body.pop-open #totop{display:none!important}
+/* in the reader the left edge is the verse numbers; the button goes right */
+@media(max-width:462px){body[data-screen="reader"] #totop{left:auto;right:16px}}
+/* the meaning card's link wraps on a narrow phone instead of running off it */
+.sdef .chip{white-space:normal;max-width:100%;text-align:left;height:auto;min-height:36px;line-height:1.3;padding-top:8px;padding-bottom:8px}
+/* white on the coral accent reads at 3:1 in dark mode; the deeper red reads at 4.7:1 */
+[data-theme="dark"] .btn:not(.sec):not(.gh){background:#C9483C;color:#fff}
+[data-theme="dark"] #welcome .welsky .welgo{background:#EAE0CF;color:#1A1510}
+/* segmented choices in Settings: a full-size target */
+.setseg button{height:40px}
+/* Psalm 119's stanza letters */
+.rd .ps119h{display:block;margin:1.1em 0 .35em;font-family:var(--text);font-size:12px;font-weight:600;
+  letter-spacing:.16em;color:var(--brass);text-indent:0}
+.rd .ps119h:first-child{margin-top:.2em}
+.rd .ps119h b{font-family:'Times New Roman',serif;font-size:19px;font-weight:400;letter-spacing:0;margin-right:6px;vertical-align:-2px}
+[data-theme="dark"] .rd .ps119h{color:#C9A86A}
