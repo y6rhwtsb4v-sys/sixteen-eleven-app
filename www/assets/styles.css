@@ -2884,3 +2884,24 @@ html.welcoming,html.welcoming body{overflow:hidden}
 .paywall .pwbadge{font-style:normal;font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--blue);
   background:var(--blue-l);border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:1px}
 #welcome:focus{outline:none}
+
+/* narration on this phone */
+.dlsheet{padding:4px 2px 18px}
+.dlsheet .pwhead{text-align:center;padding:6px 8px 4px}
+.dlsheet .pwkick{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--blue)}
+.dlsheet h2{font-family:var(--serif);font-weight:400;font-size:28px;line-height:1.15;margin:8px 0 6px;color:var(--ink)}
+.dlsheet .pwhead p{font-size:14.5px;line-height:1.5;color:var(--ink2);margin:0 auto 14px;max-width:420px}
+.dlsheet .dlwide{display:block;width:100%;min-height:50px;margin:8px 0 4px}
+.dlsheet .dlnote{font-size:13px;line-height:1.45;color:var(--ink2);text-align:center;margin:8px 4px}
+.dlsheet .dlwarn{color:var(--blue)}
+.dlsheet .dlbar{height:8px;border-radius:4px;background:var(--blue-l);overflow:hidden;margin:6px 2px 0}
+.dlsheet .dlbar i{display:block;height:100%;background:var(--blue);border-radius:4px;transition:width .4s var(--ease)}
+.dlsheet .dllist{margin:14px 0 8px;border-top:1px solid var(--line)}
+.dlsheet .dlrow{display:flex;align-items:center;gap:10px;min-height:52px;border-bottom:1px solid var(--line);padding:0 2px}
+.dlsheet .dlname{flex:1;font-size:15px;color:var(--ink);min-width:0}
+.dlsheet .dlsize{font-size:12.5px;color:var(--ink3,var(--ink2));white-space:nowrap}
+.dlsheet .dlbtn{flex:none;min-width:96px;min-height:36px;border-radius:999px;border:1px solid var(--line);
+  background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--blue);padding:0 12px;cursor:pointer;text-align:center;
+  display:inline-flex;align-items:center;justify-content:center}
+.dlsheet .dlbtn.on{background:var(--blue-l);border-color:transparent;color:var(--ink)}
+.dlsheet .dlbtn.wait{color:var(--ink2);border-style:dashed}

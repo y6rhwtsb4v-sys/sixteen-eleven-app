@@ -2779,6 +2779,7 @@ function vProfile(){
   h+='<div class="setgrp">Read aloud</div><div class="setcard">'+
     '<div class="setrow"><div class="setlab">Speed</div>'+speedSeg()+'</div>'+
     '<div class="setline"><span>Voice</span><span>'+esc(currentVoiceName())+'</span></div>'+
+    audCard()+
     '<p class="setsub" style="margin:10px 0 2px">The narrated Bible is an AI rendering, made with Chatterbox, '+
     'of the narrator\u2019s own voice. Where a chapter has not been narrated yet, the device\u2019s voice reads it.</p>'+
     '</div>';
@@ -3846,7 +3847,7 @@ function openSheet(key){
   initSheetDrag();
 }
 function closeSheet(){
-  PAY.open=null;
+  PAY.open=null; AUD.sheet=false;
   if(sheet.style){ sheet.style.transition=''; sheet.style.transform=''; }
   sheet.classList.remove('on'); scrim.classList.remove('on'); S.sheet=null;
 }
@@ -5720,6 +5721,7 @@ function payApply(ci){
   PAY.mgmt=ci.managementURL||null;
   Store.set('strata:ent',{ent:PAY.ent, exp:Date.now()+7*864e5});
   if(PAY.ent.study+'/'+PAY.ent.audio!==was){ applyLayout(); S.keepScroll=true; render(); if(PAY.open) drawPaywall(); }
+  if(PAY.ent.audio&&was.split('/')[1]!=='true'&&!payTestMode()) audOffer();
 }
 /* the pretend store: the same shapes RevenueCat returns */
 function payTestOfferings(){
@@ -5845,7 +5847,7 @@ var PAYWHY={
   audio:['The narrated Bible','All 80 books read aloud in one human voice, offline. Psalms and John are free to hear. Yours for good, or with the yearly Study plan.']
 };
 function openPaywall(why){
-  PAY.open=why||'study';
+  PAY.open=why||'study'; AUD.sheet=false;
   PAY.msg='';
   PAY.choice=(why==='audio')?'audio':(why==='trial')?'annual':'lifetime';
   closePop&&closePop();
@@ -6138,6 +6140,8 @@ function loadVoiceManifest(){
     });
   }
   return get(VOICE_CDN+'manifest.json', VOICE_CDN)
+    .then(function(j){ try{ Store.set('strata:vman',j); }catch(e){} return j; })
+    .catch(function(){ return Store.get('strata:vman').then(function(j){ if(j&&typeof j==='object') return j; throw new Error('none kept'); }); })
     .catch(function(){ return get(local, VOICE_BASE); })
     .then(function(j){ S.voiceManifest=j; return j; })
     .catch(function(){ S.voiceManifest=false; return false; });
@@ -6163,12 +6167,12 @@ function recordedPassages(bi, ch, list){
   var out=list.map(function(x){
     var parts=[];
     for(var n=x.v1;n<=x.v2;n++) if(vs[n-1]) parts.push([n,vs[n-1].length]);
-    return {text:'', from:x.v1, to:x.v2, file:base+x.f, marks:marksOf(parts,0)};
+    return {text:'', from:x.v1, to:x.v2, file:audLocal(x.f)||base+x.f, marks:marksOf(parts,0)};
   });
   /* the chapter's title in the same voice, when it has been recorded; the
      first verse is marked while it plays */
   var t=recordedTitle(bi, ch);
-  if(t) out.unshift({text:'', from:0, to:0, file:base+t, marks:[], title:1});
+  if(t) out.unshift({text:'', from:0, to:0, file:audLocal(t)||base+t, marks:[], title:1});
   return out;
 }
 function recordedTitle(bi, ch){
@@ -6177,6 +6181,216 @@ function recordedTitle(bi, ch){
   var bt=m._titles[b.name];
   return (bt&&bt[String(ch)])||null;
 }
+/* ---------- narration on the device ----------
+   The text has always been on the phone; the narration streamed from the
+   CDN, so it fell silent without a connection. Now any book can be kept on
+   the device: Settings > Narration on this phone, or the offer that follows
+   buying it. The native plugin does the downloading (straight to a file,
+   kept out of iCloud backups) and the player is handed the file instead of
+   the web address. A re-recorded clip carries a new ?r= in the manifest, so
+   a kept copy older than the manifest's is fetched again.
+   Only the store apps keep audio; the website streams as before. */
+var AUD={on:false, dir:null, have:{}, want:{}, queue:[], active:0, errs:0, msg:'', sheet:false,
+         done:0, total:0, ready:false, offered:false};
+var AUD_WORKERS=3;
+function audPlain(f){ return String(f||'').split('?')[0]; }
+function audInit(){
+  if(!payNative()||!Narrator||!Narrator.audioDir) return;
+  Promise.resolve(Narrator.audioDir()).then(function(r){
+    AUD.dir=(r&&r.uri)||null; if(!AUD.dir) return;
+    if(!/\/$/.test(AUD.dir)) AUD.dir+='/';
+    AUD.on=true;
+    return Promise.all([Store.get('strata:dlhave'),Store.get('strata:dlwant'),Store.get('strata:dloffered')]);
+  }).then(function(v){
+    if(!v) return;
+    AUD.have=v[0]||{}; AUD.want=v[1]||{}; AUD.offered=!!v[2]; AUD.ready=true;
+    return loadVoiceManifest();
+  }).then(function(){ if(AUD.ready) audResume(); }).catch(function(){});
+  try{ window.addEventListener('online',function(){ AUD.errs=0; audResume(); }); }catch(e){}
+}
+/* every file a book needs: its passages and its spoken chapter titles */
+function audBookFiles(name){
+  var m=S.voiceManifest; if(!m||!m[name]) return [];
+  var out=[], b=m[name], t=(m._titles&&m._titles[name])||{};
+  Object.keys(b).forEach(function(ch){
+    (b[ch]||[]).forEach(function(x){ if(x&&x.f) out.push(x.f); });
+    if(t[ch]) out.push(t[ch]);
+  });
+  return out;
+}
+function audAllowed(name){ return hasAudio()||FREE_AUDIO.indexOf(name)>-1; }
+function audLocal(f){
+  if(!AUD.on||!f) return null;
+  var p=audPlain(f);
+  return AUD.have[p]===f?AUD.dir+p:null;
+}
+function audBookState(name){
+  var fs=audBookFiles(name), n=0;
+  fs.forEach(function(f){ if(AUD.have[audPlain(f)]===f) n++; });
+  return {have:n, total:fs.length};
+}
+/* about 2 GB for the whole Bible over 11,539 passages: roughly 168 KB a
+   passage, and a spoken chapter title is a few KB */
+function audBookMB(name){
+  var m=S.voiceManifest; if(!m||!m[name]) return 0;
+  var n=0, t=(m._titles&&m._titles[name])?Object.keys(m._titles[name]).length:0;
+  Object.keys(m[name]).forEach(function(ch){ n+=(m[name][ch]||[]).length; });
+  return n*0.168+t*0.012;
+}
+function audNarratedBooks(){
+  var m=S.voiceManifest; if(!m) return [];
+  return BOOKS.filter(function(b){ return !b.user&&m[b.name]; }).map(function(b){ return b.name; });
+}
+function audSave(){ Store.set('strata:dlhave',AUD.have); Store.set('strata:dlwant',AUD.want); }
+var audSaveSoon=(function(){ var t=null; return function(){ if(t) return; t=setTimeout(function(){ t=null; audSave(); },1500); }; })();
+function audBuildQueue(){
+  var q=[], seen={};
+  Object.keys(AUD.want).forEach(function(name){
+    if(!audAllowed(name)) return;
+    audBookFiles(name).forEach(function(f){
+      var p=audPlain(f);
+      if(AUD.have[p]===f||seen[p]) return;
+      seen[p]=1; q.push({f:f, p:p, book:name});
+    });
+  });
+  return q;
+}
+function audResume(){
+  if(!AUD.on||!S.voiceManifest) return;
+  AUD.queue=audBuildQueue();
+  AUD.total=AUD.queue.length+AUD.done;
+  if(!AUD.queue.length){ AUD.done=0; AUD.total=0; audRedraw(); return; }
+  if(navigator.onLine===false){ AUD.msg='Waiting for a connection.'; audRedraw(); return; }
+  AUD.msg='';
+  while(AUD.active<AUD_WORKERS&&AUD.queue.length) audWork();
+  audRedraw();
+}
+function audWork(){
+  var it=AUD.queue.shift(); if(!it) return;
+  var base=(S.voiceManifest&&S.voiceManifest._base)||VOICE_CDN;
+  AUD.active++;
+  Promise.resolve(Narrator.download({url:base+it.f, name:it.p})).then(function(){
+    AUD.have[it.p]=it.f; AUD.done++; AUD.errs=0; audSaveSoon();
+  }).catch(function(){
+    AUD.errs++; AUD.queue.push(it);
+  }).then(function(){
+    AUD.active--;
+    if(AUD.errs>=6){
+      AUD.queue=[]; AUD.msg='Paused: the connection dropped. It carries on by itself when you are back online.';
+      audRedraw(); return;
+    }
+    if(AUD.queue.length&&!AUD.stopped) audWork();
+    else if(!AUD.active){ audSave(); AUD.done=0; AUD.total=0; audRedraw(true); }
+    audRedraw();
+  });
+}
+function audWant(name){ AUD.want[name]=1; AUD.stopped=false; audSave(); audResume(); }
+function audWantAll(){ audNarratedBooks().forEach(function(n){ if(audAllowed(n)) AUD.want[n]=1; }); AUD.stopped=false; audSave(); audResume(); }
+function audStop(){ AUD.stopped=true; AUD.want={}; AUD.queue=[]; audSave(); AUD.msg='Stopped. What has downloaded stays.'; audRedraw(true); }
+function audRemove(names){
+  var drop=[];
+  names.forEach(function(name){
+    delete AUD.want[name];
+    audBookFiles(name).forEach(function(f){ var p=audPlain(f); if(AUD.have[p]){ delete AUD.have[p]; drop.push(p); } });
+  });
+  AUD.queue=AUD.queue.filter(function(it){ return names.indexOf(it.book)<0; });
+  audSave();
+  if(drop.length) try{ Promise.resolve(Narrator.removeAudio({names:drop})).catch(function(){}); }catch(e){}
+  audRedraw(true);
+}
+function audRemoveAll(){
+  AUD.want={}; AUD.have={}; AUD.queue=[]; audSave();
+  try{ Promise.resolve(Narrator.removeAudio({all:true})).catch(function(){}); }catch(e){}
+  audRedraw(true);
+}
+function audKeptMB(){
+  var mb=0;
+  audNarratedBooks().forEach(function(n){ var s=audBookState(n); if(s.total) mb+=audBookMB(n)*s.have/s.total; });
+  return mb;
+}
+function audSizeText(mb){ return mb>=1000?(mb/1000).toFixed(1)+' GB':Math.max(1,Math.round(mb))+' MB'; }
+/* a chapter that would need the network while there is none plays in the
+   device's voice instead of silence */
+function audPlayable(urls){
+  if(navigator.onLine!==false) return true;
+  return urls.every(function(u){ return /^file:/.test(u)||/^capacitor:/.test(u); });
+}
+var audRedraw=(function(){ var t=null; return function(now){
+  if(!AUD.sheet&&S.tab!=='about') return;
+  if(now){ if(t){ clearTimeout(t); t=null; } audDraw(); return; }
+  if(t) return; t=setTimeout(function(){ t=null; audDraw(); },500);
+}; })();
+function audDraw(){
+  if(AUD.sheet) drawAudioSheet();
+  else if(S.tab==='about'){ S.keepScroll=true; render(); }
+}
+/* Settings: one line and a door */
+function audCard(){
+  if(!AUD.on) return '';
+  var books=audNarratedBooks(), full=0;
+  books.forEach(function(n){ var s=audBookState(n); if(s.total&&s.have===s.total) full++; });
+  var busy=AUD.queue.length||AUD.active;
+  return '<div class="setline"><span>On this phone, for offline</span><span>'+
+    (busy?esc(audProgressText()):full?full+' of '+books.length+' books · '+audSizeText(audKeptMB()):'None yet')+'</span></div>'+
+    '<button class="btn sec" data-a="dlopen" style="margin-top:10px">Narration on this phone</button>';
+}
+function audProgressText(){
+  var t=AUD.total||1, d=Math.min(AUD.done,t);
+  return 'Downloading '+Math.round(d/t*100)+'%';
+}
+function openAudioSheet(){
+  AUD.sheet=true; closePop&&closePop(); S.sheet=null; PAY.open=null;
+  drawAudioSheet();
+  if(navigator.onLine!==false&&Narrator.freeSpace)
+    Promise.resolve(Narrator.freeSpace()).then(function(r){ AUD.free=(r&&r.bytes)||-1; if(AUD.sheet) drawAudioSheet(); }).catch(function(){});
+}
+function drawAudioSheet(){
+  if(!AUD.sheet||!sheet) return;
+  var books=audNarratedBooks(), allMB=0, needMB=0;
+  books.forEach(function(n){ var mb=audBookMB(n); allMB+=mb;
+    var s=audBookState(n); if(audAllowed(n)&&s.total) needMB+=mb*(1-s.have/s.total); });
+  var busy=AUD.queue.length||AUD.active;
+  var h='<div class="grabzone"><div class="grab"></div></div><div class="dlsheet" role="dialog" aria-label="Narration on this phone">';
+  h+='<div class="pwhead"><div class="pwkick">Listen anywhere</div><h2>Narration on this phone</h2>'+
+     '<p>Keep the narrated books on this phone to listen with no connection: in church, on a plane, out of signal. '+
+     'Best on Wi-Fi; the whole Bible is about '+audSizeText(allMB)+'.</p></div>';
+  if(busy){
+    var t=AUD.total||1, pc=Math.round(Math.min(AUD.done,t)/t*100);
+    h+='<div class="dlbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pc+'"><i style="width:'+pc+'%"></i></div>'+
+       '<p class="dlnote">'+esc(audProgressText())+' · you can keep reading while it works</p>'+
+       '<button class="btn gh dlwide" data-a="dlstop">Stop downloading</button>';
+  } else if(hasAudio()&&needMB>1){
+    h+='<button class="btn dlwide" data-a="dlall">Download everything ('+esc(audSizeText(needMB))+')</button>';
+  }
+  if(AUD.msg) h+='<p class="dlnote" role="status">'+esc(AUD.msg)+'</p>';
+  if(AUD.free>0&&needMB*1e6>AUD.free*0.9) h+='<p class="dlnote dlwarn">This phone has about '+esc(audSizeText(AUD.free/1e6))+' free. Choose a few books instead.</p>';
+  if(!hasAudio()) h+='<p class="dlnote">Psalms and John are free to keep. The rest come with the narrated Bible, Founders Lifetime or Study Yearly.</p>';
+  h+='<div class="dllist">';
+  books.forEach(function(n){
+    var s=audBookState(n), ok=audAllowed(n), full=s.total&&s.have===s.total, mb=audBookMB(n);
+    var queued=!!AUD.want[n]&&!full;
+    var btn=!ok?'<button class="dlbtn" data-a="pwopen" data-pwopen="audio" aria-label="'+esc(n)+': unlock">Unlock</button>'
+      :full?'<button class="dlbtn on" data-a="dlremove" data-bk="'+esc(n)+'" aria-label="Remove '+esc(n)+' from this phone">✓ Kept</button>'
+      :queued?'<span class="dlbtn wait">'+Math.round(s.have/(s.total||1)*100)+'%</span>'
+      :'<button class="dlbtn" data-a="dlbook" data-bk="'+esc(n)+'">Download</button>';
+    h+='<div class="dlrow"><span class="dlname">'+esc(n)+'</span><span class="dlsize">'+esc(audSizeText(mb))+'</span>'+btn+'</div>';
+  });
+  h+='</div>';
+  if(Object.keys(AUD.have).length) h+='<button class="btn gh dlwide" data-a="dlremoveall">Remove all narration from this phone</button>';
+  h+='<button class="btn gh pwclose" data-a="dlclose">Done</button></div>';
+  sheet.innerHTML=h;
+  if(sheet.style){ sheet.style.transition=''; sheet.style.transform=''; }
+  placeOverlays();
+  sheet.classList.add('on'); scrim.classList.add('on');
+  try{ initSheetDrag(); }catch(e){}
+}
+/* after the narration is bought: the offer to keep it, once */
+function audOffer(){
+  if(!AUD.on||AUD.offered||!hasAudio()) return;
+  AUD.offered=true; Store.set('strata:dloffered',Date.now());
+  setTimeout(function(){ if(!PAY.open&&!WEL.open) openAudioSheet(); },600);
+}
+
 /* The chapters to hand the native player at once: this one, and while
    "continue" is on, the recorded chapters after it (up to about six hours),
    because with the screen locked the page cannot start the next one itself. */
@@ -6202,6 +6416,7 @@ function playRecorded(bookName, ch, fromVerse){
     segs.push({b:sc.b, c:sc.c, start:urls.length, list:l});
     ps.forEach(function(p){ urls.push(p.file); meta.push({title:name+' '+sc.c, album:'Sixteen Eleven Bible'}); });
   });
+  if(!audPlayable(urls.slice(0, segs.length>1?segs[1].start:urls.length))) return false;
   S.passages=recordedPassages(bi, ch, list);
   var v=Math.max(1,fromVerse||1), at=0, frac=0;
   S.passages.forEach(function(p,k){ if(!p.title&&p.from<=v&&v<=p.to){ at=k;
@@ -8277,6 +8492,14 @@ document.addEventListener('click',inPane(function(ev){
     if(wasOn) setTimeout(function(){ if(Kokoro.ready()) speakFrom(at); },400);
     return; }
   if(d.markread){ markRead(S.reading,+d.markread); render(); return; }
+  /* --- narration kept on the phone --- */
+  if(d.a==='dlopen'){ openAudioSheet(); return; }
+  if(d.a==='dlclose'){ closeSheet(); return; }
+  if(d.a==='dlall'){ audWantAll(); return; }
+  if(d.a==='dlbook'&&d.bk){ audWant(d.bk); return; }
+  if(d.a==='dlremove'&&d.bk){ audRemove([d.bk]); return; }
+  if(d.a==='dlremoveall'){ audRemoveAll(); return; }
+  if(d.a==='dlstop'){ audStop(); return; }
   if(d.a==='nextunread'){
     var nu=nextUnread(S.reading,S.ch);
     if(nu){ stopSpeaking(); S.book=nu.b; S.reading=nu.b; S.ch=nu.c; S.tab='bible'; render(); }
@@ -8658,6 +8881,7 @@ function bootFailed(e){
 }
 function start(){
   try{ payInit(); }catch(e){}
+  try{ audInit(); }catch(e){}
   Store.get('strata:worduse').then(function(u){ if(u&&u.d) S.wordUse=u; });
   initLayout();
   try{ FlexGap.init(); }catch(e){}

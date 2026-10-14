@@ -25,7 +25,11 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "setRate", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "shareImage", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "audioDir", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "download", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "removeAudio", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "freeSpace", returnType: CAPPluginReturnPromise)
     ]
 
     private struct Clip {
@@ -185,6 +189,77 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             call.resolve()
         }
+    }
+
+    // MARK: - narration kept on the device, for listening offline
+
+    /// Application Support/narration, kept out of iCloud backups: it can
+    /// always be downloaded again, and Apple asks that such files not be backed up.
+    private var audioFolder: URL {
+        let fm = FileManager.default
+        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        var dir = base.appendingPathComponent("narration", isDirectory: true)
+        if !fm.fileExists(atPath: dir.path) {
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        var rv = URLResourceValues()
+        rv.isExcludedFromBackup = true
+        try? dir.setResourceValues(rv)
+        return dir
+    }
+
+    private func safeName(_ n: String?) -> String? {
+        guard let n = n, !n.isEmpty, !n.contains("/"), !n.contains("..") else { return nil }
+        return n
+    }
+
+    @objc func audioDir(_ call: CAPPluginCall) {
+        call.resolve(["uri": audioFolder.absoluteString])
+    }
+
+    @objc func download(_ call: CAPPluginCall) {
+        guard let s = call.getString("url"), let u = URL(string: s), let name = safeName(call.getString("name")) else {
+            call.reject("Nothing to download.")
+            return
+        }
+        let dest = audioFolder.appendingPathComponent(name)
+        let task = URLSession.shared.downloadTask(with: u) { tmp, resp, err in
+            if let err = err { call.reject(err.localizedDescription); return }
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            guard let tmp = tmp, code == 200 else { call.reject("The server answered \(code).") ; return }
+            do {
+                let fm = FileManager.default
+                if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
+                try fm.moveItem(at: tmp, to: dest)
+                let size = ((try? fm.attributesOfItem(atPath: dest.path))?[.size] as? NSNumber)?.intValue ?? 0
+                call.resolve(["bytes": size])
+            } catch {
+                call.reject(error.localizedDescription)
+            }
+        }
+        task.resume()
+    }
+
+    @objc func removeAudio(_ call: CAPPluginCall) {
+        let fm = FileManager.default
+        let dir = audioFolder
+        var names: [String] = []
+        if call.getBool("all") ?? false {
+            names = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
+        } else {
+            names = (call.getArray("names", String.self) ?? []).compactMap { safeName($0) }
+        }
+        var n = 0
+        for name in names {
+            if (try? fm.removeItem(at: dir.appendingPathComponent(name))) != nil { n += 1 }
+        }
+        call.resolve(["removed": n])
+    }
+
+    @objc func freeSpace(_ call: CAPPluginCall) {
+        let v = try? URL(fileURLWithPath: NSHomeDirectory())
+            .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        call.resolve(["bytes": v?.volumeAvailableCapacityForImportantUsage ?? -1])
     }
 
     @objc func getState(_ call: CAPPluginCall) {

@@ -26,7 +26,15 @@ import com.google.android.play.core.review.ReviewInfo;
 import com.google.android.play.core.review.ReviewManager;
 import com.google.android.play.core.review.ReviewManagerFactory;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.List;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -134,6 +142,86 @@ public class NarratorPlugin extends Plugin {
                 }
             }, ContextCompat.getMainExecutor(ctx));
         });
+    }
+
+    // ---- narration kept on the device, for listening offline ----
+
+    private final ExecutorService downloads = Executors.newFixedThreadPool(3);
+
+    private File audioFolder() {
+        File d = new File(getContext().getFilesDir(), "narration");
+        if (!d.exists()) d.mkdirs();
+        return d;
+    }
+
+    private static boolean safeName(String n) {
+        return n != null && !n.isEmpty() && !n.contains("/") && !n.contains("..");
+    }
+
+    @PluginMethod
+    public void audioDir(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("uri", Uri.fromFile(audioFolder()).toString() + "/");
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void download(final PluginCall call) {
+        final String url = call.getString("url");
+        final String name = call.getString("name");
+        if (url == null || !safeName(name)) { call.reject("Nothing to download."); return; }
+        downloads.execute(() -> {
+            HttpURLConnection c = null;
+            try {
+                c = (HttpURLConnection) new URL(url).openConnection();
+                c.setConnectTimeout(20000);
+                c.setReadTimeout(60000);
+                int code = c.getResponseCode();
+                if (code != 200) { call.reject("The server answered " + code + "."); return; }
+                File tmp = new File(audioFolder(), name + ".part");
+                try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(tmp)) {
+                    byte[] buf = new byte[65536];
+                    int n;
+                    while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                }
+                File dest = new File(audioFolder(), name);
+                if (dest.exists()) dest.delete();
+                if (!tmp.renameTo(dest)) { call.reject("The file could not be saved."); return; }
+                JSObject r = new JSObject();
+                r.put("bytes", dest.length());
+                call.resolve(r);
+            } catch (Exception e) {
+                call.reject(String.valueOf(e.getMessage()));
+            } finally {
+                if (c != null) c.disconnect();
+            }
+        });
+    }
+
+    @PluginMethod
+    public void removeAudio(PluginCall call) {
+        File dir = audioFolder();
+        int n = 0;
+        if (Boolean.TRUE.equals(call.getBoolean("all", false))) {
+            File[] all = dir.listFiles();
+            if (all != null) for (File f : all) if (f.delete()) n++;
+        } else {
+            JSArray names = call.getArray("names", new JSArray());
+            for (int i = 0; i < names.length(); i++) {
+                String nm = names.optString(i, null);
+                if (safeName(nm) && new File(dir, nm).delete()) n++;
+            }
+        }
+        JSObject r = new JSObject();
+        r.put("removed", n);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void freeSpace(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("bytes", audioFolder().getUsableSpace());
+        call.resolve(r);
     }
 
     /** Google Play's in-app rating card. Play decides whether it shows, so
