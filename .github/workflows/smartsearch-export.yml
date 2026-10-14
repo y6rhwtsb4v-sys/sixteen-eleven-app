@@ -1,0 +1,28 @@
+# Smart search: make the files the app ships for the chosen model
+# (smartsearch/export_args.txt) and commit them to the smartsearch-ship branch.
+name: Smart search ship files
+on:
+  push:
+    branches: [smartsearch-export]
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy onnxruntime tokenizers huggingface_hub safetensors
+      - name: Export
+        working-directory: smartsearch
+        run: python export.py $(cat export_args.txt)
+      - name: Commit
+        working-directory: smartsearch/out/ship
+        run: |
+          git init -q -b smartsearch-ship
+          git config user.name "smartsearch-bot"; git config user.email "actions@users.noreply.github.com"
+          git add -A && git commit -qm "Smart search ship files, run ${{ github.run_number }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" smartsearch-ship
