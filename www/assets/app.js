@@ -174,7 +174,7 @@ var GLOSSARY=[
 ["rereward","rereward","o","The rear guard."],
 ["ringstraked","ringstraked","o","Marked with stripes or rings."],
 ["riotous","riotous","o","Wasteful; extravagant."],
-["ruddy","ruddy","o","Red or reddish; of a fresh, healthy colour."],
+["ruddy","ruddy","o","Clear; of a clear, fresh complexion."],
 ["sackbut","sackbut","o","A stringed instrument."],
 ["scall","scall","o","A scab; a skin disease."],
 ["scrip","scrip","o","A small bag or pouch."],
@@ -997,6 +997,9 @@ function loadAll(cb){
     return Store.get('strata:searches');
   }).then(function(sh){
     S.searchHist=Array.isArray(sh)?sh:[];
+    return Store.get('strata:searchmode');
+  }).then(function(smd){
+    if(smd==='words'||smd==='smart') S.searchMode=smd;
     return Store.get('strata:autobackup');
   }).then(function(ab){
     if(typeof ab==='boolean') S.autoBackup=ab;
@@ -3352,9 +3355,14 @@ function historyHTML(){
 function vSearch(){
   /* titled like every other screen, now that no bar above says "Search" */
   var f=S.searchFilter||'All';
+  var sm=smartOn();
   return screenHead({title:'Search'})+
+    '<div class="smodes" role="radiogroup" aria-label="How to search">'+
+      '<button role="radio" data-smode="smart" aria-checked="'+sm+'"'+(sm?' class="on"':'')+'>Smart</button>'+
+      '<button role="radio" data-smode="words" aria-checked="'+!sm+'"'+(!sm?' class="on"':'')+'>Words</button>'+
+    '</div>'+
     '<div class="search"><svg viewBox="0 0 24 24">'+I.search+
-    '</svg><input id="q" placeholder="A word, a phrase, or John 3:16" '+
+    '</svg><input id="q" placeholder="'+(sm?'Describe a verse, or a word, or John 3:16':'A word, a phrase, or John 3:16')+'" '+
       'autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="'+esc(S.q)+'">'+
     (S.q?'<button class="sclear" data-a="clearq" aria-label="Clear the search">×</button>':'')+
     '</div>'+
@@ -3473,6 +3481,7 @@ function runSearch(keepPage){
     'Every one of the 80 books and their 36,000 verses is searched.</p>';return;}
   var f=S.searchFilter||'All', sec=S.searchSec||'All';
   var h='', pending=!allBooksLoaded();
+  smartWarm(q);
   /* a reference goes straight to its passage */
   var refs=[];
   try{ refs=findRefs(q); }catch(e){}
@@ -3508,6 +3517,14 @@ function runSearch(keepPage){
   var verses=sec==='All'?found.hits:found.hits.filter(function(x){ return sectionOfBook(x.b)===sec; });
   /* the meaning of a single word sits above its verses */
   if(pat&&pat.kind==='word'&&f!=='Notes'&&!refs.length) h+=searchDefinition(q.toLowerCase().replace(/[^a-z']/g,''));
+  var smart=f!=='Notes'&&!refs.length&&smartWanted(q);
+  if(!smart&&SMART.dead&&smartOn()&&f!=='Notes'&&!refs.length&&smartWords(q).length>=2)
+    h+='<p class="smhow">Smart search is not available on this device. The word search below is complete.</p>';
+  if(smart){
+    var have=SMART.cache[q.toLowerCase()];
+    h+='<div id="smartres" class="smart'+(have?'':' smwait')+'">'+
+      (have?smartHTML(q,have):'<div class="lab sgroup">Closest in meaning</div><p class="smhow">Looking for verses that mean this…</p>')+'</div>';
+  }
   if(f!=='Notes'&&pat&&!refs.length||found.hits.length){
     var n=found.hits.length;
     h+='<p class="scount"><b>'+n.toLocaleString()+(n===1?' verse':' verses')+'</b>'+
@@ -3531,7 +3548,7 @@ function runSearch(keepPage){
   }
   if(f!=='Notes'&&verses.length){
     var shown=verses.slice(0,S.searchShow||100);
-    h+='<div class="lab sgroup">Verses</div>'+shown.map(function(x){
+    h+='<div class="lab sgroup">'+(smart?'Verses with these words':'Verses')+'</div>'+shown.map(function(x){
       return '<button class="sres" data-goverse="'+vKey(x.b,x.c,x.v)+'">'+
         '<span class="srow"><span class="sref">'+esc(BOOKS[x.b].name+' '+x.c+':'+x.v)+'</span></span>'+
         '<span class="stext">'+markText(x.t,pat,null)+'</span></button>';
@@ -3547,12 +3564,138 @@ function runSearch(keepPage){
         '<span class="stext">'+markText(String(r.t||'').slice(0,240),null,loose)+'</span></button>';
     }).join('');
   }
-  if(!found.hits.length&&!notes.length&&!books.length&&!refs.length){
+  if(smart&&!found.hits.length&&pat&&pat.kind==='phrase') h+=smartEachWord(q);
+  if(!found.hits.length&&!notes.length&&!books.length&&!refs.length&&!smart){
     h+='<p class="empty">Nothing found for “'+esc(q)+'”.'+
       (pending?'<br><br>Some books are still loading, so the text search is not complete yet.':'')+'</p>';
   }
   out.innerHTML=h;
+  if(smart&&!SMART.cache[q.toLowerCase()]) smartQueue(q);
 }
+/* load the model while the second word is still being typed */
+function smartWarm(q){
+  if(SMART.warmed||!smartOn()||SMART.dead||!/\S\s+\S?/.test(q)) return;
+  SMART.warmed=true; smartAsk({warm:true}).catch(function(){ SMART.warmed=false; });
+}
+/* ---------- smart search ----------
+   Search by meaning as well as by the words. A small model on the phone
+   (assets/smart/, run in a worker so typing never stalls) ranks every verse
+   by how close it is in meaning to what was typed, so "Aaron's beard
+   dripping oil" finds Psalm 133:2, which says "ointment ... ran down upon the
+   beard". It only ranks: every line it shows is the King James text, and the
+   note under the best match is the app's own chapter note, never written by
+   a machine. Nothing leaves the phone.
+
+   It never takes anything away: every verse with the words typed is still
+   listed below the best matches, exactly as a word search lists them, and
+   Words in the switch above turns the smart part off altogether. */
+var SMART={worker:null, id:0, wait:{}, dead:false, cache:{}, timer:0, loadingFor:{}};
+function smartOn(){ return S.searchMode!=='words'; }
+function smartWords(q){ return (String(q).toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]); }
+/* one word is a word search; smart search is for a phrase, a question or a description */
+function smartWanted(q){ return smartOn()&&!SMART.dead&&smartWords(q).length>=2; }
+function smartWorker(){
+  if(SMART.worker||SMART.dead) return SMART.worker;
+  try{
+    if(typeof Worker==='undefined'||typeof fetch==='undefined') throw new Error('no workers');
+    SMART.worker=new Worker('assets/smart/worker.js');
+    SMART.worker.onmessage=function(ev){ var m=ev.data||{}, cb=SMART.wait[m.id];
+      delete SMART.wait[m.id]; if(cb) cb(m); };
+    SMART.worker.onerror=function(){ smartFail(); };
+  }catch(e){ SMART.dead=true; SMART.worker=null; }
+  return SMART.worker;
+}
+function smartFail(){
+  SMART.dead=true; try{ if(SMART.worker) SMART.worker.terminate(); }catch(e){} SMART.worker=null;
+  Object.keys(SMART.wait).forEach(function(k){ var cb=SMART.wait[k]; delete SMART.wait[k]; cb({error:'stopped'}); });
+}
+function smartAsk(msg){
+  return new Promise(function(res,rej){
+    var w=smartWorker(); if(!w) return rej(new Error('unavailable'));
+    var id=++SMART.id; msg.id=id;
+    SMART.wait[id]=function(m){
+      /* twice failing to load (a file missing or out of date) and it stays off */
+      if(m.error){ SMART.errs=(SMART.errs||0)+1; if(SMART.errs>=2) smartFail(); rej(new Error(m.error)); }
+      else { SMART.errs=0; res(m); } };
+    w.postMessage(msg);
+  });
+}
+function smartSearch(q){
+  var key=q.toLowerCase();
+  if(SMART.cache[key]) return Promise.resolve(SMART.cache[key]);
+  return smartAsk({q:q, k:8}).then(function(m){
+    var out=(m.hits||[]).filter(function(x){ return BOOKS[x.b]&&!BOOKS[x.b].user; });
+    SMART.cache[key]=out; return out;
+  });
+}
+function smartVerseText(x){
+  var ch=(BIBLE[String(x.b)]||{})[x.c]; return ch?ch[x.v-1]||'':null;
+}
+function smartHTML(q, list){
+  if(!list.length) return '';
+  /* bold only the words that carry the question, not "the" and "that" */
+  var keep=smartWords(q).map(function(w){ return w.replace(/'s$/,''); })
+    .filter(function(w){ return !SMART_STOP[w]&&w.length>2; });
+  var pat=keep.length?{kind:'word', mark:new RegExp('\\b(?:'+keep.map(function(w){
+    return wordForms(w).concat([w]).map(rxEsc).join('|'); }).join('|')+')\\b','ig')}:null;
+  var need=list.filter(function(x){ return smartVerseText(x)===null; });
+  if(need.length&&!SMART.loadingFor[q]){
+    SMART.loadingFor[q]=1;
+    Promise.all(need.map(function(x){ return fetchBook(x.b).catch(function(){}); }))
+      .then(function(){ if((S.q||'').trim()===q) smartFill(q); });
+  }
+  var top=list[0], tb=BOOKS[top.b], note=tb&&tb.chapters&&tb.chapters[top.c];
+  var card=function(x, first){
+    var t=smartVerseText(x);
+    return '<button class="sres'+(first?' smtop':'')+'" data-goverse="'+vKey(x.b,x.c,x.v)+'">'+
+      '<span class="srow"><span class="sref">'+esc(BOOKS[x.b].name+' '+x.c+':'+x.v)+'</span>'+
+      (first?'<span class="stype">Best match</span>':'')+'</span>'+
+      '<span class="stext">'+(t===null?'Loading…':markText(t,pat,null))+'</span>'+
+      (first&&note?'<span class="smnote"><b>'+esc(tb.name+' '+top.c)+'</b> — '+esc(String(note).slice(0,260))+'</span>':'')+
+      '</button>';
+  };
+  return '<div class="lab sgroup">Closest in meaning</div>'+
+    list.map(function(x,i){ return card(x,i===0); }).join('')+
+    '<p class="smhow">Ranked by meaning, on this phone. Every line is the King James text. '+
+    'Every verse with your words is listed below.</p>';
+}
+function smartFill(q){
+  var box=document.getElementById('smartres'); if(!box) return;
+  smartSearch(q).then(function(list){
+    if((S.q||'').trim()!==q) return;
+    var b=document.getElementById('smartres'); if(!b) return;
+    b.className='smart'; b.innerHTML=smartHTML(q, list);
+  }).catch(function(){
+    if((S.q||'').trim()!==q) return;
+    var b=document.getElementById('smartres'); if(!b) return;
+    b.className='smart'; b.innerHTML=SMART.dead?'<p class="smhow">Smart search is not available on this device. '+
+      'The word search below is complete.</p>':'';
+  });
+}
+/* typing: wait for a pause before asking the model */
+function smartQueue(q){
+  clearTimeout(SMART.timer);
+  if(SMART.cache[q.toLowerCase()]){ smartFill(q); return; }
+  SMART.timer=setTimeout(function(){ if((S.q||'').trim()===q) smartFill(q); }, 300);
+}
+var SMART_STOP={};
+('a an and the of to in on at by for with is are was were be been it its this that these those what which who whom '+
+ 'where when how why verse verses bible mention mentions mentioned says say said about does do did there here from as '+
+ 'into out up down over i me my you your he him his she her they them their we us our or not no so than then').split(' ')
+  .forEach(function(w){ SMART_STOP[w]=1; });
+/* each word on its own, when no verse has them all, so none of them is lost */
+function smartEachWord(q){
+  var ws=smartWords(q).filter(function(w){ return !SMART_STOP[w]&&w.length>1; }), seen={}, out=[];
+  ws.forEach(function(w){
+    var base=w.replace(/'s$/,''); if(seen[base]) return; seen[base]=1;
+    var p=searchPattern(base); if(!p) return;
+    var n=findVerses(p).hits.length; if(n) out.push([base,n]);
+  });
+  if(!out.length) return '';
+  return '<div class="lab sgroup">Each word on its own</div><div class="shchips seach">'+out.map(function(x){
+    return '<button class="chip" data-search="'+esc(x[0])+'">'+esc(x[0])+' '+x[1].toLocaleString()+'</button>'; }).join('')+'</div>';
+}
+
 /* the match is found in the plain text and each piece escaped on its own:
    matching inside the escaped text turned "&lt;" into "&<b>lt</b>;" */
 function markText(t, pat, loose){
@@ -8422,7 +8565,7 @@ document.addEventListener('click',inPane(function(ev){
     '[data-mapera],[data-mapframe],[data-plate],[data-platezoom],[data-settheme],'+
     '[data-scrollspeed],[data-rsgroup],[data-savestab],[data-notefilter],'+
     '[data-dellink],[data-deltag],[data-bmfolder],[data-bmf],[data-sfilter],'+
-    '[data-delref],[data-snap],[data-snapdl],[data-search],[data-forget],'+
+    '[data-delref],[data-snap],[data-snapdl],[data-search],[data-forget],[data-smode],'+
     '[data-filenote],[data-gw],[data-pick],[data-pcolor],[data-word],[data-strong],'+
     '[data-pdelref],[data-pfolder],[data-pfilenote],'+
     '[data-pwopen],[data-pwpick],[data-pwbuy],[data-pwtip],[data-ssec],'+
@@ -9081,6 +9224,9 @@ document.addEventListener('click',inPane(function(ev){
     renderSpeakBar(); S.keepScroll=true; render(); return; }
   if(d.sfilter){ S.searchFilter=d.sfilter; S.keepScroll=true; render(); runSearch(); return; }
   if(d.ssec){ S.searchSec=d.ssec; S.searchShow=100; runSearch(true); return; }
+  if(d.smode){ S.searchMode=d.smode==='words'?'words':'smart'; Store.set('strata:searchmode',S.searchMode);
+    announce(S.searchMode==='words'?'Word search: verses with the words you type.':'Smart search: verses by meaning, and every verse with your words.');
+    S.keepScroll=true; render(); return; }
   if(d.a==='sexact'){ S.searchExact=!S.searchExact; S.keepScroll=true; render(); return; }
   if(d.a==='smore'){ S.searchShow=(S.searchShow||100)+100; runSearch(true); return; }
   if(d.a==='clearq'){ S.q=''; render(); runSearch();

@@ -2934,3 +2934,17 @@ body.pop-open #totop{display:none!important}
 .rd .ps119h:first-child{margin-top:.2em}
 .rd .ps119h b{font-family:'Times New Roman',serif;font-size:19px;font-weight:400;letter-spacing:0;margin-right:6px;vertical-align:-2px}
 [data-theme="dark"] .rd .ps119h{color:#C9A86A}
+
+/* ---------- smart search: the switch, the best match and its note ---------- */
+.smodes{margin-top:14px;display:flex;background:var(--blue-l);border-radius:11px;padding:3px;gap:3px;max-width:320px}
+.smodes button{flex:1;min-width:0;height:40px;border-radius:9px;font-size:14px;font-weight:500;color:var(--ink2);background:transparent}
+.smodes button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(20,10,4,.14)}
+.smodes + .search{margin-top:10px}
+.smart .sres.smtop{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 14px 12px;margin:2px 0 6px}
+.smart .smtop .stext{color:var(--ink);font-size:17px}
+.smnote{display:block;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);font-size:13px;line-height:1.45;color:var(--ink2)}
+.smhow{margin:8px 0 4px;font-size:12.5px;line-height:1.45;color:var(--ink3)}
+.smwait .smhow{animation:smpulse 1.4s ease-in-out infinite}
+@keyframes smpulse{50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.smwait .smhow{animation:none}}
+.seach{flex-wrap:wrap}
