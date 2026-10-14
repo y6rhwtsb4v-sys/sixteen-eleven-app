@@ -646,7 +646,7 @@ function isRead(b,c){ return !!S.read[readKey(b,c)]; }
 function markRead(b,c,on){
   var k=readKey(b,c);
   if(on===false||(on===undefined&&S.read[k])) delete S.read[k];
-  else S.read[k]=Date.now();
+  else { S.read[k]=Date.now(); try{ maybeAskReview(); }catch(e){} }
   saveRead();
 }
 function saveRead(){ Store.set('strata:read',S.read); }
@@ -5729,7 +5729,7 @@ function payTestOfferings(){
   }
   return {current:{identifier:'default', availablePackages:[
       p('$rc_annual','ANNUAL','study_annual','$29.99',true),
-      p('$rc_monthly','MONTHLY','study_monthly','$3.99'),
+      p('$rc_monthly','MONTHLY','study_monthly','$4.99'),
       p('$rc_lifetime','LIFETIME','lifetime_founders','$79.99')]},
     all:{audio:{identifier:'audio', availablePackages:[p('audio','LIFETIME','audio_bible','$19.99')]},
          tips:{identifier:'tips', availablePackages:[p('tip_small','CUSTOM','tip_small','$1.99'),
@@ -5833,6 +5833,8 @@ function gate(why){
 }
 var PAYWHY={
   study:['Go deeper with Study','Word study, study sheets, every map and more.'],
+  founders:['Become a Founder','One payment, no subscription: Study and the narrated Bible, yours for good.'],
+  trial:['Try Study free','Fourteen days of everything, the narrated Bible included. Cancel any time.'],
   words:['Word study, without limits','You have used today’s '+FREE_LOOKUPS+' free lookups. Study opens every word.'],
   sheets:['Study sheets','Your own studies: a question, and the scriptures that answer it.'],
   tags:['Tags for your notes','Gather your notes by theme, and find them again by tag.'],
@@ -5845,7 +5847,7 @@ var PAYWHY={
 function openPaywall(why){
   PAY.open=why||'study';
   PAY.msg='';
-  PAY.choice=(why==='audio')?'audio':'annual';
+  PAY.choice=(why==='audio')?'audio':(why==='trial')?'annual':'lifetime';
   closePop&&closePop();
   S.sheet=null;
   drawPaywall();
@@ -5856,18 +5858,22 @@ function drawPaywall(){
   if(!PAY.open||!sheet) return;
   var why=PAY.open, t=PAYWHY[why]||PAYWHY.study;
   var audioFirst=(why==='audio');
+  /* Founders Lifetime leads: one payment, nothing recurring, which is what
+     most people asked for. Yearly stays beside it for anyone who would rather
+     not pay that much at once. */
   var plans=[
+    ['lifetime','default','$rc_lifetime','Founders Lifetime',payPrice('default','$rc_lifetime','$79.99')+' once','Study and the narrated Bible, for good. No subscription.'+(foundersOpen()?' '+foundersNote()+'.':''),'Best value'],
     ['annual','default','$rc_annual','Yearly',payPrice('default','$rc_annual','$29.99')+' a year','Study and the narrated Bible. 14 days free, then yearly. Cancel any time.'],
-    ['monthly','default','$rc_monthly','Monthly',payPrice('default','$rc_monthly','$3.99')+' a month',''],
-    ['lifetime','default','$rc_lifetime','Lifetime (Founders)',payPrice('default','$rc_lifetime','$79.99')+' once','Study for good, and the narrated Bible.']];
+    ['monthly','default','$rc_monthly','Monthly',payPrice('default','$rc_monthly','$4.99')+' a month','Study. Cancel any time.']];
   var audio=['audio','audio','audio','Narrated Bible',payPrice('audio','audio','$19.99')+' once','All 80 books in the narrator’s voice, for good.'];
-  if(audioFirst) plans=[audio, plans[0], plans[2]];
+  if(audioFirst) plans=[audio, plans[0], plans[1]];
   var h='<div class="grabzone"><div class="grab"></div></div><div class="paywall" role="dialog" aria-label="'+esc(t[0])+'">';
   h+='<div class="pwhead"><div class="pwkick">Sixteen Eleven '+(audioFirst?'Audio':'Study')+'</div>'+
      '<h2>'+esc(t[0])+'</h2><p>'+esc(t[1])+'</p></div>';
-  if(!audioFirst){
+  /* from the welcome, the list was just read: go straight to the plans */
+  if(!audioFirst&&why!=='founders'&&why!=='trial'){
     h+='<ul class="pwlist">'+[
-      'Yearly: the narrated Bible too, all 80 books in one voice',
+      'Founders and Yearly: the narrated Bible too, all 80 books in one voice',
       'Word study without limits: Webster’s 1913, where words come from, the thesaurus, Strong’s Hebrew and Greek',
       'Study sheets: gather the scriptures that answer a question',
       'Tags to gather your notes by theme, and bookmark folders',
@@ -5879,13 +5885,13 @@ function drawPaywall(){
   h+='<div class="pwplans" role="radiogroup" aria-label="Choose a plan">'+plans.map(function(p){
     var on=PAY.choice===p[0];
     return '<button class="pwplan'+(on?' on':'')+'" role="radio" aria-checked="'+on+'" data-pwpick="'+p[0]+'">'+
-      '<span class="pwpt"><b>'+esc(p[3])+'</b>'+(p[5]?'<span>'+esc(p[5])+'</span>':'')+'</span>'+
+      '<span class="pwpt"><b>'+esc(p[3])+(p[6]?' <em class="pwbadge">'+esc(p[6])+'</em>':'')+'</b>'+(p[5]?'<span>'+esc(p[5])+'</span>':'')+'</span>'+
       '<span class="pwpp">'+esc(p[4])+'</span></button>';
   }).join('')+'</div>';
   var pick=plans.filter(function(p){ return p[0]===PAY.choice; })[0]||plans[0];
   var owned=(pick[0]==='audio')?(hasAudio()&&PAY.on):(pick[0]==='annual')?(PAY.on&&hasStudy()&&hasAudio()&&!promoActive()):(hasStudy()&&PAY.on&&pick[0]!=='lifetime')||(pick[0]==='lifetime'&&PAY.ent.study&&PAY.ent.audio);
   h+='<button class="btn pwbuy" data-pwbuy="'+pick[1]+'|'+pick[2]+'"'+(PAY.busy||owned?' disabled':'')+'>'+
-     (owned?'You have this':PAY.busy?'One moment…':(pick[0]==='annual'?'Start 14 days free':'Continue'))+'</button>';
+     (owned?'You have this':PAY.busy?'One moment…':(pick[0]==='annual'?'Start 14 days free':pick[0]==='lifetime'?'Become a Founder':'Continue'))+'</button>';
   if(PAY.msg) h+='<p class="pwmsg" role="status">'+esc(PAY.msg)+'</p>';
   if(PAY.codeOpen){
     h+='<div class="pwcode pwcodein"><label for="pwcode"><b>Have a code?</b></label>'+
@@ -5922,6 +5928,147 @@ function drawPaywall(){
   if(pci&&pci.addEventListener) pci.addEventListener('keydown',function(ev){
     if(ev.key==='Enter'){ ev.preventDefault(); var b=document.querySelector('[data-a="pwcodego"]'); if(b) b.click(); } });
 }
+/* ---------- Founders price ----------
+   The Founders Lifetime price is a launch price. Until the day below the
+   paywall and the welcome say so; after it they simply stop saying it, and the
+   store price is raised in App Store Connect and the Play Console. */
+var FOUNDERS_UNTIL=new Date(2027,0,1).getTime();
+function foundersOpen(){ return Date.now()<FOUNDERS_UNTIL; }
+function foundersNote(){ return 'Founders price until January 1'; }
+
+/* ---------- welcome ----------
+   Once, on the first open of the store app: a word of welcome under the
+   stars, then the page made comfortable (theme, paper, text size, with a
+   verse to judge it by), then, if the store is on, the Founders offer with a
+   plain way past it. Nothing here is required; every step can be skipped,
+   and it never comes back once dismissed. ?welcome=1 shows it anywhere, for
+   checking the design. */
+var WEL={open:false, step:0, el:null};
+function welcomeWanted(){
+  try{ if(/[?&]welcome=1/.test(location.search)) return true; }catch(e){}
+  return payNative();
+}
+function maybeWelcome(){
+  if(!welcomeWanted()) return;
+  var forced=false;
+  try{ forced=/[?&]welcome=1/.test(location.search); }catch(e){}
+  Store.get('strata:welcomed').then(function(done){
+    if(done&&!forced) return;
+    WEL.open=true; WEL.step=0; drawWelcome();
+  });
+}
+function welcomeOffer(){ return PAY.on&&!hasStudy(); }
+function closeWelcome(then){
+  WEL.open=false;
+  Store.set('strata:welcomed',Date.now());
+  if(WEL.el){ WEL.el.classList.remove('on'); var el=WEL.el; setTimeout(function(){ if(!WEL.open) el.innerHTML=''; },260); }
+  try{ document.documentElement.classList.remove('welcoming'); }catch(e){}
+  if(then) then();
+}
+function drawWelcome(){
+  if(!WEL.open) return;
+  if(!WEL.el){
+    WEL.el=document.createElement('div');
+    WEL.el.id='welcome';
+    WEL.el.setAttribute('role','dialog'); WEL.el.setAttribute('aria-modal','true');
+    document.body.appendChild(WEL.el);
+    WEL.el.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      var tg=ev.target, t=tg&&tg.closest?tg.closest('[data-w]'):null; if(!t) return;
+      welcomeAct(t.dataset.w, t.dataset.v);
+    });
+  }
+  var steps=welcomeOffer()?3:2, st=WEL.step, h='';
+  var dots='<div class="weldots" aria-hidden="true">'+[0,1,2].slice(0,steps).map(function(i){
+    return '<i'+(i===st?' class="on"':'')+'></i>'; }).join('')+'</div>';
+  if(st===0){
+    WEL.el.setAttribute('aria-label','Welcome to Sixteen Eleven');
+    h='<div class="welsky"><div class="welin">'+
+      '<div class="welmark" aria-hidden="true"><span>XVI</span><i></i><span>XI</span></div>'+
+      '<h1>Sixteen Eleven</h1>'+
+      '<p class="welsub">The King James Bible, all eighty books with the Apocrypha.</p>'+
+      '<blockquote class="welverse">“Look now toward heaven, and tell the stars, if thou be able to number them.”'+
+      '<cite>Genesis 15:5</cite></blockquote>'+
+      '<ul class="welfree"><li>Free to read, always</li><li>No ads, no account</li><li>Works offline</li></ul>'+
+      '</div><div class="welfoot">'+dots+
+      '<button class="btn welgo" data-w="next">Begin</button></div></div>';
+  } else if(st===1){
+    WEL.el.setAttribute('aria-label','Make the page yours');
+    var SZ=['15px','17px','19px','23px','28px','34px'];
+    var segs=function(key, opts, cur){
+      return '<div class="welseg" role="radiogroup">'+opts.map(function(o){
+        var on=String(cur)===String(o[0]);
+        return '<button role="radio" aria-checked="'+on+'" data-w="'+key+'" data-v="'+o[0]+'">'+o[1]+'</button>';
+      }).join('')+'</div>';
+    };
+    h='<div class="welpage"><div class="welin">'+
+      '<div class="welkick">Step 2 of '+steps+'</div><h2>Make the page yours</h2>'+
+      '<p class="welsub">You can change these any time in Settings.</p>'+
+      '<div class="welpreview'+(S.page==='paper'?' paper':'')+'" style="--wsz:'+(SZ[S.textSize]||'17px')+'">'+
+        '<span class="welref">Psalm 119:105</span>'+
+        '<p>Thy word <i>is</i> a lamp unto my feet, and a light unto my path.</p></div>'+
+      '<div class="wellab">Theme</div>'+segs('theme',[['light','Early morning'],['dark','Night'],['auto','Match device']],S.theme||'auto')+
+      '<div class="wellab">Page</div>'+segs('page',[['plain','Plain'],['paper','Paper']],S.page||'plain')+
+      '<div class="wellab">Text size</div>'+segs('size',[[0,'XS'],[1,'S'],[2,'M'],[3,'L'],[4,'XL'],[5,'XXL']],S.textSize)+
+      '</div><div class="welfoot">'+dots+
+      '<button class="btn welgo" data-w="next">'+(steps>2?'Continue':'Start reading')+'</button></div></div>';
+  } else {
+    WEL.el.setAttribute('aria-label','Become a Founder');
+    h='<div class="welpage"><div class="welin">'+
+      '<div class="welkick">Step 3 of 3</div><h2>Become a Founder</h2>'+
+      '<p class="welsub">The King James text stays free for everyone. Founders open the deeper tools and the narrated Bible, and keep the lamp lit.</p>'+
+      '<div class="welcard"><div class="welcardtop"><b>Founders Lifetime</b><span>'+esc(payPrice('default','$rc_lifetime','$79.99'))+' once</span></div>'+
+        (foundersOpen()?'<div class="welnote">'+esc(foundersNote())+'</div>':'')+
+        '<ul><li>The narrated Bible: all 80 books in one voice, offline</li>'+
+        '<li>Word study with Webster’s 1913 and Strong’s Hebrew and Greek</li>'+
+        '<li>Study sheets, tags, folders and the whole atlas</li>'+
+        '<li>One payment. No subscription, ever</li></ul>'+
+        '<button class="btn welgo" data-w="founders">Become a Founder</button></div>'+
+      '<button class="btn sec weltrial" data-w="trial">Or try everything free for 14 days</button>'+
+      '</div><div class="welfoot">'+dots+
+      '<button class="btn gh welskip" data-w="done">Not now, start reading</button></div></div>';
+  }
+  WEL.el.innerHTML=h;
+  try{ document.documentElement.classList.add('welcoming'); }catch(e){}
+  WEL.el.classList.add('on');
+  /* a screen reader starts at the top of the new page, not on the button */
+  WEL.el.setAttribute('tabindex','-1');
+  try{ WEL.el.focus({preventScroll:true}); }catch(e){}
+}
+function welcomeAct(w, v){
+  var steps=welcomeOffer()?3:2;
+  if(w==='next'){ if(WEL.step+1>=steps) closeWelcome(); else { WEL.step++; drawWelcome(); } return; }
+  if(w==='done'){ closeWelcome(); return; }
+  if(w==='theme'){ setTheme(v); drawWelcome(); return; }
+  if(w==='page'){ S.page=v; savePlace(); S.keepScroll=true; render(); drawWelcome(); return; }
+  if(w==='size'){ S.textSize=+v; savePlace(); S.keepScroll=true; render(); drawWelcome(); return; }
+  if(w==='founders'){ closeWelcome(function(){ openPaywall('founders'); }); return; }
+  if(w==='trial'){ closeWelcome(function(){ openPaywall('trial'); }); return; }
+}
+
+/* ---------- asking for a rating ----------
+   Ratings decide where the app sits in the store's search, so it asks, but
+   only the store's own small prompt, only after someone has finished three
+   chapters on at least two different days, at most three times a year and
+   never twice within four months. The store may still decide not to show it. */
+function maybeAskReview(){
+  if(!payNative()||!Narrator||!Narrator.requestReview) return;
+  var keys=Object.keys(S.read||{}); if(keys.length<3) return;
+  var days={}; keys.forEach(function(k){ days[new Date(S.read[k]).toDateString()]=1; });
+  if(Object.keys(days).length<2) return;
+  Store.get('strata:review').then(function(r){
+    r=r||{asked:[]};
+    var yr=Date.now()-365*864e5, recent=(r.asked||[]).filter(function(t){ return t>yr; });
+    if(recent.length>=3) return;
+    if(recent.length&&Date.now()-recent[recent.length-1]<120*864e5) return;
+    setTimeout(function(){
+      if(PAY.open||WEL.open||S.speaking||(sheet&&sheet.classList.contains('on'))) return;
+      recent.push(Date.now()); Store.set('strata:review',{asked:recent});
+      try{ Promise.resolve(Narrator.requestReview()).catch(function(){}); }catch(e){}
+    },1500);
+  });
+}
+
 /* settings: what you have, and the doors to the store */
 function payCard(){
   if(!PAY.on) return '';
@@ -8514,7 +8661,7 @@ function start(){
   Store.get('strata:worduse').then(function(u){ if(u&&u.d) S.wordUse=u; });
   initLayout();
   try{ FlexGap.init(); }catch(e){}
-  if(META){ indexData(); loadAll(openingChapter); return; }
+  if(META){ indexData(); loadAll(function(){ openingChapter(); try{ maybeWelcome(); }catch(e){} }); return; }
   fetchJSON('assets/data/meta.json').then(function(m){
     META=m;
     return fetchJSON('assets/data/index.json').catch(function(){ return null; });
@@ -8527,6 +8674,7 @@ function start(){
   }).then(function(){
     loadAll(function(){
       openingChapter();
+      try{ maybeWelcome(); }catch(e){}
       /* the rest of the scriptures come down quietly behind the first page,
          so the app works offline rather than only for books already opened */
       setTimeout(backfillBooks, 1200);

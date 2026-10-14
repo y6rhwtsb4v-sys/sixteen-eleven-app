@@ -1,0 +1,39 @@
+# Launch settings in both stores through their APIs (scripts/store_setup.py):
+# prices, descriptions, keywords, grace periods, and the Android store build
+# to closed testing. Safe to run again. Results show as notes on the run page.
+name: Store setup
+on:
+  workflow_dispatch:
+    inputs:
+      which:
+        description: 'apple, google or both'
+        default: 'both'
+      android_run_id:
+        description: 'Run id of an "Android bundle" run whose AAB goes to closed testing (blank = none)'
+        required: false
+        default: ''
+permissions:
+  contents: read
+  actions: read
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install "pyjwt[crypto]" requests pillow google-auth
+      - if: ${{ github.event.inputs.android_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.inputs.android_run_id }}
+          github-token: ${{ github.token }}
+          path: aab
+      - run: python scripts/store_setup.py ${{ github.event.inputs.which }}

@@ -2808,3 +2808,79 @@ body.kb-open .pv{padding-bottom:24px !important}
 .pwcodein .pwmsg{margin:8px 0 0}
 .pwlinkbtn{display:block;margin-top:10px;padding:0;color:var(--blue);font-size:13px;font-weight:600;text-align:left}
 .vpop .pnotechoice{margin:12px 0 2px;padding-bottom:10px;border-bottom:1px solid var(--popline)}
+
+/* ---------- welcome (first open of the store app) ----------
+   Three quiet pages. The first sits under the same night sky as the library,
+   with the XVI / XI mark from the icon; the others are plain paper. */
+#welcome{position:fixed;top:0;right:0;bottom:0;left:0;z-index:400;opacity:0;pointer-events:none;
+  transition:opacity .25s var(--ease);background:var(--bg)}
+#welcome.on{opacity:1;pointer-events:auto}
+html.welcoming,html.welcoming body{overflow:hidden}
+#welcome .welsky,#welcome .welpage{position:absolute;top:0;right:0;bottom:0;left:0;display:flex;flex-direction:column;
+  padding:calc(env(safe-area-inset-top,0px) + 28px) 24px calc(env(safe-area-inset-bottom,0px) + 22px);
+  overflow-y:auto;-webkit-overflow-scrolling:touch}
+#welcome .welin{flex:1;display:flex;flex-direction:column;justify-content:center;
+  width:100%;max-width:440px;margin:0 auto}
+#welcome .welfoot{width:100%;max-width:440px;margin:18px auto 0;display:flex;flex-direction:column;gap:14px}
+#welcome .welgo{display:block;width:100%;min-height:52px;font-size:16.5px}
+#welcome .weldots{display:flex;justify-content:center;gap:7px}
+#welcome .weldots i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.25}
+#welcome .weldots i.on{opacity:.85;width:18px;border-radius:3px}
+
+#welcome .welsky{background:#0B1018 url(library-bg.jpg) 50% 30%/cover;color:#EAE0CF;text-align:center}
+#welcome .welsky:before{content:'';position:absolute;top:0;right:0;bottom:0;left:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(8,10,16,.15),rgba(8,10,16,.05) 40%,rgba(8,10,16,.72))}
+#welcome .welsky>*{position:relative}
+#welcome .welmark{display:flex;flex-direction:column;align-items:center;margin:0 auto 18px;
+  font-family:'EB Garamond',Georgia,serif;font-size:34px;letter-spacing:.32em;line-height:1;color:#DCCDB6}
+#welcome .welmark span{padding-left:.32em}
+#welcome .welmark i{display:block;width:44px;height:3px;border-radius:2px;background:#C9483C;margin:10px 0 9px}
+#welcome .welsky h1{font-family:var(--serif);font-weight:400;font-size:38px;line-height:1.1;margin:0;letter-spacing:.01em;color:#F3EBDD}
+#welcome .welsky .welsub{font-size:15.5px;line-height:1.5;color:rgba(234,224,207,.82);margin:10px auto 0;max-width:300px}
+#welcome .welverse{font-family:var(--serif);font-style:italic;font-size:20px;line-height:1.45;
+  margin:34px auto 0;max-width:330px;color:#F3EBDD}
+#welcome .welverse cite{display:block;font-family:var(--text);font-style:normal;font-size:12px;
+  letter-spacing:.14em;text-transform:uppercase;color:#C9A86A;margin-top:12px}
+#welcome .welfree{list-style:none;padding:0;margin:34px 0 0;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+#welcome .welfree li{font-size:13px;padding:6px 12px;border-radius:999px;
+  background:rgba(234,224,207,.1);border:1px solid rgba(234,224,207,.18);color:#EAE0CF}
+#welcome .welsky .welgo{background:#EAE0CF;color:#1A1510}
+
+#welcome .welpage{background:var(--bg);color:var(--ink)}
+#welcome .welkick{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}
+[data-theme="dark"] #welcome .welkick{color:#C9A86A}
+#welcome .welpage h2{font-family:var(--serif);font-weight:400;font-size:31px;line-height:1.15;margin:8px 0 6px}
+#welcome .welpage .welsub{font-size:14.5px;line-height:1.5;color:var(--ink2);margin:0 0 20px}
+#welcome .welpreview{background:var(--card);border:1px solid var(--line);border-radius:var(--r3);
+  padding:18px 20px 20px;margin:0 0 20px;box-shadow:var(--shadow);min-height:132px}
+#welcome .welpreview.paper{background:#FBF6EC url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=);color:#1D1814;border-color:rgba(60,40,25,.14)}
+#welcome .welpreview .welref{display:block;font-size:12px;font-weight:600;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--brass);margin-bottom:8px}
+#welcome .welpreview p{font-family:var(--serif);font-size:var(--wsz,17px);line-height:1.55;margin:0}
+#welcome .wellab{font-size:13px;font-weight:600;color:var(--ink2);margin:14px 0 7px}
+#welcome .welseg{display:flex;background:var(--blue-l);border-radius:12px;padding:3px;gap:2px}
+[data-theme="dark"] #welcome .welseg{background:rgba(255,255,255,.07)}
+#welcome .welseg button{flex:1;min-height:40px;border:0;border-radius:9px;background:none;
+  font:inherit;font-size:13.5px;font-weight:500;color:var(--ink2);padding:0 4px;cursor:pointer}
+#welcome .welseg button[aria-checked="true"]{background:var(--card);color:var(--ink);font-weight:600;box-shadow:var(--shadow)}
+
+#welcome .welcard{background:var(--card);border:1.5px solid var(--blue);border-radius:var(--r3);
+  padding:18px 18px 16px;box-shadow:var(--shadow2)}
+#welcome .welcardtop{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+#welcome .welcardtop b{font-size:17px;font-weight:600}
+#welcome .welcardtop span{font-size:16px;font-weight:600;white-space:nowrap}
+#welcome .welnote{display:inline-block;margin-top:8px;font-size:12px;font-weight:600;color:var(--blue);
+  background:var(--blue-l);border-radius:999px;padding:4px 10px}
+#welcome .welcard ul{list-style:none;padding:0;margin:14px 0 16px}
+#welcome .welcard li{position:relative;padding:6px 0 6px 24px;font-size:14px;line-height:1.45}
+#welcome .welcard li:before{content:'';position:absolute;left:3px;top:11px;width:10px;height:6px;
+  border-left:2px solid var(--blue);border-bottom:2px solid var(--blue);transform:rotate(-45deg)}
+#welcome .weltrial{display:block;width:100%;min-height:48px;margin-top:12px;font-size:15px}
+#welcome .welskip{display:block;width:100%;min-height:46px}
+#welcome .welfoot .weldots{color:var(--ink)}
+#welcome .welsky .welfoot .weldots{color:#EAE0CF}
+
+/* Founders on the paywall */
+.paywall .pwbadge{font-style:normal;font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--blue);
+  background:var(--blue-l);border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:1px}
+#welcome:focus{outline:none}

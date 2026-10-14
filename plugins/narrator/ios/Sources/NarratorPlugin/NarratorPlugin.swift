@@ -3,6 +3,7 @@ import UIKit
 import Capacitor
 import AVFoundation
 import MediaPlayer
+import StoreKit
 
 /// Plays the recorded narration with the system's own player.
 ///
@@ -23,7 +24,8 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "seek", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setRate", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "shareImage", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "shareImage", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise)
     ]
 
     private struct Clip {
@@ -170,6 +172,18 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
             }
             top.present(sheet, animated: true, completion: nil)
+        }
+    }
+
+    /// Apple's own "Enjoying the app?" stars. The system decides whether it
+    /// actually shows (at most three times a year), so this never fails.
+    @objc func requestReview(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            if let scene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene {
+                SKStoreReviewController.requestReview(in: scene)
+            }
+            call.resolve()
         }
     }
 

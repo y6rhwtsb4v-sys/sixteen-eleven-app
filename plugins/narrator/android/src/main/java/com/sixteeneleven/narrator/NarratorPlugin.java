@@ -22,6 +22,9 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.google.android.play.core.review.ReviewInfo;
+import com.google.android.play.core.review.ReviewManager;
+import com.google.android.play.core.review.ReviewManagerFactory;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
@@ -131,6 +134,22 @@ public class NarratorPlugin extends Plugin {
                 }
             }, ContextCompat.getMainExecutor(ctx));
         });
+    }
+
+    /** Google Play's in-app rating card. Play decides whether it shows, so
+     *  this always resolves. */
+    @PluginMethod
+    public void requestReview(final PluginCall call) {
+        try {
+            final ReviewManager manager = ReviewManagerFactory.create(getContext());
+            manager.requestReviewFlow().addOnCompleteListener(task -> {
+                if (!task.isSuccessful() || getActivity() == null) { call.resolve(); return; }
+                ReviewInfo info = task.getResult();
+                manager.launchReviewFlow(getActivity(), info).addOnCompleteListener(t -> call.resolve());
+            });
+        } catch (Exception e) {
+            call.resolve();
+        }
     }
 
     @PluginMethod

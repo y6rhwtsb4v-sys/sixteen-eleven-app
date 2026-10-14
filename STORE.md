@@ -11,7 +11,9 @@ before the first upload if you want a different one; it can never change after).
 - **Subtitle (iOS, 30 max):** KJV with Apocrypha, offline
 - **Short description (Play, 80 max):** The King James Bible with the Apocrypha. Beautiful, offline, no ads.
 - **Category:** Reference (iOS primary), Books (secondary). Play: Books & Reference.
-- **Keywords (iOS, 100 max):** kjv,bible,apocrypha,king james,audio bible,strongs,scripture,study,offline,1611
+- **Keywords (iOS, 100 max):** king james,audio,narrated,strongs,concordance,1611,maccabees,deuterocanon,scripture,hebrew,greek
+  (no words already in the name or subtitle: Apple indexes those anyway)
+- **Promotional text (iOS, 170 max):** Founders price until January 1: Study and the narrated Bible, yours for good, with one payment and no subscription.
 - **Description:**
 
   The King James Bible, all 80 books with the Apocrypha, set like a book and made to be read.
@@ -37,8 +39,8 @@ Create these with **exactly** these IDs in both stores.
 | ID | Type | Price | Notes |
 |---|---|---|---|
 | `study_annual` | Auto-renewable subscription | $29.99 / year | Group "Study". 14-day free trial (Apple: introductory offer, free, 2 weeks; Play: free trial phase 14 days) |
-| `study_monthly` | Auto-renewable subscription | $3.99 / month | Same group |
-| `lifetime_founders` | Non-consumable (Play: one-time product) | $79.99 | Study for good plus the narrated Bible |
+| `study_monthly` | Auto-renewable subscription | $4.99 / month | Same group |
+| `lifetime_founders` | Non-consumable (Play: one-time product) | $79.99 | Study for good plus the narrated Bible. Founders price until January 1, 2027; raise to $99.99 then. Shown first on the paywall |
 | `audio_bible` | Non-consumable | $19.99 | The narrated Bible |
 | `tip_small` | Consumable | $1.99 | "Keep the lamp lit" |
 | `tip_medium` | Consumable | $4.99 | |

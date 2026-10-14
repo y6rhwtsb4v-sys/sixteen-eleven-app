@@ -7,7 +7,7 @@ stops half way can simply be repeated.
 
   Study (subscription group)
     study_annual   $29.99 a year, 2-week free trial
-    study_monthly  $3.99 a month
+    study_monthly  $4.99 a month
   lifetime_founders  $79.99  non-consumable
   audio_bible        $19.99  non-consumable
   tip_small / tip_medium / tip_large  $1.99 / $4.99 / $9.99  consumable
@@ -30,7 +30,7 @@ NOTE = ('Opens from any "Study" feature (split view, word study, tags, folders, 
 SUBS = [
     dict(pid='study_annual', ref='Study Annual', period='ONE_YEAR', price='29.99', trial=True,
          name='Study, yearly', desc='Word study, study sheets, atlas and more.'),
-    dict(pid='study_monthly', ref='Study Monthly', period='ONE_MONTH', price='3.99', trial=False,
+    dict(pid='study_monthly', ref='Study Monthly', period='ONE_MONTH', price='4.99', trial=False,
          name='Study, monthly', desc='Word study, study sheets, atlas and more.'),
 ]
 IAPS = [
