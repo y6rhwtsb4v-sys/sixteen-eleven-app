@@ -1,0 +1,47 @@
+# Smart search data: embeds every verse with small models, scores them on
+# questions with known answers, and commits the results to the
+# smartsearch-out branch. Runs on a push to the smartsearch branch.
+name: Smart search data
+on:
+  push:
+    branches: [smartsearch]
+    paths: ['smartsearch/**', '.github/workflows/smartsearch.yml']
+permissions:
+  contents: write
+jobs:
+  embed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy onnxruntime tokenizers huggingface_hub
+      - name: Embed and score
+        working-directory: smartsearch
+        run: python embed_eval.py ${{ vars.SMARTSEARCH_ONLY }}
+      - name: Show the scores
+        if: always()
+        working-directory: smartsearch
+        run: |
+          python - <<'PY'
+          import json
+          r = json.load(open('out/report.json'))
+          for k, v in r.items():
+              if not isinstance(v, dict): continue
+              if 'top1' in v: print('::notice title=%s::top1 %s top3 %s top10 %s' % (k, v['top1'], v['top3'], v['top10']))
+              for kk, vv in v.items():
+                  if isinstance(vv, dict) and 'top1' in vv:
+                      print('::notice title=%s %s::top1 %s top3 %s top10 %s' % (k, kk, vv['top1'], vv['top3'], vv['top10']))
+              if 'error' in v: print('::warning title=%s::%s' % (k, v['error']))
+          PY
+      - name: Commit the results
+        if: always()
+        working-directory: smartsearch
+        run: |
+          cd out
+          git init -q -b smartsearch-out
+          git config user.name "smartsearch-bot"; git config user.email "actions@users.noreply.github.com"
+          git add -A && git commit -qm "Smart search data from run ${{ github.run_number }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" smartsearch-out
