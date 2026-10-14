@@ -1,0 +1,3 @@
+gtesmall|thenlper/gte-small|Xenova/gte-small|mean|
+minilm|sentence-transformers/all-MiniLM-L6-v2|Xenova/all-MiniLM-L6-v2|mean|
+arcticxs|Snowflake/snowflake-arctic-embed-xs|Snowflake/snowflake-arctic-embed-xs|cls|Represent this sentence for searching relevant passages: 

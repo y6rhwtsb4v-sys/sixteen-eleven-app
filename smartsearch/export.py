@@ -23,7 +23,7 @@ import onnxruntime as ort
 
 name, orig, onnx_repo, pooling = sys.argv[1:5]
 prefix = sys.argv[5] if len(sys.argv) > 5 else ''
-OUT = 'out/ship'
+OUT = 'out/ship/' + name
 os.makedirs(OUT, exist_ok=True)
 V = [json.loads(l) for l in open('verses.jsonl')]
 Q = json.load(open('questions.json'))
@@ -152,6 +152,6 @@ for q, _ in Q[:12]:
     probe['ids'][q] = tok.encode(prefix + q).ids[:64]
     probe['top5'][q] = [int(i) for i in np.argsort(-(M @ f))[:5]]
 json.dump(probe, open(OUT + '/probe.json', 'w'))
-print('::notice title=encoder check::int8 copy vs full model, cosine min %.4f mean %.4f' % (min(cos), sum(cos) / len(cos)))
+print('::notice title=%s encoder check::' % name + 'int8 copy vs full model, cosine min %.4f mean %.4f' % (min(cos), sum(cos) / len(cos)))
 for f in sorted(os.listdir(OUT)):
-    print('::notice title=%s::%.1f MB' % (f, os.path.getsize(OUT + '/' + f) / 1e6))
+    print('%s %s %.1f MB' % (name, f, os.path.getsize(OUT + '/' + f) / 1e6))

@@ -18,7 +18,11 @@ jobs:
       - run: pip install numpy onnxruntime tokenizers huggingface_hub safetensors
       - name: Export
         working-directory: smartsearch
-        run: python export.py $(cat export_args.txt)
+        run: |
+          while IFS='|' read -r a b c d e; do
+            [ -z "$a" ] && continue
+            python export.py "$a" "$b" "$c" "$d" "$e" || echo "::warning title=$a::export failed"
+          done < export_args.txt
       - name: Commit
         working-directory: smartsearch/out/ship
         run: |
