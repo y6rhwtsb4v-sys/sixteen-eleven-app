@@ -125,7 +125,10 @@ def apple():
 def google_token():
     from google.oauth2 import service_account
     import google.auth.transport.requests as gr
-    info = json.loads(os.environ['PLAY_SERVICE_ACCOUNT_JSON'])
+    raw = os.environ.get('PLAY_SERVICE_ACCOUNT_JSON', '').strip()
+    if not raw:
+        raise RuntimeError('the PLAY_SERVICE_ACCOUNT_JSON secret is not set in the repository, so Google Play cannot be reached')
+    info = json.loads(raw)
     cred = service_account.Credentials.from_service_account_info(
         info, scopes=['https://www.googleapis.com/auth/androidpublisher'])
     cred.refresh(gr.Request())
