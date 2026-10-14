@@ -1,0 +1,1 @@
+{"model": "sentence-transformers/all-MiniLM-L6-v2", "dims": 384, "count": 36825, "scale": 0.0031985705718398094, "pooling": "mean", "query_prefix": "", "verses_sha1": "b0d03d398eb83ef8"}

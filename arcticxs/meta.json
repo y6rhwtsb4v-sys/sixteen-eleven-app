@@ -1,0 +1,1 @@
+{"model": "Snowflake/snowflake-arctic-embed-xs", "dims": 384, "count": 36825, "scale": 0.0034054440911859274, "pooling": "cls", "query_prefix": "Represent this sentence for searching relevant passages: ", "verses_sha1": "b0d03d398eb83ef8"}

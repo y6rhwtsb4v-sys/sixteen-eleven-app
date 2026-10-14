@@ -1,0 +1,1 @@
+{"model": "thenlper/gte-small", "dims": 384, "count": 36825, "scale": 0.00280387164093554, "pooling": "mean", "query_prefix": "", "verses_sha1": "b0d03d398eb83ef8"}
