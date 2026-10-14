@@ -2949,19 +2949,22 @@ body.pop-open #totop{display:none!important}
 @media (prefers-reduced-motion:reduce){.smwait .smhow{animation:none}}
 .seach{flex-wrap:wrap}
 
-/* ---------- old words: a soft glow instead of the dotted line ----------
-   The word keeps its own colour (ink, or red inside the words of Christ);
-   only a dim halo of lamplight sits behind it, warm amber by day and a
-   candle gold at night. The underline is still there for those who choose
-   it in Settings, and comes back on its own where a glow could vanish
-   (Windows high-contrast and other forced colours). */
-:root{--gw-glow:rgba(222,146,30,.72);--gw-core:rgba(236,176,70,.40);--gw-wj:rgba(214,86,62,.42)}
-[data-theme="dark"]{--gw-glow:rgba(255,196,96,.56);--gw-core:rgba(255,206,120,.30);--gw-wj:rgba(255,128,108,.40)}
-[data-wordmark="glow"] .rd .gw{text-decoration:none;
-  text-shadow:0 0 .55em var(--gw-glow),0 0 .18em var(--gw-core);
-  border-radius:.2em;transition:text-shadow .25s ease}
-[data-wordmark="glow"] .rd .wj .gw{text-shadow:0 0 .55em var(--gw-wj),0 0 .18em var(--gw-core)}
-[data-wordmark="glow"] .rd .gw:hover{text-shadow:0 0 .7em var(--gw-glow),0 0 .25em var(--gw-glow)}
+/* ---------- old words: marked by light instead of the dotted line ----------
+   By day (plain or paper page) the word is set in soft white letters lifted
+   off the page by a shadow underneath, like a letterpress word catching the
+   light. At night the word keeps its own colour and a tight white glow sits
+   close around the letters. Inside the words of Christ the shadow (by day)
+   is a deep red, so the red-letter reading still shows. The underline is
+   still there for those who choose it in Settings, and comes back on its own
+   where a glow could vanish (forced colours). */
+[data-wordmark="glow"] .rd .gw{text-decoration:none;color:#FFFDF9;
+  text-shadow:0 1px .5px rgba(52,34,18,.72),0 2px 4px rgba(52,34,18,.32),0 0 .6px rgba(52,34,18,.45);
+  transition:text-shadow .25s ease}
+[data-wordmark="glow"] .rd .wj .gw{color:#FFF8F5;
+  text-shadow:0 1px .5px rgba(130,24,18,.8),0 2px 4px rgba(130,24,18,.34),0 0 .6px rgba(130,24,18,.5)}
+[data-theme="dark"][data-wordmark="glow"] .rd .gw,
+[data-theme="dark"][data-wordmark="glow"] .rd .wj .gw{color:inherit;
+  text-shadow:0 0 1px rgba(255,255,255,.9),0 0 2.5px rgba(255,255,255,.55),0 0 5px rgba(255,255,255,.18)}
 @media (forced-colors:active){
   [data-wordmark="glow"] .rd .gw{text-shadow:none;text-decoration:underline dotted}
 }
