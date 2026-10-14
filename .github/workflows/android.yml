@@ -44,7 +44,13 @@ jobs:
       - run: npm install
       - run: bash scripts/prepare.sh android
       - name: Build the bundle
-        run: cd android && ./gradlew --no-daemon bundleRelease
+        # on failure, the compiler's own lines go up as notes on the run page
+        run: |
+          cd android
+          set -o pipefail
+          ./gradlew --no-daemon bundleRelease 2>&1 | tee ../gradle.log || {
+            grep -E "error:|e: |What went wrong|Could not|FAILED|\.java:[0-9]+" ../gradle.log | head -25 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1; }
       - name: Sign it
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
