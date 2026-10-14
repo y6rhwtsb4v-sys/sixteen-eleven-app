@@ -54,12 +54,20 @@ public class NarratorPlugin extends Plugin {
     @Nullable private ListenableFuture<MediaController> connecting;
     private double pendingFraction = 0;
     private boolean pendingPlay = false;
+    /** calls that arrived while the first connection was still being made */
+    private static final class Waiting {
+        final PluginCall call; final WithController then;
+        Waiting(PluginCall c, WithController t) { call = c; then = t; }
+    }
+    private final List<Waiting> waiting = new ArrayList<>();
+    /** the page is hidden: progress is not sent (it only redraws the page) */
+    private boolean inBackground = false;
 
     private final Runnable ticker = new Runnable() {
         @Override
         public void run() {
-            tick();
-            main.postDelayed(this, 250);
+            if (!inBackground) tick();
+            main.postDelayed(this, inBackground ? 2000 : 250);
         }
     };
 
@@ -128,17 +136,27 @@ public class NarratorPlugin extends Plugin {
                 then.run(controller);
                 return;
             }
+            // one connection at a time: a second call while it is being made
+            // waits for it, rather than building another controller
+            if (connecting != null && !connecting.isDone()) {
+                waiting.add(new Waiting(call, then));
+                return;
+            }
             Context ctx = getContext();
             SessionToken token = new SessionToken(ctx, new ComponentName(ctx, NarratorService.class));
             final ListenableFuture<MediaController> f = new MediaController.Builder(ctx, token).buildAsync();
             connecting = f;
+            waiting.add(new Waiting(call, then));
             f.addListener(() -> {
+                List<Waiting> run = new ArrayList<>(waiting);
+                waiting.clear();
                 try {
+                    if (controller != null) controller.removeListener(listener);
                     controller = f.get();
                     controller.addListener(listener);
-                    then.run(controller);
+                    for (Waiting w : run) w.then.run(controller);
                 } catch (Exception e) {
-                    call.reject("The player could not start: " + e.getMessage());
+                    for (Waiting w : run) w.call.reject("The player could not start: " + e.getMessage());
                 }
             }, ContextCompat.getMainExecutor(ctx));
         });
@@ -149,7 +167,9 @@ public class NarratorPlugin extends Plugin {
     private final ExecutorService downloads = Executors.newFixedThreadPool(3);
 
     private File audioFolder() {
-        File d = new File(getContext().getFilesDir(), "narration");
+        // kept out of Android's Auto Backup, whose 25 MB limit the narration
+        // would break (and then nothing of the app, notes included, is backed up)
+        File d = new File(getContext().getNoBackupFilesDir(), "narration");
         if (!d.exists()) d.mkdirs();
         return d;
     }
@@ -178,7 +198,7 @@ public class NarratorPlugin extends Plugin {
                 c.setReadTimeout(60000);
                 int code = c.getResponseCode();
                 if (code != 200) { call.reject("The server answered " + code + "."); return; }
-                File tmp = new File(audioFolder(), name + ".part");
+                File tmp = new File(audioFolder(), name + "." + System.nanoTime() + ".part");
                 try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(tmp)) {
                     byte[] buf = new byte[65536];
                     int n;
@@ -361,6 +381,18 @@ public class NarratorPlugin extends Plugin {
         d.put("position", controller.getCurrentPosition() / 1000.0);
         d.put("duration", dur / 1000.0);
         notifyListeners("progress", d);
+    }
+
+    @Override
+    protected void handleOnPause() {
+        inBackground = true;
+        super.handleOnPause();
+    }
+
+    @Override
+    protected void handleOnResume() {
+        inBackground = false;
+        super.handleOnResume();
     }
 
     @Override
