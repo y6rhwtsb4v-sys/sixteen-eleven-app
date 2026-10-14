@@ -2950,10 +2950,10 @@ body.pop-open #totop{display:none!important}
 .seach{flex-wrap:wrap}
 
 /* ---------- old words: marked by light instead of the dotted line ----------
-   By day (plain or paper page) the word is set in soft white letters lifted
-   off the page by a shadow underneath, like a letterpress word catching the
-   light. At night the word keeps its own colour and a tight white glow sits
-   close around the letters. Inside the words of Christ the shadow (by day)
+   By day on the plain page the word is set in soft white letters lifted off
+   the page by a shadow underneath; on the paper page the letters are a warm
+   yellow, the same way. At night on the black page the word keeps its own
+   colour and a tight white glow sits close around the letters. Inside the words of Christ the shadow (by day)
    is a deep red, so the red-letter reading still shows. The underline is
    still there for those who choose it in Settings, and comes back on its own
    where a glow could vanish (forced colours). */
@@ -2965,6 +2965,14 @@ body.pop-open #totop{display:none!important}
 [data-theme="dark"][data-wordmark="glow"] .rd .gw,
 [data-theme="dark"][data-wordmark="glow"] .rd .wj .gw{color:inherit;
   text-shadow:0 0 1px rgba(255,255,255,.9),0 0 2.5px rgba(255,255,255,.55),0 0 5px rgba(255,255,255,.18)}
+/* on the paper page the letters are a warm yellow instead of white; the
+   page stays parchment at night too, so the yellow stays with it */
+:root[data-wordmark="glow"] .rd.paper .gw,
+[data-theme="dark"][data-wordmark="glow"] .rd.paper .gw{color:#F4C431;
+  text-shadow:0 1px .5px rgba(70,42,8,.78),0 2px 4px rgba(70,42,8,.34),0 0 .6px rgba(70,42,8,.5)}
+:root[data-wordmark="glow"] .rd.paper .wj .gw,
+[data-theme="dark"][data-wordmark="glow"] .rd.paper .wj .gw{color:#F4C431;
+  text-shadow:0 1px .5px rgba(130,24,18,.82),0 2px 4px rgba(130,24,18,.36),0 0 .6px rgba(130,24,18,.55)}
 @media (forced-colors:active){
   [data-wordmark="glow"] .rd .gw{text-shadow:none;text-decoration:underline dotted}
 }
