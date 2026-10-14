@@ -1,6 +1,7 @@
 ext {
     androidxCoreVersion = project.hasProperty('androidxCoreVersion') ? rootProject.ext.androidxCoreVersion : '1.17.0'
     media3Version = '1.8.0'
+    androidxAppCompatVersion = project.hasProperty('androidxAppCompatVersion') ? rootProject.ext.androidxAppCompatVersion : '1.7.1'
 }
 
 buildscript {
@@ -48,4 +49,5 @@ dependencies {
     implementation "androidx.media3:media3-session:$media3Version"
     implementation "com.google.guava:guava:33.4.8-android"
     implementation "com.google.android.play:review:2.0.2"
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
 }
