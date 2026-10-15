@@ -142,7 +142,7 @@ var GLOSSARY=[
 ["minish","minish minished","o","To diminish; to reduce."],
 ["mischief","mischief mischiefs","o","Harm; evil."],
 ["murrain","murrain","o","A plague on livestock."],
-["naught","naught","o","Nothing; also bad or worthless."],
+["naught","naught nought","o","Nothing; also bad or worthless."],
 ["neesings","neesings","o","Sneezings."],
 ["nigh","nigh","o","Near."],
 ["noisome","noisome","o","Harmful; deadly."],
@@ -187,7 +187,7 @@ var GLOSSARY=[
 ["sottish","sottish","o","Foolish; stupid."],
 ["stomacher","stomacher","o","A rich garment."],
 ["strait","strait straitened","o","Narrow; hard pressed."],
-["strake","strake","o","Struck; in Acts 27, lowered."],
+["strake","strake","o","Lowered (a ship’s sail or gear)."],
 ["stripes","stripe stripes","o","Blows or lashes; the wounds they leave."],
 ["suborned","suborned","o","Secretly paid to lie."],
 ["succour","succour succoured","o","To help."],
@@ -520,7 +520,7 @@ var GLOSSARY=[
 ["pitiful","pitiful","o","Full of pity; compassionate."],
 ["presently","presently","o","Soon; at once (“Him therefore I hope to send presently”)."],
 ["sometimes","sometimes","o","Formerly; once (“ye who sometimes were far off”)."],
-["tablets","tablets","o","A pendant or necklace (when worn as jewellery); a writing slate."],
+["tablets","tablets","o","Pendants or ornaments worn as jewellery."],
 ["target","target targets","o","A small shield."],
 ["temperance","temperance temperate","o","Self-control."],
 ["virtue","virtue","o","Goodness; in the Gospels also power or healing strength (“virtue had gone out of him”)."],
@@ -565,6 +565,121 @@ var GLOSS_RULES={
   art:{form:'art',before:/\bthou\s+$/i,after:/^\s+thou\b/i},
   wit:{form:'wit',before:/\bto\s+$/i},
   hale:{form:'hale',notBefore:/\b(is|was|be)\s+$/i}
+};
+
+/* ---- words with more than one meaning ----
+   Each sense on its own, with a verse that shows it. The card shows the
+   sense that fits the verse tapped, then the others with their own verses.
+   How the sense is picked, in order: the verse itself is listed (refs) or
+   the word's own form decides (forms: "grudgingly"); then a pattern in the
+   verse's wording (when: "gave up the ghost", "Holy Ghost"); then a question
+   mark ending the clause (wherefore = why); then the sense marked dflt, or
+   the first. Checked against every occurrence in the Bible by
+   glossary_work/checksenses.py. */
+var GLOSS_SENSES={
+  "ghost":[
+    {m:"The breath of life. To “give up the ghost” is to breathe one’s last: to die.",ex:["Job 10:18", "Oh that I had given up the ghost"],when:/(up|yielded|gave|give|giveth) (up )?the ghost/},
+    {m:"The Holy Ghost: the Holy Spirit, the Spirit of God.",ex:["Matthew 1:18", "she was found with child of the Holy Ghost"],when:/holy ghost/}],
+  "abide":[
+    {m:"To stay, remain or dwell.",ex:["John 15:4", "Abide in me, and I in you"]},
+    {m:"To endure; to bear or stand up under.",ex:["Malachi 3:2", "But who may abide the day of his coming"],when:/(who|can|could|may|not|shall|cannot) (can |may |shall |not )?(be able to )?abide (it|the|his|thy|her|this|their)\b|abide (it|his indignation|the day)/}],
+  "bowels":[
+    {m:"The inward parts of the body.",ex:["Acts 1:18", "all his bowels gushed out"]},
+    {m:"One’s own body, as the source of children: “out of thine own bowels” means your own offspring.",ex:["Genesis 15:4", "he that shall come forth out of thine own bowels"],when:/(out|forth) of (thine|thy|his|my|her) (own )?bowels|offspring of thy bowels|issue of thy bowels/},
+    {m:"Deep feeling, especially tender compassion (the heart, as we would say).",ex:["Colossians 3:12", "bowels of mercies"],when:/bowels of (mercies|compassion|christ)|bowels (and|were|be|are|did|shall|is) |my bowels|bowels yearned|your bowels|their bowels|thy bowels and|bowels are refreshed|bowels of the saints|bowels for|mine own bowels|bowels of mine|bowels of jesus/}],
+  "comely":[
+    {m:"Attractive; pleasant to look at.",ex:["Song of Solomon 1:5", "I am black, but comely"]},
+    {m:"Fitting; proper; becoming.",ex:["Psalms 33:1", "praise is comely for the upright"],when:/comely (for (one|the upright|a|you|me|us)|that|to)|is it comely|for that which is comely|praise is comely/}],
+  "compass":[
+    {m:"To go around; to surround or encircle.",ex:["Joshua 6:3", "ye shall compass the city"]},
+    {m:"“Fetch a compass”: to go round by a winding way; to circle round.",ex:["Acts 28:13", "we fetched a compass"],when:/fetch(ed)? a compass/},
+    {m:"A circle or circuit; the rim or ledge running round something.",ex:["Proverbs 8:27", "when he set a compass upon the face of the depth"],when:/(a|the) compass (upon|of|thereof)|under the compass/}],
+  "entreat":[
+    {m:"To plead with; to ask earnestly.",ex:["Exodus 8:8", "Intreat the LORD"]},
+    {m:"To treat or deal with someone, well or badly.",ex:["Luke 20:11", "and entreated him shamefully"],when:/(entreat|intreat)(ed)? (him|them|us|her|me|thee|you)?\s?(evil|shamefully|spitefully|well|kindly|courteously|roughly|hardly|despitefully|honourably|as a brother)|evil entreated|evil intreated/}],
+  "flagon":[
+    {m:"A cake of pressed raisins (the Hebrew is not a vessel of wine).",ex:["Song of Solomon 2:5", "Stay me with flagons"]},
+    {m:"A flask or jar.",ex:["Isaiah 22:24", "even to all the vessels of flagons"],refs:["Isaiah 22:24"]}],
+  "husbandry":[
+    {m:"Farming; working the land.",ex:["2 Chronicles 26:10", "for he loved husbandry"]},
+    {m:"A field under cultivation: “ye are God’s husbandry”, his tilled field.",ex:["1 Corinthians 3:9", "ye are God’s husbandry"],refs:["1 Corinthians 3:9"]}],
+  "naught":[
+    {m:"Nothing. To “come to naught” is to come to nothing; to “set at naught” is to treat as worthless.",ex:["Acts 5:38", "it will come to nought"]},
+    {m:"Bad; worthless.",ex:["Proverbs 20:14", "It is naught, it is naught, saith the buyer"],when:/\b(is|be|are|was) (naught|nought)\b|naughty|(water|figs) (is|were) naught/}],
+  "occupy":[
+    {m:"To trade; to do business with.",ex:["Luke 19:13", "Occupy till I come"]},
+    {m:"To use; to put to use.",ex:["Judges 16:11", "new ropes that never were occupied"],refs:["Judges 16:11", "Exodus 38:24"]},
+    {m:"To be busy with; to be engaged in.",ex:["Hebrews 13:9", "them that have been occupied therein"],when:/occupied (themselves|in the|therein|about|in his|in their)|kept the \w+ occupied|is occupied in/,refs:["Hebrews 13:9", "Ecclesiastes 1:13", "Ecclesiastes 3:10"]}],
+  "offend":[
+    {m:"To cause someone to stumble, or to fall away from faith.",ex:["Matthew 5:29", "if thy right eye offend thee"],when:/offend(eth|ed)? (thee|him|them|me|you|us|my|one|any|the weak|thy|this)\b|(be|been|were|was|are|is|not be|shall be|all ye shall be) offended|offended (in him|in me|at|because|in thee)|things that offend|shall many be offended|blessed is he, whosoever shall not be offended/},
+    {m:"To do wrong; to sin against.",ex:["James 2:10", "and yet offend in one point"],when:/offend(ed|eth)? against|offend(ed)? in (one point|baal|word|many things)|have (i |we )?offended|i have offended|what have i offended/,refs:["2 Esdras 12:41"],dflt:1}],
+  "ravening":[
+    {m:"Greedy for prey; ravenous.",ex:["Matthew 7:15", "inwardly they are ravening wolves"]},
+    {m:"Greed; plunder (what is seized).",ex:["Luke 11:39", "your inward part is full of ravening"],when:/full of ravening|of ravening/}],
+  "reins":[
+    {m:"The inmost self: the hidden thoughts and feelings that God searches.",ex:["Psalms 7:9", "trieth the hearts and reins"]},
+    {m:"The kidneys.",ex:["Job 16:13", "he cleaveth my reins asunder"],refs:["Job 16:13", "Lamentations 3:13"]},
+    {m:"The loins; the waist, where a belt is fastened.",ex:["Isaiah 11:5", "faithfulness the girdle of his reins"],refs:["Isaiah 11:5"]}],
+  "sore":[
+    {m:"Greatly; very: “sore afraid” is very afraid.",ex:["Luke 2:9", "and they were sore afraid"]},
+    {m:"Severe; grievous; hard to bear.",ex:["Genesis 41:56", "the famine waxed sore"],when:/sore (famine|sickness|battle|judgments|plague|plagues|travail|trial|affliction|evil|lamentation|bondage|displeasure|wound|stroke|punishment|dearth|destruction|boils?|botch|diseases)|(famine|battle|sickness|hand|war) (was|waxed|is|be|grew) (very )?sore/}],
+  "strait":[
+    {m:"Narrow; tight.",ex:["Matthew 7:13", "Enter ye in at the strait gate"]},
+    {m:"A hard place; distress, where there is no way out.",ex:["2 Samuel 24:14", "I am in a great strait"],when:/(a|great|in a|in the) strait\b(?! of judea)|in straits|strait(ly)? betwixt|the straits|out of the strait|kept so strait/,forms:["straitened", "straiteneth", "straitness", "straits"]}],
+  "suffer":[
+    {m:"To allow; to let.",ex:["Matthew 19:14", "Suffer little children"],when:/suffer(ed|est|eth)? (me|him|her|them|us|thee|you|it|not|neither|thy|thine|that|the little|little|no man|none|fools|his|my|our|their|this|to)\b/},
+    {m:"To undergo pain, loss or wrong; to endure.",ex:["Matthew 16:21", "and suffer many things"],dflt:1}],
+  "tabernacle":[
+    {m:"The tent of meeting: the portable sanctuary where God dwelt among Israel in the wilderness.",ex:["Exodus 25:9", "the pattern of the tabernacle"]},
+    {m:"The feast of tabernacles: the autumn festival of booths, when Israel lived seven days in shelters of branches.",ex:["John 7:2", "feast of tabernacles was at hand"],when:/feast of (the )?tabernacles|tabernacles\' feast/},
+    {m:"A tent or dwelling; a home.",ex:["Job 5:24", "thou shalt know that thy tabernacle shall be in peace"],when:/\b(thy|his|my|their|her|your) tabernacles?\b(?! of the)|tents and tabernacles|in tabernacles|\btabernacles\b/},
+    {m:"The body, as the tent the soul lives in.",ex:["2 Corinthians 5:1", "our earthly house of this tabernacle"],refs:["2 Corinthians 5:1", "2 Corinthians 5:4", "2 Peter 1:13", "2 Peter 1:14"]}],
+  "talent":[
+    {m:"A large weight of metal, about 34 kilograms (75 pounds).",ex:["Exodus 25:39", "Of a talent of pure gold shall he make it"]},
+    {m:"A great sum of money (in the parables, many years’ wages).",ex:["Matthew 25:15", "unto one he gave five talents"],refs:["Matthew 18:24", "Matthew 25:15", "Matthew 25:16", "Matthew 25:18", "Matthew 25:20", "Matthew 25:22", "Matthew 25:24", "Matthew 25:25", "Matthew 25:28"]}],
+  "virtue":[
+    {m:"Goodness; moral excellence.",ex:["2 Peter 1:5", "add to your faith virtue"]},
+    {m:"Power; healing strength going out from Jesus.",ex:["Mark 5:30", "that virtue had gone out of him"],when:/virtue (had )?(gone|went) out|went virtue out|there went virtue/}],
+  "careful":[
+    {m:"Full of care: anxious, worried.",ex:["Philippians 4:6", "Be careful for nothing"],refs:["Daniel 3:16"]},
+    {m:"Taking pains; diligent.",ex:["Titus 3:8", "might be careful to maintain good works"],when:/careful (not )?to/}],
+  "grudge":[
+    {m:"To grumble or complain against.",ex:["James 5:9", "Grudge not one against another"]},
+    {m:"“Grudgingly”: unwillingly, resenting it.",ex:["2 Corinthians 9:7", "not grudgingly"],forms:["grudging", "grudgingly"]},
+    {m:"A grudge: lasting resentment against someone, as today.",ex:["Leviticus 19:18", "nor bear any grudge"],when:/(a|any|no) grudge/}],
+  "delicate":[
+    {m:"Soft and pampered; living in luxury.",ex:["Deuteronomy 28:56", "The tender and delicate woman"]},
+    {m:"Delicacies; dainty food.",ex:["Jeremiah 51:34", "he hath filled his belly with my delicates"],forms:["delicates"]}],
+  "cloke":[
+    {m:"A cloak; an outer garment.",ex:["2 Timothy 4:13", "The cloke that I left at Troas"]},
+    {m:"A cover or pretext, hiding the truth.",ex:["1 Thessalonians 2:5", "nor a cloke of covetousness"],when:/cloke of|no cloke|for a cloke/}],
+  "ephod":[
+    {m:"The high priest’s embroidered vest, worn over his robe.",ex:["Exodus 28:6", "they shall make the ephod"]},
+    {m:"An object made for worship that became an idol.",ex:["Judges 8:27", "And Gideon made an ephod thereof"],refs:["Judges 8:27", "Judges 17:5", "Judges 18:14", "Judges 18:17", "Judges 18:18", "Judges 18:20"]}],
+  "overlaid":[
+    {m:"Covered over; plated (with gold or brass).",ex:["Exodus 26:32", "overlaid with gold"]},
+    {m:"Lay on and smothered.",ex:["1 Kings 3:19", "because she overlaid it"],refs:["1 Kings 3:19"]}],
+  "asswage":[
+    {m:"To ease; to soften (grief or pain).",ex:["Job 16:5", "the moving of my lips should asswage your grief"]},
+    {m:"To go down; to subside (as a flood).",ex:["Genesis 8:1", "and the waters asswaged"],when:/waters asswaged/}],
+  "gat":[
+    {m:"Got; gained for oneself.",ex:["Ecclesiastes 2:8", "I gat me men singers"]},
+    {m:"Went; took oneself off (“gat him up”: got up and went).",ex:["Genesis 19:27", "And Abraham gat up early"],when:/gat (him|them|her|thee|us|you)\b|gat (me )?(up|down|away|into|out|over|hence|thence|to|unto)\b/}],
+  "yea":[
+    {m:"Indeed; even; more than that (adding force).",ex:["Psalms 23:4", "Yea, though I walk through the valley"]},
+    {m:"Yes.",ex:["Matthew 9:28", "They said unto him, Yea, Lord"],when:/yea, yea|yea, lord|yea and nay|yea; and your nay|said,? yea|saith,? yea|answered,? yea|let your yea/}],
+  "wherefore":[
+    {m:"Therefore; for this reason.",ex:["Matthew 7:20", "Wherefore by their fruits ye shall know them"]},
+    {m:"Why; for what reason (asking).",ex:["Matthew 14:31", "wherefore didst thou doubt?"],when:/(know|knew|ask|asked|enquire|enquired|tell|told|see|consider|understand|perceive|shew) (\w+ )?wherefore/,question:1}],
+  "meat":[
+    {m:"Food of any kind, not only flesh.",ex:["Genesis 1:29", "to you it shall be for meat"]},
+    {m:"A “meat offering” was an offering of grain or flour, with oil and frankincense: no flesh at all.",ex:["Leviticus 2:1", "when any will offer a meat offering unto the LORD"],when:/meat offerings?/}],
+  "conversation":[
+    {m:"Your way of life and conduct, not only your speech.",ex:["1 Peter 1:15", "so be ye holy in all manner of conversation"]},
+    {m:"Citizenship; the commonwealth one belongs to.",ex:["Philippians 3:20", "For our conversation is in heaven"],refs:["Philippians 3:20"]}],
+  "whit":[
+    {m:"The least bit: “not a whit” is not at all.",ex:["2 Corinthians 11:5", "I was not a whit behind"]},
+    {m:"“Every whit”: entirely, wholly.",ex:["John 13:10", "but is clean every whit"],when:/every whit/}]
 };
 
 /* the build wraps this in an IIFE and adds "use strict" itself */
@@ -3337,8 +3452,11 @@ function vProfile(){
     'If you open this file somewhere else, they will not follow you.</p>'+
     '<p><b>Sources.</b> King James Bible and Josephus\u2019s <em>Antiquities</em> from Project Gutenberg; '+
     'the Apocrypha from eBible.org. All in the public domain.</p></div>';
+  /* which version this is, so a report can say exactly what it was seen on */
+  h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
+var APP_STAMP='v100 · Oct 14 22:59';
 
 /* ================= SEARCH ================= */
 
@@ -4133,20 +4251,55 @@ function glossLookup(word){
   var i=glossIndex()[String(word||'').trim().toLowerCase()];
   return i===undefined?null:{i:i,e:GLOSSARY[i]};
 }
-function glossCard(e, shown){
+/* which of a word's meanings this verse uses (GLOSS_SENSES in glossary.js);
+   the same order of checks as glossary_work/checksenses.py */
+function glossSense(head, text, ref, form){
+  var ss=(typeof GLOSS_SENSES!=='undefined')&&GLOSS_SENSES[head];
+  if(!ss) return -1;
+  var t=String(text||'').toLowerCase().replace(/\u2019/g,"'"), f=String(form||'').toLowerCase(), k;
+  for(k=0;k<ss.length;k++) if((ss[k].refs&&ss[k].refs.indexOf(ref)>-1)||(ss[k].forms&&ss[k].forms.indexOf(f)>-1)) return k;
+  for(k=0;k<ss.length;k++) if(ss[k].when&&ss[k].when.test(t)) return k;
+  for(k=0;k<ss.length;k++) if(ss[k].question){
+    var i=t.search(new RegExp('\\b'+f.replace(/[^a-z']/g,'')+'\\b')), m=i>-1?/[.?:;!]/.exec(t.slice(i)):null;
+    if(m&&m[0]==='?') return k;
+  }
+  for(k=0;k<ss.length;k++) if(ss[k].dflt) return k;
+  return 0;
+}
+function glossExample(x, head){
+  var forms=(GLOSSARY[glossIndex()[head]]||[0,head])[1].split(' ');
+  var q=esc(x.ex[1]), rx=new RegExp('\\b('+forms.map(rxEsc).join('|')+')\\b','i');
+  return '<span class="wdr">'+esc(x.ex[0])+'</span> \u201c'+q.replace(rx,'<b>$1</b>')+'\u201d';
+}
+/* the card: the meaning this verse uses first; then each other meaning on
+   its own, with a verse that shows it. Without a verse (search, Word study)
+   every meaning is listed, each with its example. */
+function glossCard(e, shown, verse){
   var form=shown&&shown.toLowerCase()!==e[0];
-  return '<div class="wdk">'+(e[2]==='t'?'Bible term':'Old word')+'</div>'+
+  var ss=(typeof GLOSS_SENSES!=='undefined')&&GLOSS_SENSES[e[0]];
+  var h='<div class="wdk">'+(e[2]==='t'?'Bible term':'Old word')+'</div>'+
     '<div class="wdh">'+esc(form?shown.toLowerCase():e[0])+'</div>'+
-    (form?'<div class="wdf">a form of “'+esc(e[0])+'”</div>':'')+
-    '<p class="wdm">'+esc(e[3])+'</p>';
+    (form?'<div class="wdf">a form of \u201c'+esc(e[0])+'\u201d</div>':'');
+  if(!ss) return h+'<p class="wdm">'+esc(e[3])+'</p>';
+  if(verse){
+    var pick=glossSense(e[0], verse.text, verse.ref, shown||e[0]);
+    h+='<div class="wdin">In this verse</div><p class="wdm">'+esc(ss[pick].m)+'</p>';
+    var others=ss.filter(function(x,k){ return k!==pick; });
+    if(others.length) h+='<div class="wdalt"><div class="wdin">'+(others.length===1?'Its other meaning':'Its other meanings')+'</div>'+
+      others.map(function(x){ return '<div class="wdo"><p class="wdom">'+esc(x.m)+'</p><p class="wdoe">'+glossExample(x, e[0])+'</p></div>'; }).join('')+'</div>';
+    return h;
+  }
+  return h+'<ol class="wdsenses">'+ss.map(function(x){
+    return '<li><p class="wdom">'+esc(x.m)+'</p><p class="wdoe">'+glossExample(x, e[0])+'</p></li>'; }).join('')+'</ol>';
 }
 function openWordSheet(i, key, shown){
   var e=GLOSSARY[i]; if(!e) return;
   S.sheet=null;
   var h='<div class="grabzone"><div class="grab"></div></div><div class="wdsheet">';
-  h+=glossCard(e, shown);
+  var pk=key?parseKey(key):null, raw=pk?(vText(pk.b,pk.c,pk.v)||''):'';
+  h+=glossCard(e, shown, pk?{text:raw, ref:vRef(pk.b,pk.c,pk.v)}:null);
   if(key){
-    var p=parseKey(key), t=esc(vText(p.b,p.c,p.v)||'');
+    var p=pk, t=esc(raw);
     if(shown){
       var safe=shown.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
       t=t.replace(new RegExp('\\b('+safe+')\\b'),'<b>$1</b>');
@@ -6811,10 +6964,16 @@ function drawWelcome(){
       '<p class="welsub">You can change these any time in Settings.</p>'+
       '<div class="welpreview'+(S.page==='paper'?' paper':'')+'" style="--wsz:'+(SZ[S.textSize]||'17px')+'">'+
         '<span class="welref">Psalm 119:105</span>'+
-        '<p>Thy word <i>is</i> a lamp unto my feet, and a light unto my path.</p></div>'+
+        '<p>'+(S.wordMeanings!==false?'<span class="gw">Thy</span>':'Thy')+' word <i>is</i> a lamp '+(S.wordMeanings!==false?'<span class="gw">unto</span>':'unto')+' my feet, and a light unto my path.</p></div>'+
       '<div class="wellab">Theme</div>'+segs('theme',[['light','Early morning'],['dark','Night'],['auto','Match device']],S.theme||'auto')+
       '<div class="wellab">Page</div>'+segs('page',[['plain','Plain'],['paper','Paper']],S.page||'plain')+
       '<div class="wellab">Text size</div>'+segs('size',[[0,'XS'],[1,'S'],[2,'M'],[3,'L'],[4,'XL'],[5,'XXL']],S.textSize)+
+      /* old words: on unless turned off, and said to be the better choice */
+      '<div class="wellab">Old words <span class="welrec">Recommended on</span></div>'+
+      segs('words',[['on','Explain them'],['off','Leave them plain']],S.wordMeanings!==false?'on':'off')+
+      (S.wordMeanings!==false?segs('wordmark',[['glow','Soft glow'],['line','Underline']],wordMark()):'')+
+      '<p class="welhint">'+(S.wordMeanings!==false?'Words like \u201cthy\u201d and \u201cunto\u201d are marked; tap one to see what it meant in 1611.':
+        'Old words will not be marked. Tap Explain them to have their meanings a tap away.')+'</p>'+
       '</div><div class="welfoot">'+dots+
       '<button class="btn welgo" data-w="next">'+(steps>2?'Continue':'Start reading')+'</button></div></div>';
   } else {
@@ -6847,6 +7006,8 @@ function welcomeAct(w, v){
   if(w==='theme'){ setTheme(v); drawWelcome(); return; }
   if(w==='page'){ S.page=v; savePlace(); S.keepScroll=true; render(); drawWelcome(); return; }
   if(w==='size'){ S.textSize=+v; savePlace(); S.keepScroll=true; render(); drawWelcome(); return; }
+  if(w==='words'){ S.wordMeanings=(v==='on'); Store.set('strata:words',S.wordMeanings); S.keepScroll=true; render(); drawWelcome(); return; }
+  if(w==='wordmark'){ S.wordMark=(v==='line')?'line':'glow'; Store.set('strata:wordmark',S.wordMark); applyWordMark(); drawWelcome(); return; }
   if(w==='founders'){ closeWelcome(function(){ openPaywall('founders'); }); return; }
   if(w==='trial'){ closeWelcome(function(){ openPaywall('trial'); }); return; }
 }

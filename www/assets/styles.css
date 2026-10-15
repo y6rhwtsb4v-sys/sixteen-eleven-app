@@ -2998,3 +2998,24 @@ html[data-theme="dark"] .pane.pg-paper .vpop,
 .sp-downloads{--lth1:#22324A;--lth2:#0B1220}
 .paywall .pwfreedl{display:block;margin:12px auto 0;font-size:14px;color:var(--blue);text-decoration:underline;
   text-underline-offset:3px;background:none;min-height:44px}
+.setver{margin:18px 2px 6px;text-align:center;font-size:12px;color:var(--ink3)}
+/* a word with more than one meaning: this verse's, then the others */
+.wdin{margin:12px 0 2px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.wdalt{margin:6px 0 4px;padding-top:4px;border-top:1px solid var(--line)}
+.wdo{margin:8px 0 10px}
+.wdom{margin:0;font-size:15px;line-height:1.45;color:var(--ink)}
+.wdoe{margin:3px 0 0;font-family:var(--serif);font-style:italic;font-size:14.5px;line-height:1.45;color:var(--ink2)}
+.wdoe .wdr{font-family:var(--sans,inherit);font-style:normal;font-size:12.5px;font-weight:600;color:var(--blue);margin-right:4px}
+.wdoe b{font-style:italic;color:var(--ink)}
+.wdsenses{margin:6px 0 4px;padding-left:20px}
+.wdsenses li{margin:0 0 10px}
+/* the welcome's preview shows old words the way the reader will */
+.welrec{margin-left:6px;padding:1px 7px;border-radius:6px;font-size:12px;font-weight:600;letter-spacing:.02em;text-transform:none;
+  background:var(--blue-l);color:var(--blue)}
+.welhint{margin:8px 2px 0;font-size:12.5px;line-height:1.45;color:var(--ink2)}
+.welpreview .gw{color:#FFFDF9;text-shadow:0 1px .5px rgba(52,34,18,.72),0 2px 4px rgba(52,34,18,.32),0 0 .6px rgba(52,34,18,.45)}
+.welpreview.paper .gw{color:#5F93BA;text-shadow:0 1px 1.5px rgba(30,46,62,.22)}
+[data-theme="dark"] .welpreview:not(.paper) .gw{color:inherit;
+  text-shadow:0 0 1px rgba(255,255,255,.9),0 0 2.5px rgba(255,255,255,.55),0 0 5px rgba(255,255,255,.18)}
+[data-wordmark="line"] .welpreview .gw{color:inherit;text-shadow:none;text-decoration:underline dotted 1.5px;text-underline-offset:.22em}
+#welcome .welseg + .welseg{margin-top:8px}
