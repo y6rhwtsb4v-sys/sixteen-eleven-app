@@ -26,6 +26,10 @@ if [ "$P" = ios ]; then
   $PB -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PL"
   $PB -c "Set :CFBundleDisplayName Sixteen Eleven" "$PL" 2>/dev/null || \
     $PB -c "Add :CFBundleDisplayName string Sixteen Eleven" "$PL"
+  # a shared verse picture can be saved to Photos from the share sheet; without
+  # this line iOS closes the app the moment "Save Image" is tapped
+  $PB -c "Delete :NSPhotoLibraryAddUsageDescription" "$PL" 2>/dev/null || true
+  $PB -c "Add :NSPhotoLibraryAddUsageDescription string Sixteen Eleven saves the verse pictures you make to your photos." "$PL"
   # imported books: let the Files app show the app's documents
   $PB -c "Delete :LSSupportsOpeningDocumentsInPlace" "$PL" 2>/dev/null || true
   $PB -c "Add :LSSupportsOpeningDocumentsInPlace bool false" "$PL"

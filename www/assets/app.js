@@ -7,9 +7,9 @@
    in the KJV the entry says so instead of guessing which one is meant.
 
    Each entry: [headword, forms (space separated), kind, meaning]
-   kind: o = an old word, t = a Bible term. Very common words (yea, verily,
-   thee, hath) are left out on purpose: marking them would underline half
-   the page. Words that are usually modern in sense but sometimes old (let,
+   kind: o = an old word, t = a Bible term. The common old forms (thee,
+   thou, hath, unto) are in too: each word glows only once a chapter, so
+   they light the page without crowding it. Words that are usually modern in sense but sometimes old (let,
    meet, sore, wax, tale, instant) carry a rule in GLOSS_RULES below, so only
    the old uses are marked. */
 var GLOSSARY=[
@@ -275,7 +275,275 @@ var GLOSSARY=[
 ["tares","tares","t","Weeds that look like wheat while they grow."],
 ["tithe","tithe tithes","t","A tenth, given to God."],
 ["unleavened","unleavened","t","Made without yeast."],
-["urim","urim thummim","t","Objects the high priest used to seek God’s will."]
+["urim","urim thummim","t","Objects the high priest used to seek God’s will."],
+/* ---- added October 2026: the rest of the old words and old senses, checked
+   against Webster’s 1828 and 1913; the wording is ours ---- */
+["thee","thee","o","You (one person, as the object: “I will bless thee”)."],
+["thou","thou","o","You (one person, as the subject: “thou art”)."],
+["thy","thy","o","Your (belonging to one person)."],
+["thine","thine","o","Yours; also “your” before a vowel (“thine eyes”)."],
+["thyself","thyself","o","Yourself."],
+["ye","ye","o","You (more than one person, as the subject)."],
+["hath","hath","o","Has."],
+["hast","hast","o","Have (with thou: “thou hast”)."],
+["hadst","hadst","o","Had (with thou)."],
+["doth","doth","o","Does."],
+["dost","dost","o","Do (with thou: “dost thou”)."],
+["didst","didst diddest","o","Did (with thou)."],
+["shalt","shalt","o","Shall (with thou: “thou shalt”)."],
+["wilt","wilt","o","Will (with thou: “wilt thou”)."],
+["art","art","o","Are (with thou: “thou art”)."],
+["wast","wast","o","Were (with thou: “thou wast”)."],
+["wert","wert","o","Were (with thou, after if or as)."],
+["canst","canst","o","Can (with thou)."],
+["couldest","couldest","o","Could (with thou)."],
+["shouldest","shouldest","o","Should (with thou)."],
+["wouldest","wouldest","o","Would (with thou)."],
+["mayest","mayest","o","May (with thou)."],
+["mightest","mightest","o","Might (with thou)."],
+["oughtest","oughtest","o","Ought (with thou)."],
+["saith","saith","o","Says."],
+["spake","spake spakest","o","Spoke."],
+["unto","unto","o","To; toward."],
+["ere","ere","o","Before."],
+["lo","lo","o","Look; see (calling attention to what follows)."],
+["fro","fro","o","From; away (“to and fro”: back and forth)."],
+["alway","alway","o","Always."],
+["howbeit","howbeit","o","However; nevertheless."],
+["hither","hither","o","Here; to this place."],
+["whither","whither","o","Where; to what place."],
+["whithersoever","whithersoever","o","Wherever; to whatever place."],
+["thitherward","thitherward","o","Toward that place."],
+["whence","whence","o","From where; from what place."],
+["thence","thence","o","From there; from that place."],
+["thenceforth","thenceforth","o","From that time on."],
+["wherefore","wherefore","o","Why; or, for this reason, therefore."],
+["wherewith","wherewith wherewithal","o","With which; with what."],
+["whereof","whereof","o","Of which; of what."],
+["wherein","wherein","o","In which; in what."],
+["whereby","whereby","o","By which; by what means."],
+["whereupon","whereupon","o","Upon which; after which."],
+["whereunto","whereunto","o","To which; to what (“whereunto shall I liken”: to what shall I compare)."],
+["whereon","whereon","o","On which."],
+["whereto","whereto","o","To which; to what end."],
+["whereat","whereat","o","At which."],
+["whereinto","whereinto","o","Into which."],
+["whereabout","whereabout","o","About which; on what business."],
+["whereout","whereout","o","Out of which."],
+["wherethrough","wherethrough","o","Through which."],
+["whensoever","whensoever","o","Whenever."],
+["whoso","whoso","o","Whoever."],
+["whomsoever","whomsoever","o","Whomever."],
+["soever","soever","o","At all; whatever (“what man soever”: whatever man)."],
+["thereat","thereat","o","At that; at that place."],
+["thereinto","thereinto","o","Into that place."],
+["thereout","thereout","o","Out of it."],
+["therethrough","therethrough","o","Through it."],
+["betwixt","betwixt","o","Between."],
+["aught","aught","o","Anything at all."],
+["yea","yea","o","Yes; indeed, even more."],
+["nay","nay","o","No; not so."],
+["verily","verily","o","Truly; certainly."],
+["shew","shew shewed shewest sheweth shewing shewn","o","Old spelling of show: to show, reveal, or tell."],
+["quoth","quoth","o","Said."],
+["sware","sware swarest","o","Swore; took an oath."],
+["drave","drave","o","Drove."],
+["forbare","forbare forbad","o","Held back from; forbade."],
+["forgat","forgat","o","Forgot."],
+["trode","trode","o","Trod; walked on."],
+["chode","chode","o","Quarrelled; found fault."],
+["hungred","hungred","o","Hungry."],
+["wit","wit","o","To know (“we do you to wit”: we let you know)."],
+["aforehand","aforehand","o","Beforehand; in advance."],
+["ambassage","ambassage","o","A delegation of envoys; an embassy."],
+["ambushment","ambushment ambushments","o","An ambush; troops lying in wait."],
+["arrogancy","arrogancy","o","Arrogance."],
+["asswage","asswage asswaged","o","Old spelling of assuage: to ease, or to go down (as a flood)."],
+["attent","attent","o","Attentive."],
+["aul","aul","o","An awl, a pointed tool for piercing."],
+["backbiting","backbiting backbitings backbiteth","o","Slander spoken behind someone’s back."],
+["bason","bason basons","o","A basin or bowl."],
+["beforetime","beforetime","o","Formerly; in earlier times."],
+["betime","betime","o","Early; in good time."],
+["bishoprick","bishoprick","o","An office of oversight in the church."],
+["brasen","brasen","o","Made of brass or bronze."],
+["bridechamber","bridechamber","o","The room where the bride and groom celebrate their wedding."],
+["broided","broided","o","Braided."],
+["buryingplace","buryingplace","o","A burial place; a tomb."],
+["butlership","butlership","o","The office of cupbearer."],
+["camphire","camphire","o","Henna, a fragrant flowering shrub."],
+["cieled","cieled","o","Panelled or lined with wood (as a ceiling)."],
+["clift","clift clifts","o","A cleft in a rock."],
+["cloke","cloke","o","A cloak; a covering, also a pretext."],
+["collops","collops","o","Folds of fat flesh."],
+["cumbrance","cumbrance","o","A burden; a hindrance."],
+["daysman","daysman","o","An umpire; one who judges between two parties."],
+["deceivableness","deceivableness deceivable","o","Deceitfulness; the power to deceive."],
+["dehorted","dehorted","o","Urged not to do something; dissuaded."],
+["delightsome","delightsome","o","Delightful."],
+["disannul","disannul disannulled disannulleth disannulling","o","To cancel; to make void."],
+["doateth","doateth","o","Dotes; is foolishly taken up with."],
+["downsitting","downsitting","o","Sitting down; rest."],
+["dureth","dureth","o","Lasts; endures."],
+["emptiers","emptiers","o","Plunderers; those who lay a place bare."],
+["endamage","endamage","o","To damage; to harm."],
+["eveningtide","eveningtide","o","Evening time."],
+["eyeservice","eyeservice","o","Work done only while being watched."],
+["fatling","fatling fatlings","o","A young animal fattened for slaughter."],
+["fauchion","fauchion","o","A broad, curved sword."],
+["firstling","firstling firstlings","o","The firstborn of a flock or herd."],
+["fleshhook","fleshhook fleshhooks","o","A pronged fork for lifting meat from a pot."],
+["foreshew","foreshew","o","To show beforehand; to foretell."],
+["forsomuch","forsomuch","o","Since; because."],
+["gazingstock","gazingstock","o","Someone made a spectacle and stared at with scorn."],
+["glede","glede","o","A bird of prey; a kite."],
+["graff","graff graffed","o","To graft (a branch into a tree)."],
+["grisled","grisled","o","Grey-spotted; dappled."],
+["handstaves","handstaves","o","Staffs carried in the hand; clubs."],
+["havock","havock","o","Havoc; ruin."],
+["headtire","headtire","o","A headdress."],
+["hoised","hoised","o","Hoisted; raised."],
+["homeborn","homeborn","o","Native; born in the land."],
+["horseleach","horseleach","o","A large leech."],
+["hough","hough houghed","o","To hamstring (cut the leg tendons of a horse)."],
+["hungerbitten","hungerbitten","o","Weakened by hunger."],
+["importable","importable","o","Unbearable; too heavy to carry."],
+["inclosings","inclosings","o","Settings; enclosures (as for jewels)."],
+["inkhorn","inkhorn","o","A small horn or case for ink, carried at the belt."],
+["intermeddle","intermeddle intermeddleth","o","To meddle; to share in."],
+["intreaty","intreaty intreaties intreating","o","An earnest request; a plea."],
+["jeopard","jeopard jeoparded","o","To risk; to put in danger."],
+["justle","justle","o","To jostle; to push against."],
+["kneadingtroughs","kneadingtroughs","o","Bowls for kneading bread dough."],
+["leanfleshed","leanfleshed","o","Thin; lean."],
+["liers","liers","o","Those who lie in wait; an ambush."],
+["lothe","lothe","o","To loathe; to detest."],
+["lunatick","lunatick","o","Prone to seizures or fits; mentally afflicted."],
+["magnifical","magnifical","o","Magnificent."],
+["marishes","marishes","o","Marshes."],
+["menpleasers","menpleasers","o","People who work only to win others’ approval."],
+["menstealers","menstealers","o","Kidnappers; slave traders."],
+["meteyard","meteyard","o","A measuring rod."],
+["morter","morter","o","Mortar."],
+["mowings","mowings","o","The mown grass of a field."],
+["offscouring","offscouring","o","Refuse; what is scraped off and thrown away."],
+["oliveyard","oliveyard oliveyards","o","An olive grove."],
+["omnipotency","omnipotency","o","Almighty power."],
+["outroads","outroads","o","Raids; forays."],
+["overlived","overlived","o","Outlived."],
+["overpast","overpast","o","Passed by; over and done."],
+["plaistered","plaistered plaistering","o","Plastered."],
+["pourtray","pourtray pourtrayed","o","To portray; to carve or draw."],
+["pransing","pransing pransings","o","Prancing."],
+["pressfat","pressfat","o","The vat of a winepress."],
+["prieth","prieth","o","Pries; peers into."],
+["pruninghooks","pruninghooks","o","Hooked knives for pruning vines."],
+["recompence","recompence recompences","o","Repayment; reward or punishment."],
+["reconcilement","reconcilement","o","Reconciliation."],
+["remediless","remediless","o","Beyond remedy."],
+["revenger","revenger revengers","o","An avenger."],
+["rie","rie","o","Rye, or spelt (a kind of grain)."],
+["seatward","seatward","o","Toward the seat."],
+["sheepmaster","sheepmaster","o","A sheep breeder; a flock owner."],
+["shoelatchet","shoelatchet","o","A sandal strap."],
+["silverlings","silverlings","o","Silver coins; shekels."],
+["sixscore","sixscore","o","One hundred and twenty."],
+["slidden","slidden","o","Slid; slipped away."],
+["sodering","sodering","o","Soldering; joining metal."],
+["stablish","stablish stablished stablisheth","o","To establish; to make firm."],
+["stedfast","stedfast stedfastly stedfastness","o","Steadfast; firm and unmoving."],
+["strowed","strowed","o","Strewed; scattered."],
+["subtil","subtil subtilly subtilty subtilties","o","Subtle: crafty, cunning."],
+["submissly","submissly","o","Submissively."],
+["suretiship","suretiship","o","Standing as guarantor for another’s debt."],
+["surmisings","surmisings","o","Suspicions; evil guesses."],
+["swaddlingband","swaddlingband","o","A strip of cloth for wrapping a newborn."],
+["tabering","tabering","o","Beating (the breast) like a small drum."],
+["tacklings","tacklings","o","A ship’s ropes and rigging."],
+["teil","teil","o","The linden or lime tree."],
+["thankworthy","thankworthy","o","Worthy of thanks; commendable."],
+["thyine","thyine","o","A fragrant hardwood (sandarac tree) used for fine cabinetwork."],
+["traffick","traffick","o","Trade; commerce."],
+["trucebreakers","trucebreakers","o","People who will not keep an agreement."],
+["undersetters","undersetters","o","Supports; brackets underneath."],
+["underwritten","underwritten","o","Written below."],
+["unnurtured","unnurtured evilnurtured","o","Untrained; badly brought up."],
+["unperfect","unperfect","o","Imperfect; unformed."],
+["unright","unright","o","Wrong; unrighteous."],
+["unwashen","unwashen","o","Unwashed."],
+["vail","vail vails","o","A veil."],
+["vehemency","vehemency","o","Vehemence; intense force."],
+["villany","villany","o","Villainy; wickedness."],
+["waitingwoman","waitingwoman","o","A woman who waits on another; an attendant."],
+["washpot","washpot","o","A basin for washing."],
+["watersprings","watersprings","o","Springs of water."],
+["waymarks","waymarks","o","Road markers."],
+["weening","weening","o","Thinking; supposing."],
+["whoring","whoring whorish","o","Unfaithfulness, especially to God by turning to idols."],
+["wilily","wilily","o","Craftily; by a trick."],
+["winebibber","winebibber winebibbers","o","A heavy drinker of wine."],
+["winefat","winefat","o","The vat of a winepress."],
+["withs","withs","o","Flexible willow twigs used as bands."],
+["yokefellow","yokefellow","o","A companion in work; a partner."],
+["fetcht","fetcht","o","Fetched."],
+["overlaid","overlaid","o","Covered over; plated (with gold); in 1 Kings 3:19, lay on and smothered."],
+["mixt","mixt","o","Mixed."],
+["pluckt","pluckt","o","Plucked."],
+["slipt","slipt","o","Slipped."],
+["stript","stript","o","Stripped."],
+["harlot","harlot harlots","o","A prostitute."],
+["vinedressers","vinedressers","o","Workers who tend vines."],
+["hoary","hoary","o","Grey or white with age."],
+["careful","careful carefulness","o","Full of care: anxious, worried; also taking pains."],
+["carriage","carriage carriages","o","Baggage; what is carried."],
+["communicate","communicate communicated communicating","o","To share; to give a share of what one has."],
+["convince","convince convinced convinceth","o","To prove someone wrong; to convict."],
+["cunning","cunning","o","Skilful; expert (as a craftsman)."],
+["delicate","delicate delicately delicates","o","Soft, luxurious; dainty food."],
+["discover","discover discovered discovereth","o","To uncover; to lay bare."],
+["gender","gender gendered gendereth","o","To give birth to; to breed or produce (“they do gender strifes”)."],
+["honest","honest honestly honesty","o","Honourable; decent and fitting."],
+["incontinent","incontinent incontinency","o","Lacking self-control."],
+["nephews","nephews","o","A grandson; a descendant."],
+["peculiar","peculiar","o","Belonging especially to one; one’s own treasured possession."],
+["alleging","alleging","o","To set out and prove (from scripture)."],
+["artillery","artillery","o","Weapons: here, a bow and arrows."],
+["debate","debate debates","o","Strife; quarrelling."],
+["duke","duke dukes","o","A chief; the head of a tribe or clan."],
+["frankly","frankly","o","Freely; without asking anything back."],
+["grudge","grudge grudging grudgingly","o","To grumble or complain; unwillingly."],
+["hale","hale haling","o","To drag by force."],
+["lusty","lusty","o","Strong; vigorous."],
+["mansions","mansions","o","Dwelling places; rooms in a house."],
+["matrix","matrix","o","The womb."],
+["mortify","mortify","o","To put to death."],
+["pitiful","pitiful","o","Full of pity; compassionate."],
+["presently","presently","o","Soon; at once (“Him therefore I hope to send presently”)."],
+["sometimes","sometimes","o","Formerly; once (“ye who sometimes were far off”)."],
+["tablets","tablets","o","A pendant or necklace (when worn as jewellery); a writing slate."],
+["target","target targets","o","A small shield."],
+["temperance","temperance temperate","o","Self-control."],
+["virtue","virtue","o","Goodness; in the Gospels also power or healing strength (“virtue had gone out of him”)."],
+["shewbread","shewbread","t","The bread of the Presence: twelve loaves set before the LORD in the tabernacle each sabbath."],
+["teraphim","teraphim","t","Household idols, consulted for omens."],
+["tetrarch","tetrarch","t","A ruler of part of a province under Rome."],
+["sabachthani","sabachthani","t","Aramaic: “hast thou forsaken me” (from Psalm 22:1)."],
+["onycha","onycha","t","A fragrant ingredient of the holy incense."],
+["algum","algum almug","t","A precious wood (perhaps red sandalwood) brought from Ophir."],
+["bekah","bekah","t","Half a shekel."],
+["gerahs","gerahs","t","A small weight: one twentieth of a shekel."],
+["cor","cor","t","A large dry measure, about six bushels."],
+["maneh","maneh","t","A weight of fifty or sixty shekels (a mina)."],
+["ligure","ligure","t","A precious stone in the high priest’s breastplate (perhaps jacinth)."],
+["lign","lign","t","“Lign aloes”: aloe wood, a fragrant tree."],
+["ospray","ospray","t","The osprey, a fish-eating bird of prey."],
+["ossifrage","ossifrage","t","The bearded vulture."],
+["pygarg","pygarg","t","A clean animal for food, probably a kind of antelope (Webster’s 1828 took it for a bird)."],
+["gier","gier","t","“Gier eagle”: a vulture."],
+["palmerworm","palmerworm","t","A locust or caterpillar that strips plants."],
+["sycamine","sycamine","t","The mulberry tree."],
+["cummin","cummin","t","A seed used as spice, tithed by the Pharisees."],
+["holm","holm","t","An evergreen oak."]
 ];
 
 /* Words whose everyday modern sense is the usual one in the KJV too. Only the
@@ -293,7 +561,10 @@ var GLOSS_RULES={
   sore:{notBefore:/\b(a|the|his|her|my|thy|any|every|their|of)\s+$/i,
         notAfter:/^\s+(or|and)\s+(sickness|blain|boil)/i},
   wax:{form:'wax',notBefore:/\b(as|like|the|of|is)\s+$/i,notAfter:/^\s+(melteth|melted)/i},
-  instant:{form:'instant',notBefore:/\b(an|what|the|that)\s+$/i}
+  instant:{form:'instant',notBefore:/\b(an|what|the|that)\s+$/i},
+  art:{form:'art',before:/\bthou\s+$/i,after:/^\s+thou\b/i},
+  wit:{form:'wit',before:/\bto\s+$/i},
+  hale:{form:'hale',notBefore:/\b(is|was|be)\s+$/i}
 };
 
 /* the build wraps this in an IIFE and adds "use strict" itself */
@@ -741,6 +1012,94 @@ function shareVerse(b,c,v){
     return navigator.share({text:text}).then(function(){return true;})
       .catch(function(){ return false; });
   return copyVerse(b,c,v);
+}
+
+/* ---------- sharing a study sheet ----------
+   Two ways. As text, for anyone: the question, every verse written out in
+   full (so it reads without the app) and the notes. And as a small Sixteen
+   Eleven file, the backup format holding just this sheet, which another
+   reader adds to their own Study with "Add a shared sheet". Adding the same
+   file twice does not double it: the sheet keeps its id, and only entries
+   not already there are added. */
+function sheetBooks(sh){
+  var need={};
+  (sh.items||[]).forEach(function(it){ parseRefs(it.refs||'').forEach(function(r){ if(r.ok) need[r.b]=1; }); });
+  return Object.keys(need).map(Number);
+}
+function sheetAsText(sh){
+  var out=[sh.name];
+  if(sh.desc) out.push(sh.desc);
+  out.push('');
+  (sh.items||[]).forEach(function(it, k){
+    out.push((it.n||String(k+1))+'. '+it.q);
+    parseRefs(it.refs||'').forEach(function(r){
+      if(!r.ok){ out.push('   '+r.label); return; }
+      var t=rangeText(r.b, r.c, r.v1||1, r.v2||0);
+      out.push('   '+r.label+(t?' \u2014 \u201c'+t+'\u201d':''));
+    });
+    if(it.note) out.push('   Note: '+it.note);
+    out.push('');
+  });
+  out.push('King James Version. Shared from Sixteen Eleven.');
+  return out.join('\n');
+}
+function sheetFile(sh){
+  var data={format:BACKUP_FORMAT, version:1, kind:'study-sheet', exported:new Date().toISOString(),
+            sheets:[JSON.parse(JSON.stringify(sh))]};
+  var name='study-sheet-'+String(sh.name||'sheet').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)+'.json';
+  return {name:name, blob:new Blob([JSON.stringify(data,null,1)],{type:'application/json'})};
+}
+/* the verses must be loaded to be written out */
+function sheetReady(sh){
+  return Promise.all(sheetBooks(sh).map(function(b){ return fetchBook(b).catch(function(){}); }));
+}
+function shareSheetText(sh){
+  return sheetReady(sh).then(function(){
+    var text=sheetAsText(sh);
+    if(payNative()){
+      try{
+        var SH=window.Capacitor.registerPlugin('Share');
+        return Promise.resolve(SH.share({title:sh.name, text:text, dialogTitle:sh.name}))
+          .then(function(){ return 'shared'; }).catch(function(e){
+            if(/cancel/i.test(String((e&&(e.message||e.errorMessage))||e||''))) return '';
+            return copyPlain(text).then(function(ok){ return ok?'copied':'failed'; }); });
+      }catch(e){}
+    }
+    if(navigator.share)
+      return navigator.share({title:sh.name, text:text}).then(function(){ return 'shared'; })
+        .catch(function(e){ return (e&&e.name==='AbortError')?'':copyPlain(text).then(function(ok){ return ok?'copied':'failed'; }); });
+    return copyPlain(text).then(function(ok){ return ok?'copied':'failed'; });
+  });
+}
+function copyPlain(text){
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    return navigator.clipboard.writeText(text).then(function(){ return true; }).catch(function(){ return legacyCopy(text); });
+  return Promise.resolve(legacyCopy(text));
+}
+function shareSheetFile(sh){
+  var f=sheetFile(sh);
+  if(payNative()) return nativeShareFile(f.name, f.blob).then(function(r){ return r&&r.ok?'shared':'failed'; });
+  var file=null; try{ file=new File([f.blob], f.name, {type:'application/json'}); }catch(e){}
+  if(file&&navigator.canShare&&navigator.share){
+    var can=false; try{ can=navigator.canShare({files:[file]}); }catch(e){}
+    if(can) return navigator.share({files:[file], title:sh.name}).then(function(){ return 'shared'; })
+      .catch(function(e){ return (e&&e.name==='AbortError')?'':'failed'; });
+  }
+  try{ saveFile(f.name, f.blob); return Promise.resolve('saved'); }catch(e){ return Promise.resolve('failed'); }
+}
+var SHEET_SAY={shared:'', copied:'Copied. Paste it into a message or email.', saved:'Saved. Send the file to someone with Sixteen Eleven; they tap Add a shared sheet in Study.',
+  failed:'That did not work on this device.'};
+/* a shared sheet arriving: the same merge a backup uses, sheets only */
+function importSheetFile(file){
+  return fileText(file).then(function(t){
+    var data;
+    try{ data=JSON.parse(t); }catch(e){ throw new Error('That file is not a study sheet.'); }
+    if(!data||!Array.isArray(data.sheets)||!data.sheets.length) throw new Error('That file has no study sheet in it.');
+    var before=S.sheets.length;
+    var a=mergeBackup({format:BACKUP_FORMAT, version:1, sheets:data.sheets});
+    var newSheets=S.sheets.length-before;
+    return {sheets:newSheets, entries:a.sheets, name:(cleanSheets(data.sheets)[0]||{}).name||''};
+  });
 }
 
 /* ---------- cross-references ----------
@@ -2158,6 +2517,7 @@ function vLibrary(){
   if(S.cat==='all'||S.cat==='atlas') h+=atlasCover();
   if(S.cat==='all'||S.cat==='words') h+=wordsCover();
   if(S.cat==='all'||S.cat==='tracker') h+=trackerCover();
+  if(S.cat==='all') h+=downloadsCover();
   if(S.cat==='all') h+=BOOKS.filter(function(bk){return bk.user;})
     .map(function(bk){ return coverHTML(bk); }).join('');
   h+=list.map(function(bk){ return coverHTML(bk); }).join('');
@@ -2244,6 +2604,12 @@ var EMBLEM={
     '<path d="M50 12l6 32 32 6-32 6-6 32-6-32-32-6 32-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'+
     '<path d="M50 12l6 32-6 6zM88 50l-32 6-6-6zM50 88l-6-32 6-6zM12 50l32-6 6 6z" fill="currentColor"/>'+
     '<circle cx="50" cy="50" r="3" fill="currentColor"/>',
+  /* a medallion with an arrow coming down into a tray: kept on the phone */
+  download:'<g fill="none" stroke="currentColor"><circle cx="50" cy="50" r="35" stroke-width="2.2"/>'+
+    '<circle cx="50" cy="50" r="29.5" stroke-width="1.2" opacity=".5"/></g>'+
+    '<path d="M50 11l3 4-3 4-3-4zM50 81l3 4-3 4-3-4zM11 50l4-3 4 3-4 3zM81 50l4-3 4 3-4 3z" fill="currentColor"/>'+
+    '<g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'+
+    '<path d="M50 30v24M40 45l10 10 10-10"/><path d="M34 58v8h32v-8"/></g>',
   /* a medallion with the letterforms */
   letters:'<g fill="none" stroke="currentColor"><circle cx="50" cy="50" r="35" stroke-width="2.2"/>'+
     '<circle cx="50" cy="50" r="29.5" stroke-width="1.2" opacity=".5"/></g>'+
@@ -4461,7 +4827,7 @@ function vSheets(){
   if(!S.sheets.length)
     return h+'<div class="empty">No study sheets yet. Start one with a question, '+
       'then gather the scriptures that answer it.</div>'+
-      '<button class="btn" data-a="newsheet">New study sheet</button>';
+      '<button class="btn" data-a="newsheet">New study sheet</button>'+sheetImportHTML();
   h+=S.sheets.map(function(sh){
     var n=sh.items.length;
     return '<button class="item" data-sheet="'+esc(sh.id)+'"><span class="ic">'+svg(I.grid)+
@@ -4470,7 +4836,13 @@ function vSheets(){
       '<span class="go">'+svg(I.next)+'</span></button>';
   }).join('');
   h+='<div style="height:6px"></div><button class="btn sec" data-a="newsheet">New study sheet</button>';
+  h+=sheetImportHTML();
   return h;
+}
+function sheetImportHTML(){
+  return '<div style="height:8px"></div><button class="btn gh" data-a="sheetimport">Add a shared sheet</button>'+
+    '<input type="file" id="sheetfile" accept=".json,application/json" style="display:none">'+
+    (S.sheetImportMsg?'<p class="vnote" role="status" style="margin:8px 2px 0">'+esc(S.sheetImportMsg)+'</p>':'');
 }
 function vSheetDetail(){
   var sh=findSheet(S.sheet);
@@ -4508,7 +4880,12 @@ function vSheetDetail(){
       '<button class="del" data-delitem="'+esc(it.id)+'">Delete</button></div></div>';
   }).join('');
   h+='<div style="height:8px"></div><button class="btn" data-a="newitem">Add an entry</button>';
-  h+='<div style="height:8px"></div><button class="btn gh" data-a="delsheet">Delete this sheet</button>';
+  h+='<div class="lab sgroup" style="margin-top:22px">Share this sheet</div><div class="row2">'+
+     '<button class="btn sec" data-a="sheetsharetext">As text</button>'+
+     '<button class="btn sec" data-a="sheetsharefile">As a Sixteen Eleven file</button></div>'+
+     '<p class="vnote" style="margin:8px 2px 0">Text reads anywhere, every verse written out. The file adds the whole sheet '+
+     'to another reader\u2019s Study.</p>';
+  h+='<div style="height:14px"></div><button class="btn gh" data-a="delsheet">Delete this sheet</button>';
   return h;
 }
 function vSheetEdit(){
@@ -6255,23 +6632,29 @@ var PAYWHY={
   atlas:['The whole atlas','Every map, from the patriarchs to Paul’s journeys.'],
   split:['Two books open at once','On a tablet, read on one side and study on the other.'],
   books:['Your own library','Add as many EPUB, PDF and text books as you like.'],
+  downloads:['Listen offline','Keep the narrated Bible on this phone and listen with no connection: in church, on a plane, out of signal. Comes with the narrated Bible, Founders Lifetime or Study Yearly.'],
   audio:['The narrated Bible','All 80 books read aloud in one human voice, offline. Psalms and John are free to hear. Yours for good, or with the yearly Study plan.']
 };
 function openPaywall(why){
   PAY.open=why||'study'; AUD.sheet=false;
   PAY.msg='';
-  PAY.choice=(why==='audio')?'audio':(why==='trial')?'annual':'lifetime';
+  PAY.choice=(why==='audio'||why==='downloads')?'audio':(why==='trial')?'annual':'lifetime';
+  PAY.from=why||'study';
   closePop&&closePop();
   S.sheet=null;
   drawPaywall();
   payLoadOfferings().then(function(){ if(PAY.open) drawPaywall(); });
 }
-function closePaywall(){ PAY.open=null; PAY.showManage=false; PAY.redeemHelp=false; PAY.codeOpen=false; PAY.codeMsg=''; closeSheet();
+function closePaywall(){
+  var from=PAY.from; PAY.from=null;
+  PAY.open=null; PAY.showManage=false; PAY.redeemHelp=false; PAY.codeOpen=false; PAY.codeMsg=''; closeSheet();
+  if(from==='downloads'&&hasAudio()&&AUD.on){ AUD.offered=true; AUD.offerWaiting=false; Store.set('strata:dloffered',Date.now());
+    setTimeout(function(){ if(!PAY.open) openAudioSheet(); },350); return; }
   if(AUD.offerWaiting) audOffer(); }
 function drawPaywall(){
   if(!PAY.open||!sheet) return;
   var why=PAY.open, t=PAYWHY[(why==='trial'&&PAY.trial!==true)?'trialno':why]||PAYWHY.study;
-  var audioFirst=(why==='audio');
+  var audioFirst=(why==='audio'||why==='downloads');
   /* Founders Lifetime leads: one payment, nothing recurring, which is what
      most people asked for. Yearly stays beside it for anyone who would rather
      not pay that much at once. */
@@ -6313,6 +6696,8 @@ function drawPaywall(){
     h+='<a class="btn sec pwmanage" href="'+esc(PAY.mgmt||(payPlatform()==='android'?'https://play.google.com/store/account/subscriptions':'https://apps.apple.com/account/subscriptions'))+
        '" target="_blank" rel="noopener">Manage subscriptions</a>';
   if(PAY.msg) h+='<p class="pwmsg" role="status">'+esc(PAY.msg)+'</p>';
+  if(why==='downloads'&&!hasAudio()&&AUD.on)
+    h+='<button class="pwlinkbtn pwfreedl" data-a="dlfree">Keep Psalms and John for free</button>';
   if(PAY.codeOpen){
     h+='<div class="pwcode pwcodein"><label for="pwcode"><b>Have a code?</b></label>'+
        '<div class="pwcoderow"><input id="pwcode" placeholder="Code" autocapitalize="characters" '+
@@ -6754,6 +7139,9 @@ function audPlayable(urls){
   return urls.every(function(u){ return /^file:/.test(u)||/^capacitor:/.test(u); });
 }
 var audRedraw=(function(){ var t=null; return function(now){
+  /* the Downloads board's caption on the shelf: only when something finishes,
+     so the shelf is not redrawn under a thumb that is scrolling it */
+  if(now&&!AUD.sheet&&S.tab==='library'&&S.book===null&&S.reading===null){ S.keepScroll=true; render(); return; }
   if(!AUD.sheet&&S.tab!=='about') return;
   if(now){ if(t){ clearTimeout(t); t=null; } audDraw(); return; }
   if(t) return; t=setTimeout(function(){ t=null; audDraw(); },500);
@@ -6797,7 +7185,7 @@ function drawAudioSheet(){
     h+='<div class="dlbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pc+'"><i style="width:'+pc+'%"></i></div>'+
        '<p class="dlnote">'+esc(audProgressText())+' · you can keep reading while it works</p>'+
        '<button class="btn gh dlwide" data-a="dlstop">Stop downloading</button>';
-  } else if(hasAudio()&&needMB>1){
+  } else if(hasAudio()&&needMB>0){
     h+='<button class="btn dlwide" data-a="dlall">Download everything ('+esc(audSizeText(needMB))+')</button>';
   }
   if(AUD.msg) h+='<p class="dlnote" role="status">'+esc(AUD.msg)+'</p>';
@@ -6807,7 +7195,7 @@ function drawAudioSheet(){
   books.forEach(function(n){
     var s=audBookState(n), ok=audAllowed(n), full=s.total&&s.have===s.total, mb=audBookMB(n);
     var queued=!!AUD.want[n]&&!full;
-    var btn=!ok?'<button class="dlbtn" data-a="pwopen" data-pwopen="audio" aria-label="'+esc(n)+': unlock">Unlock</button>'
+    var btn=!ok?'<button class="dlbtn" data-a="pwopen" data-pwopen="downloads" aria-label="'+esc(n)+': unlock">Unlock</button>'
       :full?'<button class="dlbtn on" data-a="dlremove" data-bk="'+esc(n)+'" aria-label="Remove '+esc(n)+' from this phone">✓ Kept</button>'
       :queued?'<span class="dlbtn wait">'+Math.round(s.have/(s.total||1)*100)+'%</span>'
       :'<button class="dlbtn" data-a="dlbook" data-bk="'+esc(n)+'">Download</button>';
@@ -7336,6 +7724,23 @@ function lexSuggest(q){
   /* the word itself, then the Bible's commonest, then everyday English */
   var list=(seen[q]?[q]:[]).concat(bible.slice(0,14).filter(function(w){ return w!==q; }));
   return list.concat(other.filter(function(w){ return w!==q; }).slice(0,Math.max(10,24-list.length)));
+}
+/* Downloads: the narrated books kept on this phone for listening offline.
+   Only in the store apps (the website streams and cannot keep files). With
+   the narration owned it opens the download manager; without it, the
+   "Listen offline" paywall, which also offers the two free books. */
+function downloadsCover(){
+  if(!AUD.on) return '';
+  var books=audNarratedBooks(), full=0;
+  books.forEach(function(n){ var st=audBookState(n); if(st.total&&st.have===st.total) full++; });
+  var busy=AUD.queue.length||AUD.active;
+  return specialCover({kind:'downloads', attr:'data-a="dlshelf"', title:'Downloads',
+    label:'Downloads: narration kept on this phone',
+    caption:busy?audProgressText():full?full+' of '+books.length+' kept':'Listen offline', emblem:EMBLEM.download});
+}
+function openDownloads(){
+  if(hasAudio()) openAudioSheet();
+  else openPaywall('downloads');
 }
 function wordsCover(){
   return specialCover({kind:'words', attr:'data-a="openwords"', title:'Word study',
@@ -8465,6 +8870,16 @@ function renderInner(quiet){
   var sq=document.getElementById('sq');
   if(sq) sq.addEventListener('input',inPane(function(){S.saveQ=sq.value;S.keepScroll=true;render();
     var e=document.getElementById('sq'); if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}}));
+  var sfi=document.getElementById('sheetfile');
+  if(sfi&&!sfi.__wired){ sfi.__wired=1; sfi.addEventListener('change',function(){
+    if(!sfi.files||!sfi.files[0]) return;
+    importSheetFile(sfi.files[0]).then(function(a){
+      S.sheetImportMsg=a.sheets?('Added \u201c'+a.name+'\u201d to your study sheets.')
+        :a.entries?('Added '+a.entries+' new entr'+(a.entries===1?'y':'ies')+' to \u201c'+a.name+'\u201d.')
+        :'You already have everything in that sheet.';
+      S.keepScroll=true; render();
+    }).catch(function(e){ S.sheetImportMsg=(e&&e.message)||'That file could not be read.'; S.keepScroll=true; render(); });
+  }); }
   var rf=document.getElementById('restorefile');
   if(rf) rf.addEventListener('change',function(){
     if(!rf.files||!rf.files[0]) return;
@@ -8951,6 +9366,15 @@ document.addEventListener('click',inPane(function(ev){
   if(d.a==='storeretry'){ Store.retry(); return; }
   /* --- narration kept on the phone --- */
   if(d.a==='dlopen'){ openAudioSheet(); return; }
+  if(d.a==='dlshelf'){ openDownloads(); return; }
+  if(d.a==='sheetsharetext'||d.a==='sheetsharefile'){
+    var shs=findSheet(S.sheet); if(!shs) return;
+    S.sheetMsg='One moment\u2026'; S.keepScroll=true; render();
+    (d.a==='sheetsharetext'?shareSheetText(shs):shareSheetFile(shs)).then(function(r){
+      S.sheetMsg=SHEET_SAY[r]||''; S.keepScroll=true; render(); });
+    return; }
+  if(d.a==='sheetimport'){ var sf=document.getElementById('sheetfile'); if(sf) sf.click(); return; }
+  if(d.a==='dlfree'){ PAY.from=null; PAY.open=null; openAudioSheet(); return; }
   if(d.a==='dlclose'){ closeSheet(); return; }
   if(d.a==='dlall'){ audWantAll(); return; }
   if(d.a==='dlbook'&&d.bk){ audWant(d.bk); return; }

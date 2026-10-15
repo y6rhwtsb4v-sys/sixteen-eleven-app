@@ -2983,3 +2983,18 @@ body.pop-open #totop{display:none!important}
 @media (forced-colors:active){
   [data-wordmark="glow"] .rd .gw{text-shadow:none;text-decoration:underline dotted}
 }
+
+/* ---------- the verse card on the paper page at night ----------
+   The paper page borrows the early morning's dark ink, and the verse card
+   sitting on it inherited that ink while keeping the night's dark card, so
+   the cross references were dark on dark. The card keeps the night's own
+   light text and colours, whatever page it sits on. */
+html[data-theme="dark"] .pane.pg-paper .vpop,
+[data-theme="dark"] .rd.paper .vpop,
+[data-theme="dark"] .rd.paper ~ .vpopw .vpop{
+  --ink:#EEE6DA; --ink-dark:#EEE6DA; --ink2:#BBAF9E; --ink3:#9C9184; --ink-mid:#BBAF9E;
+  --line:rgba(230,210,180,.10); --blue:#E0776A; --blue-l:#2A241F;
+  --wj:#F08A80; color-scheme:dark; color:var(--ink)}
+.sp-downloads{--lth1:#22324A;--lth2:#0B1220}
+.paywall .pwfreedl{display:block;margin:12px auto 0;font-size:14px;color:var(--blue);text-decoration:underline;
+  text-underline-offset:3px;background:none;min-height:44px}
