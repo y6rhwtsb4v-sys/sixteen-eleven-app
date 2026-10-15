@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+ <TEI xmlns="http://www.crosswire.org/2013/TEIOSIS/namespace"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.crosswire.org/2013/TEIOSIS/namespace
+                          http://www.crosswire.org/OSIS/teiP5osis.2.5.0.xsd">
+
+<teiHeader>
+ <fileDesc>
+  <titleStmt>
+   <title>Webster's Dictionary 1828</title>
+  </titleStmt>
+  <publicationStmt>
+   <p>CC BY-SA 4.0: This license enables reusers to distribute, remix, adapt, and build upon the material in any medium or format, so long as attribution is given to the creator. The license allows for commercial use. If you remix, adapt, or build upon the material, you must license the modified material under identical terms.</p>
+  </publicationStmt>
+  <sourceDesc>
+   <p>http://codeberg.org/akaitsurugi/webster1828/</p>
+  </sourceDesc>
+ </fileDesc>
+</teiHeader>
+
+<text>
+    <body>
+    
+    </body>
+</text>
+</TEI>
