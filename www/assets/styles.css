@@ -3019,3 +3019,19 @@ html[data-theme="dark"] .pane.pg-paper .vpop,
   text-shadow:0 0 1px rgba(255,255,255,.9),0 0 2.5px rgba(255,255,255,.55),0 0 5px rgba(255,255,255,.18)}
 [data-wordmark="line"] .welpreview .gw{color:inherit;text-shadow:none;text-decoration:underline dotted 1.5px;text-underline-offset:.22em}
 #welcome .welseg + .welseg{margin-top:8px}
+
+/* ---------- where the page meets the bar ----------
+   On the paper page the parchment and the bar are different colours (cream
+   under a black bar at night), so a fade turned into a smudge of dark across
+   the first line. Paper has a hard edge instead, the bar casting a soft
+   shadow onto the page as a cover would. The plain page, the same colour as
+   its bar, keeps a fade, half as tall as before. The listening window
+   (body.focusing) is unchanged. */
+.pane[data-screen="reader"]>.pv{
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 9px,#000 100%);
+          mask-image:linear-gradient(to bottom,transparent 0,#000 9px,#000 100%)}
+.pane.pg-paper[data-screen="reader"]>.pv{-webkit-mask-image:none;mask-image:none}
+.pane.pg-paper[data-screen="reader"]>.top{position:-webkit-sticky;position:sticky;z-index:31;
+  box-shadow:0 1px 0 rgba(60,40,22,.10),0 4px 10px -2px rgba(60,40,22,.20)}
+html[data-theme="dark"] .pane.pg-paper[data-screen="reader"]>.top{
+  box-shadow:0 1px 0 rgba(0,0,0,.6),0 5px 12px -2px rgba(0,0,0,.45)}

@@ -3456,7 +3456,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v100 · Oct 14 22:59';
+var APP_STAMP='v100 · Oct 15 14:49';
 
 /* ================= SEARCH ================= */
 
