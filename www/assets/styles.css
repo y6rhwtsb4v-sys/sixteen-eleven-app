@@ -3084,3 +3084,50 @@ html[data-theme="dark"] .pane.pg-paper[data-screen="reader"]>.top{
 /* Save a study sheet as PDF, Markdown or text */
 .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .row3 .btn{margin:0;padding-left:6px;padding-right:6px}
+
+/* ---------- reading goals and plans (the Tracker) ---------- */
+.gcard,.gplan{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px 16px 14px;margin-bottom:12px}
+.gk,.gpk{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.gh3{font-family:var(--disp);font-size:20px;line-height:1.25;color:var(--ink);margin:6px 0 4px}
+.gp{font-size:14px;line-height:1.5;color:var(--ink2);margin:4px 0 0}
+.gtop{display:flex;align-items:center;gap:14px}
+.gring{width:76px;height:76px;flex:none}
+.gring .gr0{fill:none;stroke:var(--line);stroke-width:6}
+.gring .gr1{fill:none;stroke:var(--gold);stroke-width:6;stroke-linecap:round}
+.gring text{font-family:var(--disp);font-size:17px;font-weight:700;fill:var(--ink)}
+.gtxt{min-width:0}
+.gnow{font-family:var(--disp);font-size:21px;font-weight:700;color:var(--ink);margin-top:2px}
+.gsub{font-size:13px;color:var(--ink2);margin-top:2px}
+.gweek{display:flex;justify-content:space-between;margin:14px 2px 2px}
+.gday{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1}
+.gday i{width:22px;height:22px;border-radius:11px;border:2px solid var(--line);display:block;box-sizing:border-box}
+.gday.part i{border-color:var(--gold);background:linear-gradient(to top,var(--brass-l) 50%,transparent 50%)}
+.gday.on i{background:var(--gold);border-color:var(--gold)}
+.gday b{font-size:12px;font-weight:600;color:var(--ink3)}
+.gday.now b{color:var(--ink)}
+.gpace{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;margin-top:6px}
+.gpace button{min-height:40px;border-radius:10px;background:var(--bg);color:var(--ink);font-weight:700;font-size:15px}
+.gpace button[aria-checked="true"]{background:var(--blue);color:#fff}
+.grem{margin-top:10px;border-top:1px solid var(--line)}
+.grem[disabled]{opacity:.7}
+.grem .setlab{font-size:15px;color:var(--ink)}
+.gtime{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--ink2);padding:10px 0 2px}
+.gtime input{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:40px}
+.gnote{font-size:13px;color:var(--blue);margin:8px 0 0}
+.gstop{margin-top:10px}
+.gplan.on{border-color:var(--gold)}
+.gpn{font-family:var(--disp);font-size:18px;font-weight:700;color:var(--ink);margin:2px 0 6px}
+.gpb{font-size:14px;line-height:1.5;color:var(--ink2);margin:0 0 6px}
+.gpm{font-size:13px;color:var(--ink3);margin:8px 0 10px}
+.gpt{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);margin:4px 0 6px}
+.gchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.gchip{padding:8px 12px;min-height:40px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--ink);font-size:13.5px;font-weight:600}
+.gchip.done{background:var(--brass-l);border-color:var(--gold);color:var(--ink2)}
+.gplan .btn{margin-top:4px}
+.nextcard.plannext{margin-bottom:8px;border-color:var(--gold)}
+.todaystrip{display:grid;grid-template-columns:1fr auto;grid-template-areas:"k n" "t n";align-items:center;column-gap:12px;
+  width:100%;text-align:left;margin:8px 0 0;padding:11px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
+.todaystrip .tsk{grid-area:k;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.todaystrip .tst{grid-area:t;font-family:var(--disp);font-size:16px;font-weight:700;color:var(--ink);margin-top:2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.todaystrip .tsn{grid-area:n;font-size:14px;font-weight:700;color:var(--ink2)}
+.todaystrip.met .tsn{color:var(--gold);font-size:18px}

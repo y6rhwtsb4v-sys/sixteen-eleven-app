@@ -44,6 +44,20 @@ import AVFoundation/' "$AD"
 fi
 
 if [ "$P" = android ]; then
+  # reading reminders: the small icon in the status bar (white, an open book),
+  # and the permission Android 13 asks for before showing a notification
+  DR=android/app/src/main/res/drawable
+  mkdir -p "$DR"
+  cat > "$DR/ic_stat_reading.xml" <<'XML'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+  <path android:fillColor="#FFFFFFFF"
+      android:pathData="M12,6.5C10.3,5.2 7.9,4.5 5,4.5C4,4.5 3,4.6 2,4.8V19.3C3,19.1 4,19 5,19C7.9,19 10.3,19.7 12,21C13.7,19.7 16.1,19 19,19C20,19 21,19.1 22,19.3V4.8C21,4.6 20,4.5 19,4.5C16.1,4.5 13.7,5.2 12,6.5ZM11,18.4C9.4,17.5 7.4,17 5,17C4.7,17 4.3,17 4,17V6.5C4.3,6.5 4.7,6.5 5,6.5C7.4,6.5 9.4,7.1 11,8.2V18.4ZM20,17C19.7,17 19.3,17 19,17C16.6,17 14.6,17.5 13,18.4V8.2C14.6,7.1 16.6,6.5 19,6.5C19.3,6.5 19.7,6.5 20,6.5V17Z"/>
+</vector>
+XML
+  M=android/app/src/main/AndroidManifest.xml
+  grep -q POST_NOTIFICATIONS "$M" || \
+    sed -i.bak 's|</manifest>|    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n</manifest>|' "$M" && rm -f "$M.bak"
   G=android/app/build.gradle
   sed -i.bak -E "s/versionCode [0-9]+/versionCode $BUILD/; s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" "$G" && rm -f "$G.bak"
   echo "Android project ready: version $VERSION ($BUILD)"

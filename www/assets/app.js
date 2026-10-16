@@ -1282,10 +1282,11 @@ function downloadNotes(){
 function readKey(b,c){ return b+':'+c; }
 function isRead(b,c){ return !!S.read[readKey(b,c)]; }
 function markRead(b,c,on){
-  var k=readKey(b,c);
-  if(on===false||(on===undefined&&S.read[k])) delete S.read[k];
-  else { S.read[k]=Date.now(); try{ maybeAskReview(); }catch(e){} }
+  var k=readKey(b,c), before=S.read[k], now;
+  if(on===false||(on===undefined&&S.read[k])){ delete S.read[k]; now=false; }
+  else { S.read[k]=Date.now(); now=true; try{ maybeAskReview(); }catch(e){} }
   saveRead();
+  if(now||before) try{ goalOnRead(k, now, before); }catch(e){}
 }
 function saveRead(){ Store.set('strata:read',S.read); }
 /* the earliest chapter of this book still unread */
@@ -1864,6 +1865,9 @@ function loadAll(cb){
     return Store.get('strata:read');
   }).then(function(rd){
     S.read=(rd&&typeof rd==='object')?rd:{};
+    return Store.get('strata:goal');
+  }).then(function(g){
+    try{ goalLoad(g); }catch(e){}
     return Store.get('strata:split');
   }).then(function(sp){
     /* the tablet's two sides: how wide the left one is, and what the right
@@ -2299,7 +2303,7 @@ function snapshotPayload(){
   return {format:BACKUP_FORMAT, version:1,
           exported:new Date().toISOString(),
           highlights:S.hl, notes:S.notes, sheets:S.sheets, read:S.read,
-          userRefs:S.userRefs, marks:S.marks, textSize:S.textSize};
+          userRefs:S.userRefs, marks:S.marks, goal:GOAL, textSize:S.textSize};
 }
 /* A cheap digest of what would be saved: counts alone missed an edited note
    or a changed colour, so the text itself goes in (as a short hash). */
@@ -3134,8 +3138,10 @@ function apocCover(){
 }
 function trackerCover(){
   var tp=totalProgress();
+  var cap=tp.pct+'% read';
+  if(GOAL.perDay){ var gn=goalToday(); cap=gn>=GOAL.perDay?'Read today \u2713':gn+' of '+GOAL.perDay+' today'; }
   return specialCover({kind:'tracker', attr:'data-a="opentracker"', title:'Tracker',
-    label:'Tracker, '+tp.pct+'% read', caption:tp.pct+'% read', emblem:trackerEmblem(tp)});
+    label:'Tracker, '+tp.pct+'% read'+(GOAL.perDay?', '+cap:''), caption:cap, emblem:trackerEmblem(tp)});
 }
 
 function vTracker(){
@@ -3143,8 +3149,9 @@ function vTracker(){
   var h='<div class="libwrap">';
   h+='<button class="back" style="color:var(--blue)" data-a="closetracker">&larr; Library</button>';
   h+='<div class="libhead"><h2>Tracker</h2>'+
-     '<p>Every chapter you have marked read, across all eighty books.</p></div>';
-
+     '<p>Your daily goal, your reading plans, and every chapter you have marked read, across all eighty books.</p></div>';
+  h+=vGoals();
+  h+='<div class="lab sgroup" style="margin-top:22px">All eighty books</div>';
   h+='<div class="tkhero"><div class="tkpct">'+tp.pct+'<span>%</span></div>'+
      '<span class="progbar big dark"><i style="width:'+tp.pct+'%"></i></span>'+
      '<p>'+tp.done+' of '+tp.total+' chapters</p>'+
@@ -3173,6 +3180,309 @@ function vTracker(){
        }).join('')+'</div></div>';
   });
   return h+'</div>';
+}
+
+/* ================= READING GOALS AND PLANS =================
+   A daily goal (chapters a day), a streak, the week at a glance, a reminder
+   from the phone at the hour you choose, and reading plans that hand you
+   each day's portion. All of it lives in the Tracker.
+
+   What counts: a chapter marked read today (by pressing Next, turning the
+   page, finishing it aloud, or Mark as read). Each day's count is kept in a
+   small log, so reading a chapter again later does not rewrite the past.
+
+   A plan is an ordered list of chapters. Its progress is its own (a chapter
+   read before you started does not count), so switching plans and coming
+   back carries on where you were. Today's portion is worked out each time:
+   the plan's chapters read today, then the next unread ones, up to the daily
+   goal. Nothing goes stale overnight.
+
+   Reminders: the next fourteen days are scheduled with the phone's own
+   notifications, each one saying that day's portion, and today's is taken
+   away once today's goal is met. They are scheduled again whenever the app
+   opens or a chapter is read. The website cannot remind you. */
+var GOAL={perDay:0, remind:{on:false, h:7, m:30}, active:null, plans:{}, log:{}};
+var GOAL_PACES=[1,2,3,4,5,6,8,10];
+var PLAN_DEFS=[
+  {id:'paul', name:'Paul’s letters', pace:3,
+   blurb:'Romans to Philemon: the thirteen letters that bear Paul’s name, in the order the Bible keeps them.',
+   books:['Romans','1 Corinthians','2 Corinthians','Galatians','Ephesians','Philippians','Colossians',
+          '1 Thessalonians','2 Thessalonians','1 Timothy','2 Timothy','Titus','Philemon']},
+  {id:'wisdom', name:'Daily wisdom', pace:4,
+   blurb:'The wisdom books and only those: Psalms, Proverbs, Sirach and the Wisdom of Solomon, woven together so each day draws on them in turn.',
+   mix:['Psalms','Proverbs','Ecclesiasticus','Wisdom of Solomon']},
+  {id:'history', name:'The history of Israel', pace:4,
+   blurb:'From the crossing of the Jordan to the return from exile, Joshua to Esther, then the Maccabees’ fight for the Temple.',
+   books:['Joshua','Judges','Ruth','1 Samuel','2 Samuel','1 Kings','2 Kings','1 Chronicles','2 Chronicles',
+          'Ezra','Nehemiah','Esther','1 Maccabees','2 Maccabees']},
+  {id:'prophets', name:'The prophets', pace:3,
+   blurb:'Isaiah to Malachi, the major and minor prophets, with Baruch, Jeremiah’s scribe, after Lamentations, where the Greek Bible sets it.',
+   books:['Isaiah','Jeremiah','Lamentations','Baruch','Ezekiel','Daniel','Hosea','Joel','Amos','Obadiah','Jonah',
+          'Micah','Nahum','Habakkuk','Zephaniah','Haggai','Zechariah','Malachi']},
+  {id:'lastdays', name:'Prophecy of the last days', pace:2,
+   blurb:'Daniel’s visions, the prophets on the day of the LORD, Christ on the Mount of Olives in Matthew 24, Paul on his coming, and Revelation.',
+   refs:[['Daniel',1,12],['Isaiah',65,66],['Ezekiel',37,39],['Joel',2,3],['Zechariah',12,14],['Matthew',24,25],
+         ['Mark',13,13],['Luke',21,21],['1 Thessalonians',4,5],['2 Thessalonians',1,2],['2 Peter',3,3],['Revelation',1,22]]},
+  {id:'gospels', name:'The Gospels and Acts', pace:3,
+   blurb:'The life of Christ four times told, then the church he left, from the upper room to Rome.',
+   books:['Matthew','Mark','Luke','John','Acts']},
+  {id:'moses', name:'The books of Moses', pace:4,
+   blurb:'Genesis to Deuteronomy: creation, the fathers, the Exodus, the law given at Sinai and the forty years.',
+   books:['Genesis','Exodus','Leviticus','Numbers','Deuteronomy']},
+  {id:'bible', name:'The whole Bible', pace:4,
+   blurb:'Genesis to Revelation, the Old and New Testaments read side by side, so the New is never months away.',
+   testaments:true}
+];
+var PLAN_CACHE={};
+function bookNamed(n){ for(var i=0;i<BOOKS.length;i++) if(BOOKS[i].name===n&&!BOOKS[i].user) return BOOKS[i]; return null; }
+function chaptersOf(names){
+  var out=[];
+  names.forEach(function(n){ var b=bookNamed(n); if(b) for(var c=1;c<=b.nch;c++) out.push(b.i+':'+c); });
+  return out;
+}
+/* several lists woven together evenly, so they all end together */
+function weave(lists){
+  var all=[];
+  lists.forEach(function(l, j){ l.forEach(function(k, i){ all.push({k:k, f:(i+0.5)/l.length, j:j}); }); });
+  all.sort(function(a,b){ return a.f-b.f||a.j-b.j; });
+  return all.map(function(x){ return x.k; });
+}
+function planKeys(id){
+  if(PLAN_CACHE[id]) return PLAN_CACHE[id];
+  var p=planDef(id); if(!p) return [];
+  var ks=[];
+  if(p.books) ks=chaptersOf(p.books);
+  else if(p.mix) ks=weave(p.mix.map(function(n){ return chaptersOf([n]); }));
+  else if(p.refs) p.refs.forEach(function(r){ var b=bookNamed(r[0]); if(b) for(var c=r[1];c<=Math.min(r[2],b.nch);c++) ks.push(b.i+':'+c); });
+  else if(p.testaments){
+    var ot=[], nt=[];
+    BOOKS.forEach(function(b){ if(b.user||(b.i>=39&&b.i<=52)) return;
+      for(var c=1;c<=b.nch;c++) (b.i>=53?nt:ot).push(b.i+':'+c); });
+    ks=weave([ot,nt]);
+  }
+  return (PLAN_CACHE[id]=ks);
+}
+function planDef(id){ for(var i=0;i<PLAN_DEFS.length;i++) if(PLAN_DEFS[i].id===id) return PLAN_DEFS[i]; return null; }
+function planState(id){ return GOAL.plans[id]||(GOAL.plans[id]={start:Date.now(), done:{}}); }
+
+function dayKey(t){ var d=t?new Date(t):new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+function sameDay(t){ return !!t&&dayKey(t)===dayKey(); }
+function goalToday(){ return GOAL.log[dayKey()]||0; }
+/* consecutive days with the goal met, ending today (or yesterday, while
+   today is still to do) */
+function goalStreak(){
+  if(!GOAL.perDay) return 0;
+  var d=new Date(), n=0;
+  if((GOAL.log[dayKey(d)]||0)<GOAL.perDay) d.setDate(d.getDate()-1);
+  while((GOAL.log[dayKey(d)]||0)>=GOAL.perDay){ n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+function goalSave(){ Store.set('strata:goal', GOAL); }
+function goalLoad(g){
+  if(g&&typeof g==='object'){
+    if(typeof g.perDay==='number') GOAL.perDay=Math.max(0,Math.min(20,g.perDay|0));
+    if(g.remind&&typeof g.remind==='object') GOAL.remind={on:!!g.remind.on, h:Math.min(23,Math.max(0,g.remind.h|0)), m:Math.min(59,Math.max(0,g.remind.m|0))};
+    if(typeof g.active==='string'&&planDef(g.active)) GOAL.active=g.active;
+    if(g.plans&&typeof g.plans==='object') GOAL.plans=g.plans;
+    if(g.log&&typeof g.log==='object') GOAL.log=g.log;
+  }
+  /* the days before there was a log: what the read marks still remember */
+  if(!Object.keys(GOAL.log).length) Object.keys(S.read||{}).forEach(function(k){
+    var t=S.read[k]; if(typeof t==='number'&&t>0){ var dk=dayKey(t); GOAL.log[dk]=(GOAL.log[dk]||0)+1; } });
+}
+/* called by markRead: the chapter, whether it is now read, and when it was
+   read before (if it was) */
+function goalOnRead(k, on, before){
+  var dk=dayKey();
+  if(on){ if(!sameDay(before)) GOAL.log[dk]=(GOAL.log[dk]||0)+1; }
+  else if(sameDay(before)) GOAL.log[dk]=Math.max(0,(GOAL.log[dk]||0)-1);
+  if(GOAL.active&&planKeys(GOAL.active).indexOf(k)>-1){
+    var ps=planState(GOAL.active);
+    if(on) ps.done[k]=Date.now(); else delete ps.done[k];
+  }
+  goalSave(); goalRemindSoon();
+}
+/* today's portion of the plan: what was read of it today, then the next
+   unread, up to the daily goal */
+function planToday(id){
+  var ks=planKeys(id), ps=planState(id), per=GOAL.perDay||planDef(id).pace;
+  var today=ks.filter(function(k){ return sameDay(ps.done[k]); });
+  var next=ks.filter(function(k){ return !ps.done[k]; });
+  var want=Math.max(0, per-today.length);
+  return {read:today, todo:next.slice(0,want), after:next.slice(want), left:next.length, total:ks.length, per:per};
+}
+/* "Romans 5–8", "Psalms 1; Proverbs 1; Ecclesiasticus 1" */
+function portionLabel(keys){
+  var parts=[], cur=null;
+  keys.forEach(function(k){
+    var p=k.split(':'), b=+p[0], c=+p[1];
+    if(cur&&cur.b===b&&c===cur.c2+1){ cur.c2=c; return; }
+    cur={b:b, c1:c, c2:c}; parts.push(cur);
+  });
+  return parts.map(function(x){ var bk=BK(x.b); var n=bk?bk.name:'';
+    return planBookName(n)+' '+x.c1+(x.c2>x.c1?'–'+x.c2:''); }).join('; ');
+}
+/* in the plans Ecclesiasticus goes by its other name, Sirach, as the
+   Daily wisdom plan calls it */
+function planBookName(n){ return n==='Ecclesiasticus'?'Sirach':n; }
+function planFinish(left, per){
+  if(!left) return '';
+  var d=new Date(); d.setDate(d.getDate()+Math.ceil(left/per)-1);
+  return d.toLocaleDateString(undefined,{month:'long', day:'numeric'})+(d.getFullYear()!==new Date().getFullYear()?', '+d.getFullYear():'');
+}
+function daysWord(n){ return n===1?'a day':n+' days'; }
+
+/* ---------- the Tracker's goal card and plans ---------- */
+function vGoals(){
+  var h='<div class="gcard">';
+  var per=GOAL.perDay, n=goalToday();
+  if(!per){
+    h+='<div class="gk">Daily goal</div><h3 class="gh3">How much would you like to read each day?</h3>'+
+       '<p class="gp">Set a goal and the Tracker counts each day, keeps your streak, and can remind you at the hour you choose.</p>';
+  } else {
+    var f=Math.min(1,n/per), r=30, c=2*Math.PI*r, met=n>=per, st=goalStreak();
+    h+='<div class="gtop"><svg class="gring" viewBox="0 0 72 72" aria-hidden="true">'+
+       '<circle cx="36" cy="36" r="'+r+'" class="gr0"/>'+
+       (f>0?'<circle cx="36" cy="36" r="'+r+'" class="gr1" stroke-dasharray="'+(c*f).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 36 36)"/>':'')+
+       '<text x="36" y="41" text-anchor="middle">'+Math.min(n,99)+'/'+per+'</text></svg>'+
+       '<div class="gtxt"><div class="gk">Today</div>'+
+       '<div class="gnow">'+(met?'Done for today':n+' of '+per+' chapter'+(per===1?'':'s'))+'</div>'+
+       '<div class="gsub">'+(st?st+'-day streak':'Your streak starts today')+'</div></div></div>';
+    /* the week: one mark a day, filled when the goal was met */
+    var wk='', d=new Date(); d.setDate(d.getDate()-6);
+    for(var i=0;i<7;i++){
+      var dk=dayKey(d), got=GOAL.log[dk]||0, on=got>=per, tday=(i===6);
+      wk+='<span class="gday'+(on?' on':got?' part':'')+(tday?' now':'')+'" title="'+got+'"><i></i><b>'+
+          d.toLocaleDateString(undefined,{weekday:'narrow'})+'</b></span>';
+      d.setDate(d.getDate()+1);
+    }
+    h+='<div class="gweek" aria-label="The last seven days">'+wk+'</div>';
+  }
+  h+='<div class="lab" style="margin-top:14px">Chapters a day</div><div class="gpace" role="radiogroup" aria-label="Chapters a day">'+
+     GOAL_PACES.map(function(p){ return '<button role="radio" aria-checked="'+(per===p)+'" data-gpace="'+p+'">'+p+'</button>'; }).join('')+
+     '</div>';
+  if(per){
+    var rm=GOAL.remind, can=!!goalNotes();
+    h+='<button class="settog grem" data-a="goalremind" aria-pressed="'+(rm.on&&can)+'"'+(can?'':' disabled')+'>'+
+       '<span class="settxt"><span class="setlab">Remind me to read</span><span class="setsub">'+
+       (can?(rm.on?'Each day at '+goalTimeText()+', unless you have already read':'A notification from your phone each day')
+           :'Reminders come from the Sixteen Eleven app on iPhone and Android')+'</span></span>'+
+       '<span class="setsw'+(rm.on&&can?' on':'')+'"><i></i></span></button>';
+    if(rm.on&&can) h+='<label class="gtime">At <input type="time" id="goaltime" value="'+('0'+rm.h).slice(-2)+':'+('0'+rm.m).slice(-2)+'"></label>';
+    if(S.goalMsg) h+='<p class="gnote" role="status">'+esc(S.goalMsg)+'</p>';
+    h+='<button class="btn gh gstop" data-a="goaloff">No daily goal</button>';
+  }
+  h+='</div>';
+
+  /* the plan you are on, then the others */
+  h+='<div class="lab sgroup" style="margin-top:22px">Reading plans</div>';
+  if(GOAL.active){
+    var p=planDef(GOAL.active), t=planToday(GOAL.active), done=t.total-t.left, pct=Math.round(100*done/t.total);
+    h+='<div class="gplan on"><div class="gpk">Your plan</div><div class="gpn">'+esc(p.name)+'</div>'+
+       '<span class="progbar dark full"><i style="width:'+pct+'%"></i></span>'+
+       '<div class="gpm">'+done+' of '+t.total+' chapters'+(t.left?' · at '+t.per+' a day, done by '+esc(planFinish(t.left,t.per)):' · finished')+'</div>';
+    if(t.left||t.read.length){
+      h+='<div class="gpt">'+(t.todo.length?'Today':'Today’s reading is done')+'</div><div class="gchips">'+
+         t.read.concat(t.todo).map(function(k){ var q=k.split(':'), bk=BK(+q[0]), ok=!!planState(GOAL.active).done[k];
+           return '<button class="gchip'+(ok?' done':'')+'" data-book="'+q[0]+'" data-goch="'+q[1]+'">'+(ok?'✓ ':'')+esc((bk?planBookName(bk.name):'')+' '+q[1])+'</button>'; }).join('')+'</div>';
+      if(t.todo.length) h+='<button class="btn" data-book="'+t.todo[0].split(':')[0]+'" data-goch="'+t.todo[0].split(':')[1]+'">Read '+esc(portionLabel([t.todo[0]]))+'</button>';
+      else if(t.after.length) h+='<button class="btn sec" data-book="'+t.after[0].split(':')[0]+'" data-goch="'+t.after[0].split(':')[1]+'">Keep going: '+esc(portionLabel([t.after[0]]))+'</button>';
+    } else h+='<p class="gp">You have read every chapter of this plan. Well done.</p>';
+    h+='<button class="btn gh" data-a="planstop">Stop this plan</button></div>';
+  }
+  PLAN_DEFS.forEach(function(p){
+    if(p.id===GOAL.active) return;
+    var n=planKeys(p.id).length, pace=GOAL.perDay||p.pace, ps=GOAL.plans[p.id], dn=ps?Object.keys(ps.done).length:0;
+    h+='<div class="gplan"><div class="gpn">'+esc(p.name)+'</div><p class="gpb">'+esc(p.blurb)+'</p>'+
+       '<div class="gpm">'+n+' chapters · '+daysWord(Math.ceil(n/pace))+' at '+pace+' a day'+(dn?' · '+dn+' read so far':'')+'</div>'+
+       '<button class="btn sec" data-plan="'+p.id+'">'+(dn?'Carry on with this plan':'Start this plan')+'</button></div>';
+  });
+  return h;
+}
+function goalTimeText(){
+  var d=new Date(); d.setHours(GOAL.remind.h, GOAL.remind.m, 0, 0);
+  return d.toLocaleTimeString(undefined,{hour:'numeric', minute:'2-digit'});
+}
+/* the end of a chapter in a plan: the plan's next chapter, when it is not
+   simply the next one in the book */
+function planNextCard(b, c){
+  if(!GOAL.active) return '';
+  var k=b+':'+c, ks=planKeys(GOAL.active); if(ks.indexOf(k)<0) return '';
+  var ps=planState(GOAL.active), nk=null;
+  for(var i=0;i<ks.length;i++) if(!ps.done[ks[i]]&&ks[i]!==k){ nk=ks[i]; break; }
+  if(!nk) return '';
+  var nx=nextChapterFrom(b,c); if(nx&&(nx.b+':'+nx.c)===nk) return '';
+  var q=nk.split(':'), nb=BK(+q[0]);
+  return '<button class="nextcard plannext" data-book="'+q[0]+'" data-goch="'+q[1]+'" data-markfrom="'+k+'">'+
+    '<span class="ncw"><span class="nck">Next in '+esc(planDef(GOAL.active).name)+'</span>'+
+    '<span class="ncn">'+esc((nb?planBookName(nb.name):'')+' '+q[1])+'</span></span>'+
+    '<span class="ncgo">'+svg(I.fwd)+'</span></button>';
+}
+
+/* ---------- reminders from the phone ---------- */
+var GOAL_IDS=[]; (function(){ for(var i=0;i<14;i++) GOAL_IDS.push(16110+i); })();
+var GOAL_LN;
+function goalNotes(){
+  if(GOAL_LN!==undefined) return GOAL_LN;
+  GOAL_LN=null;
+  try{
+    var C=window.Capacitor;
+    if(C&&C.isNativePlatform&&C.isNativePlatform()&&C.registerPlugin&&(!C.isPluginAvailable||C.isPluginAvailable('LocalNotifications'))){
+      GOAL_LN=C.registerPlugin('LocalNotifications');
+      Promise.resolve(GOAL_LN.addListener('localNotificationActionPerformed', function(){
+        /* a reminder tapped: straight to today's reading */
+        S.tab='library'; S.trackerOpen=true; S.book=null; S.reading=null; S.apocOpen=false; S.atlasOpen=false; S.wordsOpen=false;
+        try{ render(); window.scrollTo(0,0); }catch(e){}
+      })).catch(function(){});
+    }
+  }catch(e){ GOAL_LN=null; }
+  return GOAL_LN;
+}
+var goalTimer=null;
+function goalRemindSoon(){ clearTimeout(goalTimer); goalTimer=setTimeout(goalSchedule, 400); }
+/* what each of the coming days' reminders says */
+function goalReminderTexts(){
+  var out=[], per=GOAL.perDay||1, rest=null, p=GOAL.active&&planDef(GOAL.active);
+  if(p){ var t=planToday(GOAL.active); rest=t.todo.concat(t.after); }
+  for(var d=0;d<14;d++){
+    var body;
+    if(p){
+      var take=rest.slice(0, d===0?Math.max(0,per-planToday(GOAL.active).read.length):per);
+      rest=rest.slice(take.length);
+      body=take.length?p.name+': '+portionLabel(take):'You have finished '+p.name+'. Choose your next plan in the Tracker.';
+    } else body=per+' chapter'+(per===1?'':'s')+' today'+(d===0&&goalToday()?' ('+goalToday()+' read so far)':'')+'. Pick up where you left off.';
+    out.push({title:d===0&&goalStreak()?'Keep your '+goalStreak()+'-day streak':'Today’s reading', body:body});
+  }
+  return out;
+}
+function goalSchedule(){
+  var LN=goalNotes(); if(!LN) return Promise.resolve();
+  return Promise.resolve(LN.cancel({notifications:GOAL_IDS.map(function(id){ return {id:id}; })})).catch(function(){}).then(function(){
+    if(!GOAL.remind.on||!GOAL.perDay) return;
+    var texts=goalReminderTexts(), now=Date.now(), list=[];
+    for(var d=0;d<14;d++){
+      var at=new Date(); at.setDate(at.getDate()+d); at.setHours(GOAL.remind.h, GOAL.remind.m, 0, 0);
+      if(at.getTime()<=now+30000) continue;
+      if(d===0&&goalToday()>=GOAL.perDay) continue;   /* already read today: no reminder */
+      list.push({id:GOAL_IDS[d], title:texts[d].title, body:texts[d].body,
+                 schedule:{at:at, allowWhileIdle:true}, extra:{go:'goal'}});
+    }
+    if(list.length) return LN.schedule({notifications:list});
+  }).catch(function(){});
+}
+function goalRemindOn(){
+  var LN=goalNotes(); if(!LN) return;
+  Promise.resolve(LN.requestPermissions()).then(function(r){
+    var ok=r&&(r.display==='granted');
+    GOAL.remind.on=ok;
+    S.goalMsg=ok?'':'Notifications are turned off for Sixteen Eleven. Turn them on in your phone’s Settings, then try again.';
+    goalSave(); goalSchedule(); S.keepScroll=true; render();
+  }).catch(function(){ S.goalMsg='This phone did not allow reminders.'; S.keepScroll=true; render(); });
+}
+function goalInit(){
+  try{ goalSchedule(); }catch(e){}
+  try{ document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState==='visible'){ goalRemindSoon(); if(S.trackerOpen){ S.keepScroll=true; render(); } } }); }catch(e){}
 }
 
 /* The Apocrypha sits behind one cover, then opens as a list with overviews. */
@@ -3693,9 +4003,11 @@ function vRead(){
   if(!S.immersive){
     h+=divider('End of chapter');
     var nx=nextChapterFrom(b.i,n);
+    /* a reading plan's next chapter, when it is elsewhere */
+    try{ h+=planNextCard(b.i,n); }catch(e){}
     if(nx){
       var nb=BK(nx.b);
-      h+='<button class="nextcard" data-book="'+nx.b+'" data-goch="'+nx.c+'">'+
+      h+='<button class="nextcard" data-book="'+nx.b+'" data-goch="'+nx.c+'" data-markfrom="'+b.i+':'+n+'">'+
          '<span class="ncw"><span class="nck">Next</span>'+
          '<span class="ncn">'+esc(nb?nb.name:'')+' '+nx.c+'</span></span>'+
          '<span class="ncgo">'+svg(I.fwd)+'</span></button>';
@@ -3832,7 +4144,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v102 · Oct 16 04:19';
+var APP_STAMP='v103 · Oct 16 14:56';
 
 /* ================= SEARCH ================= */
 
@@ -6429,7 +6741,7 @@ function exportData(){
   var payload={
     format:BACKUP_FORMAT, version:1, exported:new Date().toISOString(),
     highlights:S.hl, notes:S.notes, sheets:S.sheets, read:S.read,
-    userRefs:S.userRefs, marks:S.marks,
+    userRefs:S.userRefs, marks:S.marks, goal:GOAL,
     place:{b:S.reading,c:S.ch}, textSize:S.textSize
   };
   var text=JSON.stringify(payload,null,1);
@@ -6493,6 +6805,9 @@ function mergeBackup(data){
     saveRead();
   }
   if(typeof data.textSize==='number'&&data.textSize>=0&&data.textSize<=5) S.textSize=Math.round(data.textSize);
+  /* the goal and plans come back only to a phone that has none of its own */
+  if(data.goal&&typeof data.goal==='object'&&!GOAL.perDay&&!GOAL.active&&!Object.keys(GOAL.plans).length){
+    try{ GOAL.log={}; goalLoad(data.goal); goalSave(); goalRemindSoon(); added.goal=1; }catch(e){} }
   saveHl(); saveNotes(); saveSheets();
   return added;
 }
@@ -6664,7 +6979,27 @@ function continueCard(){
     '<button class="contplay" data-a="resumelisten" data-book="'+b.i+'" data-goch="'+ch+'" '+
       'aria-label="Listen to '+esc(b.name)+' '+ch+'">'+
       '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>'+
-    '</div>';
+    '</div>'+todayStrip();
+}
+/* under Continue reading: today's goal, and today's portion of the plan */
+function todayStrip(){
+  if(!GOAL.perDay) return '';
+  var n=goalToday(), per=GOAL.perDay, met=n>=per, h='';
+  if(GOAL.active){
+    var t=planToday(GOAL.active), p=planDef(GOAL.active);
+    if(!t.left&&!t.read.length) return '';
+    var go=t.todo[0]||null, q=go?go.split(':'):null;
+    h='<button class="todaystrip'+(met?' met':'')+'" '+(q?'data-book="'+q[0]+'" data-goch="'+q[1]+'"':'data-a="opentracker"')+'>'+
+      '<span class="tsk">Today \u00b7 '+esc(p.name)+'</span>'+
+      '<span class="tst">'+esc(t.todo.length?portionLabel(t.todo):'Today\u2019s reading is done')+'</span>'+
+      '<span class="tsn">'+(met?'\u2713':Math.min(n,per)+' of '+per)+'</span></button>';
+  } else {
+    h='<button class="todaystrip'+(met?' met':'')+'" data-a="opentracker">'+
+      '<span class="tsk">Today\u2019s goal</span>'+
+      '<span class="tst">'+(met?'Done for today':n+' of '+per+' chapter'+(per===1?'':'s'))+'</span>'+
+      '<span class="tsn">'+(met?'\u2713':n+'/'+per)+'</span></button>';
+  }
+  return h;
 }
 
 
@@ -9663,6 +9998,11 @@ function renderInner(quiet){
   if(bf) bf.addEventListener('change',function(){
     if(bf.files&&bf.files[0]) doImport(bf.files[0]);
   });
+  var gti=document.getElementById('goaltime');
+  if(gti&&!gti.__wired){ gti.__wired=1; gti.addEventListener('change',function(){
+    var m=/^(\d{1,2}):(\d{2})/.exec(gti.value||''); if(!m) return;
+    GOAL.remind.h=+m[1]; GOAL.remind.m=+m[2]; goalSave(); goalSchedule(); S.keepScroll=true; render();
+  }); }
   var shq=document.getElementById('shq');
   if(shq) shq.addEventListener('input',inPane(function(){S.sheetQ=shq.value;S.keepScroll=true;render();
     var e=document.getElementById('shq'); if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}}));
@@ -9753,7 +10093,7 @@ document.addEventListener('click',inPane(function(ev){
     '[data-filenote],[data-gw],[data-pick],[data-pcolor],[data-word],[data-strong],'+
     '[data-pdelref],[data-pfolder],[data-pfilenote],'+
     '[data-pwopen],[data-pwpick],[data-pwbuy],[data-pwtip],[data-ssec],'+
-    '[data-precept],[data-opennote]');
+    '[data-precept],[data-opennote],[data-gpace],[data-plan]');
   /* the verse card: a tap anywhere outside it puts it away. A tap on another
      verse moves it there; on the same verse, or elsewhere in the text, that
      tap does nothing more than close it */
@@ -9963,6 +10303,20 @@ document.addEventListener('click',inPane(function(ev){
   if(d.a==='closemine'){ S.mode='shelf'; render(); return; }
   if(d.a==='closeeras'){ S.mode='shelf'; S.openEra=null; render(); return; }
   if(d.a==='opentracker'){ S.trackerOpen=true; render(); return; }
+  /* --- goals and plans --- */
+  if(d.gpace){ GOAL.perDay=+d.gpace; S.goalMsg=''; goalSave(); goalRemindSoon(); S.keepScroll=true; render(); return; }
+  if(d.a==='goaloff'){ GOAL.perDay=0; GOAL.remind.on=false; goalSave(); goalSchedule(); S.keepScroll=true; render(); return; }
+  if(d.a==='goalremind'){
+    if(GOAL.remind.on){ GOAL.remind.on=false; S.goalMsg=''; goalSave(); goalSchedule(); S.keepScroll=true; render(); }
+    else goalRemindOn();
+    return; }
+  if(d.plan&&planDef(d.plan)){
+    GOAL.active=d.plan; planState(d.plan);
+    if(!GOAL.perDay) GOAL.perDay=planDef(d.plan).pace;
+    goalSave(); goalRemindSoon(); S.keepScroll=false; render();
+    try{ window.scrollTo(0,0); }catch(e){}
+    return; }
+  if(d.a==='planstop'){ GOAL.active=null; goalSave(); goalRemindSoon(); S.keepScroll=true; render(); return; }
   if(d.a==='openatlas'){ S.atlasOpen=true; S.mapEra=null; render(); return; }
   /* --- word study --- */
   if(d.a==='openwords'){ S.wordsOpen=true; S.wsel=null; S.wq=''; render(); return; }
@@ -10482,6 +10836,8 @@ document.addEventListener('click',inPane(function(ev){
     if(el) bringIntoView(el,'start',false);return;}
   if(d.book!==undefined&&d.book!==''){
     openDrawer(false);
+    /* Next at the end of a chapter: finishing it is the honest signal it was read */
+    if(d.markfrom){ var mf=d.markfrom.split(':'); markRead(+mf[0], +mf[1], true); }
     S.book=+d.book; S.ch=d.goch?+d.goch:1;
     if(d.goch){S.reading=S.book;} else {S.reading=null;S.btab='overview';}
     render();return;}
@@ -10535,6 +10891,7 @@ function bootFailed(e){
 function start(){
   try{ payInit(); }catch(e){}
   try{ audInit(); }catch(e){}
+  setTimeout(function(){ try{ goalInit(); }catch(e){} }, 1500);
   Store.get('strata:worduse').then(function(u){ if(u&&u.d) S.wordUse=u; });
   initLayout();
   try{ FlexGap.init(); }catch(e){}
