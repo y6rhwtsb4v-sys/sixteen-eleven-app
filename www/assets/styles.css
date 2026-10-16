@@ -3076,3 +3076,7 @@ html[data-theme="dark"] .pane.pg-paper[data-screen="reader"]>.top{
 .cover.docbook .docfmt{position:absolute;top:10px;right:10px;z-index:2;padding:2px 7px;border-radius:5px;font-size:12px;
   font-weight:700;letter-spacing:.06em;color:#F3E6C8;border:1px solid rgba(243,230,200,.5)}
 .cover.docbook .ct{color:#F3E6C8}
+
+/* Webster's 1828 line under the big words */
+.wd1828{margin:14px 0 2px;padding-top:6px;border-top:1px solid var(--line)}
+.wdw{font-family:var(--serif);font-style:italic;font-size:16px;line-height:1.5;color:var(--ink2);margin:4px 0 0}

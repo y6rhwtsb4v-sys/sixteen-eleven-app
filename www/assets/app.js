@@ -8,8 +8,9 @@
 
    Each entry: [headword, forms (space separated), kind, meaning]
    kind: o = an old word, t = a Bible term. The common old forms (thee,
-   thou, hath, unto) are in too: each word glows only once a chapter, so
-   they light the page without crowding it. Words that are usually modern in sense but sometimes old (let,
+   thou, hath, unto) are in too: an old word glows only once a chapter, so
+   they light the page without crowding it. The big Bible terms (kind t) may
+   glow two or three times a chapter, spaced apart; see glossify in app.js. Words that are usually modern in sense but sometimes old (let,
    meet, sore, wax, tale, instant) carry a rule in GLOSS_RULES below, so only
    the old uses are marked. */
 var GLOSSARY=[
@@ -204,7 +205,7 @@ var GLOSSARY=[
 ["tittle","tittle","o","A tiny mark in a letter; the least detail."],
 ["trow","trow","o","To think; to suppose."],
 ["twain","twain","o","Two."],
-["unction","unction","o","Anointing."],
+["unction","unction","t","Anointing; in 1 John, the Holy Spirit given to believers."],
 ["unwittingly","unwittingly","o","Unintentionally."],
 ["usury","usury","o","Interest charged on a loan."],
 ["vale","vale","o","A valley."],
@@ -543,7 +544,121 @@ var GLOSSARY=[
 ["palmerworm","palmerworm","t","A locust or caterpillar that strips plants."],
 ["sycamine","sycamine","t","The mulberry tree."],
 ["cummin","cummin","t","A seed used as spice, tithed by the Pharisees."],
-["holm","holm","t","An evergreen oak."]
+["holm","holm","t","An evergreen oak."],
+/* ---- the big words (Webster 1828 below) ---- */
+["righteousness","righteousness righteousnesses","t","Being right with God: a heart and life that agree with his law."],
+["righteous","righteous righteously","t","Right with God and just toward others; doing what God commands."],
+["unrighteousness","unrighteousness unrighteous","t","Wrongdoing; injustice; breaking God’s law."],
+["iniquity","iniquity iniquities","t","Sin; wickedness; a wrong done against God or others."],
+["transgression","transgression transgressions transgress transgressed transgresseth transgressor transgressors","t","Breaking a law or command of God; stepping over the line."],
+["trespass","trespass trespasses trespassed","t","A wrong done against God or a neighbour; to do such a wrong."],
+["grace","grace","t","God’s free, undeserved favour and love."],
+["salvation","salvation","t","Being saved: rescued by God from sin and its penalty; also deliverance from enemies."],
+["sanctify","sanctify sanctified sanctifieth sanctifying","t","To make holy; to set apart for God."],
+["sanctification","sanctification","t","Being made holy: God’s work of setting a person apart from sin for himself."],
+["holiness","holiness","t","Being holy: pure, set apart for God, free from sin."],
+["justify","justify justified justifieth justifying","t","To declare righteous: God pardons and accepts the sinner as just."],
+["justification","justification","t","God’s act of pardoning a sinner and counting him righteous."],
+["propitiation","propitiation","t","The sacrifice that satisfies God’s justice and turns away his wrath against sin."],
+["redemption","redemption","t","Buying back; setting free by paying the price."],
+["redeem","redeem redeemed redeemeth redeemer","t","To buy back; to set free by paying a price."],
+["reconcile","reconcile reconciled reconciling","t","To bring back together as friends after being apart."],
+["reconciliation","reconciliation","t","Being brought back into peace with God; also the offering that brings it."],
+["heathen","heathen","t","The nations other than Israel, who did not know or worship the true God."],
+["abomination","abomination abominations abominable","t","Something God hates; a detestable thing, often an idol."],
+["sanctuary","sanctuary sanctuaries","t","The holy place where God was worshipped: the tabernacle or temple."],
+["statute","statute statutes","t","A law or decree set down by God (or a king)."],
+["ordinance","ordinance ordinances","t","A rule or decree God set; also a set rite of worship."],
+["testimony","testimony testimonies","t","God’s witness: his law and commandments; also the tablets of the law kept in the ark."],
+["inheritance","inheritance inheritances","t","What is handed down to an heir: often the land God gave Israel, or the life he gives his people."],
+["circumcision","circumcision circumcise circumcised circumcising","t","The cutting of the foreskin, the sign of God’s covenant with Abraham; in the New Testament also a name for the Jews."],
+["uncircumcision","uncircumcision uncircumcised","t","Not circumcised; in the New Testament, a name for the Gentiles."],
+["gospel","gospel","t","The good news of Jesus Christ: his life, death and resurrection for sinners."],
+["baptism","baptism baptisms baptize baptized baptizing","t","Washing with water as a sign of entering God’s people; also used of suffering."],
+["apostle","apostle apostles apostleship","t","One sent: a messenger chosen by Christ to preach the gospel."],
+["epistle","epistle epistles","t","A letter."],
+["doctrine","doctrine doctrines","t","Teaching; what is taught as true."],
+["blasphemy","blasphemy blasphemies blaspheme blasphemed blasphemeth blasphemous blasphemer blasphemers blasphemously blasphemest","t","Speaking against God with contempt or irreverence."],
+["idolatry","idolatry idolatries idolater idolaters idolatrous","t","The worship of idols, or of anything that is not God."],
+["fornication","fornication fornications fornicator fornicators","t","Sexual sin outside of marriage."],
+["whoredom","whoredom whoredoms","t","Sexual unfaithfulness; in the prophets, Israel’s unfaithfulness to God by idols."],
+["lasciviousness","lasciviousness","t","Shameless lust; unrestrained indecency."],
+["covetousness","covetousness covetous","t","Greedy desire for what one does not have, especially wealth."],
+["hypocrisy","hypocrisy hypocrite hypocrites hypocrisies","t","Pretending to be good or godly while not being so."],
+["ungodliness","ungodliness ungodly","t","Living without regard for God."],
+["vanity","vanity vanities","t","Emptiness; what is fleeting and cannot satisfy (“vanity of vanities”)."],
+["sojourn","sojourn sojourned sojourneth sojourning sojourner sojourners","t","To live somewhere for a time as a foreigner, not at home."],
+["supplication","supplication supplications","t","Humble, earnest prayer; pleading."],
+["intercession","intercession intercessions","t","Pleading with God on behalf of others."],
+["mediator","mediator","t","One who stands between two parties to bring them together."],
+["oblation","oblation oblations","t","An offering brought to God."],
+["consecrate","consecrate consecrated consecration consecrations","t","To set apart as holy for God’s service."],
+["purification","purification purifying","t","Cleansing; especially the washing and rites that made a person clean to worship."],
+["defile","defile defiled defileth defilement","t","To make unclean or impure, in body, worship or conduct."],
+["chasten","chasten chastened chasteneth chastening chastise chastised chastisement","t","To correct and discipline, as a father does, for good."],
+["longsuffering","longsuffering","t","Patient endurance; slow to anger under wrong."],
+["meekness","meekness meek","t","Gentle humility; strength held under control, not insisting on oneself."],
+["tribulation","tribulation tribulations","t","Great trouble and suffering, often from persecution."],
+["resurrection","resurrection","t","Rising from the dead to life."],
+["immortality","immortality immortal","t","Never dying; life without end."],
+["incorruption","incorruption incorruptible","t","Never decaying; the body raised imperishable."],
+["regeneration","regeneration","t","New birth; being made new by God."],
+["adoption","adoption","t","Being taken in as a son: God receiving believers as his own children."],
+["election","election","t","God’s choosing."],
+["predestinate","predestinate predestinated","t","To decide beforehand; God appointing ahead of time."],
+["foreknowledge","foreknowledge foreknow foreknew","t","Knowing beforehand."],
+["glorify","glorify glorified glorifieth glorifying","t","To give glory to; to praise and honour; also to raise to glory."],
+["magnify","magnify magnified magnifieth","t","To praise highly; to make great in honour."],
+["exhortation","exhortation exhortations exhort exhorted exhorting exhorteth","t","Urging and encouraging someone to do right."],
+["edify","edify edified edifieth edifying edification","t","To build up, especially in faith and understanding."],
+["admonish","admonish admonished admonishing admonition","t","To warn gently; to correct with counsel."],
+["contrite","contrite","t","Broken-hearted over one’s sin; humbly sorry."],
+["repentance","repentance","t","Turning from sin to God, with real sorrow for it."],
+["backsliding","backsliding backslidings backslider backslidden","t","Turning away from God after following him."],
+["reprobate","reprobate reprobates","t","Rejected as worthless; given up in sin."],
+["heresy","heresy heresies heretick","t","A self-chosen opinion that splits from the truth; a faction."],
+["carnal","carnal carnally","t","Of the flesh: ruled by bodily desires rather than the Spirit."],
+["condemnation","condemnation","t","Being judged guilty and sentenced."],
+["damnation","damnation","t","Condemnation; God’s judgment against sin."],
+["ransom","ransom ransomed","t","The price paid to set someone free."],
+["kinsman","kinsman kinsmen kinswoman","t","A relative; under the law, the near relative who could buy back land or marry a widow (as Boaz did)."],
+["birthright","birthright","t","The rights of the firstborn son: a double share and the head of the family."],
+["firstborn","firstborn","t","The first child born, who had the birthright; the first of the flock, given to God."],
+["priesthood","priesthood","t","The office of priest; the priests as a body."],
+["mitre","mitre","t","The high priest’s turban, with the gold plate “Holiness to the LORD”."],
+["nazarite","nazarite nazarites","t","One under a vow to God: no wine, no razor, no touching the dead."],
+["amen","amen","t","So be it; truly."],
+["alleluia","alleluia","t","Praise ye the LORD."],
+["jehovah","jehovah","t","The name of God, “I AM”, the LORD."],
+["sabaoth","sabaoth","t","Hosts, armies: “the Lord of Sabaoth” is the LORD of hosts."],
+["godhead","godhead","t","The divine nature; God himself."],
+["comforter","comforter","t","The Holy Spirit, sent to help, teach and strengthen."],
+["bishop","bishop bishops","t","An overseer of a church; an elder."],
+["deacon","deacon deacons","t","A servant of the church, appointed to care for its needs."],
+["presbytery","presbytery","t","The elders of a church together."],
+["evangelist","evangelist evangelists","t","One who carries the gospel to others; a preacher of it."],
+["steward","steward stewards stewardship","t","One trusted to manage another’s house or goods."],
+["malefactor","malefactor malefactors","t","A criminal; an evildoer."],
+["divination","divination divinations diviner diviners","t","Trying to learn the future or hidden things by omens or spirits, which God forbade."],
+["soothsayer","soothsayer soothsayers soothsaying","t","One who claims to tell the future."],
+["necromancer","necromancer","t","One who claims to speak with the dead."],
+["wizard","wizard wizards","t","A man who practises magic or consults spirits."],
+["witchcraft","witchcraft witchcrafts witch","t","The practice of magic and dealing with spirits."],
+["sorcery","sorcery sorceries sorcerer sorcerers sorceress","t","Magic worked by calling on spirits."],
+["enchantment","enchantment enchantments enchanter enchanters","t","Spells and charms; magic arts."],
+["communion","communion","t","Fellowship; sharing together."],
+["infirmity","infirmity infirmities","t","Weakness; sickness."],
+["bondage","bondage","t","Slavery; being held captive."],
+["heir","heir heirs","t","One who will receive an inheritance."],
+["guile","guile","t","Deceit; craftiness."],
+["variance","variance","t","Quarrelling; discord between people."],
+["emulations","emulations","t","Jealous rivalry; striving to outdo others."],
+["seditions","seditions sedition","t","Stirring up division and revolt."],
+["revellings","revellings","t","Wild, drunken partying."],
+["slothful","slothful slothfulness sluggard","t","Lazy; idle."],
+["familiar","familiar","t","A “familiar spirit”: a spirit consulted by a medium, as of the dead."],
+["offering","offering offerings","t","A gift brought to God in worship."]
+/* ---- end of the big words ---- */
 ];
 
 /* Words whose everyday modern sense is the usual one in the KJV too. Only the
@@ -564,7 +679,8 @@ var GLOSS_RULES={
   instant:{form:'instant',notBefore:/\b(an|what|the|that)\s+$/i},
   art:{form:'art',before:/\bthou\s+$/i,after:/^\s+thou\b/i},
   wit:{form:'wit',before:/\bto\s+$/i},
-  hale:{form:'hale',notBefore:/\b(is|was|be)\s+$/i}
+  hale:{form:'hale',notBefore:/\b(is|was|be)\s+$/i},
+  familiar:{form:'familiar',after:/^\s+spirits?\b/i}
 };
 
 /* ---- words with more than one meaning ----
@@ -679,7 +795,141 @@ var GLOSS_SENSES={
     {m:"Citizenship; the commonwealth one belongs to.",ex:["Philippians 3:20", "For our conversation is in heaven"],refs:["Philippians 3:20"]}],
   "whit":[
     {m:"The least bit: “not a whit” is not at all.",ex:["2 Corinthians 11:5", "I was not a whit behind"]},
-    {m:"“Every whit”: entirely, wholly.",ex:["John 13:10", "but is clean every whit"],when:/every whit/}]
+    {m:"“Every whit”: entirely, wholly.",ex:["John 13:10", "but is clean every whit"],when:/every whit/}],
+  "offering":[
+    {m:"A gift brought to God in worship: an animal, grain, wine, or anything given to him.",ex:["Genesis 4:3", "an offering unto the LORD"],dflt:1},
+    {m:"A burnt offering: an animal burned whole on the altar, given entirely to God.",ex:["Genesis 22:2", "offer him there for a burnt offering"],when:/burnt offerings?/,before:/burnt\s+$/},
+    {m:"A peace offering: the fat burned on the altar, a share given to the priest, and the rest eaten by the worshipper and his household, a meal of fellowship and thanks.",ex:["Exodus 24:5", "sacrificed peace offerings of oxen unto the LORD"],when:/peace offerings?/,before:/peace\s+$/},
+    {m:"A sin offering: made for sin, its blood put on the altar to make atonement.",ex:["Exodus 29:14", "it is a sin offering"],when:/sin offerings?/,before:/\bsin\s+$/},
+    {m:"A trespass offering: made for a wrong that could be put right, with what was taken paid back and a fifth part more.",ex:["Leviticus 5:6", "he shall bring his trespass offering unto the LORD"],when:/trespass offerings?/,before:/trespass\s+$/},
+    {m:"A heave offering: a portion lifted up to the LORD and set apart for the priests.",ex:["Leviticus 7:14", "for an heave offering unto the LORD"],when:/heave offerings?/,before:/heave\s+$/},
+    {m:"A wave offering: a portion waved before the LORD, then given to the priests.",ex:["Exodus 29:24", "for a wave offering before the LORD"],when:/wave offerings?/,before:/wave\s+$/},
+    {m:"A drink offering: wine poured out at the altar with a sacrifice.",ex:["Genesis 35:14", "he poured a drink offering thereon"],when:/drink offerings?/,before:/drink\s+$/},
+    {m:"A freewill offering: given gladly, of one’s own accord, beyond what the law required.",ex:["Leviticus 22:23", "that mayest thou offer for a freewill offering"],when:/free ?will offerings?/,before:/free ?will\s+$/},
+    {m:"A meat offering: an offering of grain or flour, with oil and frankincense (“meat” meant food, not flesh).",ex:["Leviticus 2:1", "when any will offer a meat offering unto the LORD"],when:/meat offerings?/,before:/meat\s+$/}]
+};
+
+/* ---- Webster's 1828 ----
+   For the big words of the faith, a line from Noah Webster's American
+   Dictionary of the English Language (1828), shown under our own plain
+   meaning and labelled as his. Every line is checked word for word against
+   the entry by glossary_work/ver1828.py (verse citations inside it left out).
+   The 1828 text is in the public domain; these lines are taken from the
+   transcription at codeberg.org/cobycat/webster1828 (CC BY-SA 4.0), and this
+   list is shared under the same licence. */
+var GLOSS_1828={
+"righteousness": "Purity of heart and rectitude of life; conformity of heart and life to the divine law.",
+"righteous": "Just; accordant to the divine law. Applied to persons, it denotes one who is holy in heart, and observant of the divine commands in practice; as a righteous man.",
+"unrighteousness": "Injustice; a violation of the divine law, or of the plain principles of justice and equity; wickedness.",
+"iniquity": "A particular deviation from rectitude; a sin or crime; wickedness; any act of injustice.",
+"transgression": "The act of passing over or beyond any law or rule of moral duty; the violation of a law or known principle of rectitude; breach of command.",
+"trespass": "In a moral sense, to transgress voluntarily any divine law or command; to violate any known rule of duty.",
+"grace": "Appropriately, the free unmerited love and favor of God, the spring and source of all the benefits men receive from him.",
+"salvation": "Appropriately in theology, the redemption of man from the bondage of sin and liability to eternal death, and the conferring on him everlasting happiness.",
+"sanctify": "To separate, set apart or appoint to a holy, sacred or religious use.",
+"sanctification": "The act of making holy. In an evangelical sense, the act of God's grace by which the affections of men are purified or alienated from sin and the world, and exalted to a supreme love to God.",
+"holiness": "The state of being holy; purity or integrity of moral character; freedom from sin; sanctity.",
+"justify": "In theology, to pardon and clear from guilt; to absolve or acquit from guilt and merited punishment, and to accept as righteous on account of the merits of the Savior, or by the application of Christ's atonement to the offender.",
+"justification": "In theology, remission of sin and absolution from guilt and punishment; or an act of free grace by which God pardons the sinner and accepts him as righteous, on account of the atonement of Christ.",
+"propitiation": "In theology, the atonement or atoning sacrifice offered to God to assuage his wrath and render him propitious to sinners.",
+"redemption": "In theology, the purchase of God's favor by the death and sufferings of Christ; the ransom or deliverance of sinners from the bondage of sin and the penalties of God's violated law by the atonement of Christ.",
+"redeem": "To purchase back; to ransom; to liberate or rescue from captivity or bondage, or from any obligation or liability to suffer or to be forfeited, by paying an equivalent; as, to redeem prisoners or captured goods; to redeem a pledge.",
+"reconcile": "To conciliate anew; to call back into union and friendship the affections which have been alienated; to restore to friendship or favor after estrangement; as, to reconcile men or parties that have been at variance.",
+"reconciliation": "In Scripture, the means by which sinners are reconciled and brought into a state of favor with God, after natural estrangement or enmity; the atonement; expiation.",
+"heathen": "A pagan; a Gentile; one who worships idols, or is unacquainted with the true God. In the Scriptures, the word seems to comprehend all nations except the Jews or Israelites, as they were all strangers to the true religion, and all addicted to idolatry.",
+"abomination": "The object of detestation, a common signification in scripture.",
+"sanctuary": "A sacred place; particularly among the Israelites, the most retired part of the temple at Jerusalem, called the Holy of Holies, in which was kept the ark of the covenant, and into which no person was permitted to enter except the high priest, and that only once a year to intercede for the people.",
+"ordinance": "A rule established by authority; a permanent rule of action. An ordinance may be a law or statute of sovereign power. In this sense it is often used in the Scriptures.",
+"testimony": "In Scripture, the two tables of the law.",
+"inheritance": "An estate given or possessed by donation or divine appropriation.",
+"circumcision": "To cut off the prepuce or foreskin of males; a ceremony or rite in the Jewish and Mohammedan religions.",
+"uncircumcision": "Absence or want of circumcision.",
+"gospel": "The history of the birth, life, actions, death, resurrection, ascension and doctrines of Jesus Christ; or a revelation of the grace of God to fallen man through a mediator, including the character, actions, and doctrines of Christ, with the whole scheme of salvation, as revealed by Christ and his apostles.",
+"baptism": "The application of water to a person, as a sacrament or religious ceremony, by which he is initiated into the visible church of Christ.",
+"apostle": "A person deputed to execute some important business; but appropriately, a disciple of Christ commissioned to preach the gospel.",
+"epistle": "A writing, directed or sent, communicating intelligence to a distant person; a letter; a letter missive.",
+"doctrine": "In a general sense, whatever is taught.",
+"blasphemy": "An indignity offered to God by words or writing; reproachful, contemptuous or irreverent words uttered impiously against Jehovah.",
+"idolatry": "The worship of idols, images, or any thing made by hands, or which is not God.",
+"fornication": "The incontinence or lewdness of unmarried persons, male or female; also, the criminal conversation of a married man with an unmarried woman.",
+"whoredom": "In Scripture, idolatry; the desertion of the worship of the true God, for the worship of idols.",
+"lasciviousness": "Looseness; irregular indulgence of animal desires; wantonness; lustfulness.",
+"covetousness": "A strong or inordinate desire of obtaining and possessing some supposed good; usually in a bad sense, and applied to an inordinate desire of wealth or avarice.",
+"hypocrisy": "Simulation; a feigning to be what one is not; or dissimulation, a concealment of one's real character or motives.",
+"ungodliness": "Impiety; wickedness; disregard of God and his commands and neglect of his worship; or any positive act of disobedience or irreverence.",
+"vanity": "Emptiness; want of substance to satisfy desire; uncertainty; inanity.",
+"sojourn": "To dwell for a time; to dwell or live in a place as a temporary resident, or as a stranger, not considering the place as his permanent habitation.",
+"supplication": "Entreaty; humble and earnest prayer in worship.",
+"intercession": "The act of interceding; mediation; interposition between parties at variance, with a view to reconciliation; prayer or solicitation to one party in favor of another, sometimes against another.",
+"mediator": "One that interposes between parties at variance for the purpose of reconciling them.",
+"oblation": "Any thing offered or presented in worship or sacred service; an offering; a sacrifice.",
+"consecrate": "To make or declare to be sacred, by certain ceremonies or rites; to appropriate to sacred uses; to set apart, dedicate, or devote, to the service and worship of God; as, to consecrate a church.",
+"purification": "In religion, the act or operation of cleansing ceremonially, by removing any pollution or defilement.",
+"defile": "To pollute; to make ceremonially unclean.",
+"chasten": "To correct by punishment; to punish; to inflict pain for the purpose of reclaiming an offender; as, to chasten a son with a rod.",
+"longsuffering": "Bearing injuries or provocation for a long time; patient; not easily provoked.",
+"tribulation": "Severe affliction; distresses of life; vexations. In Scripture, it often denotes the troubles and distresses which proceed from persecution.",
+"resurrection": "A rising again; chiefly, the revival of the dead of the human race, or their return from the grave, particularly at the general judgment.",
+"immortality": "The quality of never ceasing to live or exist; exemption from death and annihilation; life destined to endure without end; as the immortality of the human soul.",
+"incorruption": "Incapacity of being corrupted.",
+"regeneration": "In theology, new birth by the grace of God; that change by which the will and natural enmity of man to God and his law are subdued, and a principle of supreme love to God and his law, or holy affections, are implanted in the heart.",
+"adoption": "God's taking the sinful children of men into his favor and protection.",
+"election": "In theology, divine choice; predetermination of God, by which persons are distinguished as objects of mercy, become subjects of grace, are sanctified and prepared for heaven.",
+"predestinate": "To predetermine or foreordain; to appoint or ordain beforehand by an unchangeable purpose.",
+"foreknowledge": "Knowledge of a thing before it happens; prescience.",
+"glorify": "To praise; to magnify and honor in worship; to ascribe honor to, in thought or words.",
+"magnify": "To extol; to exalt; to elevate; to raise in estimation.",
+"exhortation": "The act or practice of exhorting; the act of inciting to laudable deeds; incitement to that which is good or commendable.",
+"edify": "To instruct and improve the mind in knowledge generally, and particularly in moral and religious knowledge, in faith and holiness.",
+"admonish": "To warn or notify of a fault; to reprove with mildness.",
+"contrite": "Literally, worn or bruised. Hence, broken-hearted for sin; deeply affected with grief and sorrow for having offended God; humble; penitent; as a contrite sinner.",
+"repentance": "Real penitence; sorrow or deep contrition for sin, as an offense and dishonor to God, a violation of his holy law, and the basest ingratitude towards a Being of infinite benevolence.",
+"backsliding": "The act of apostatizing from faith or practice; a falling insensibly from religion into sin or idolatry.",
+"reprobate": "Abandoned in sin; lost to virtue or grace.",
+"heresy": "A fundamental error in religion, or an error of opinion respecting some fundamental doctrine of religion.",
+"carnal": "Pertaining to flesh; fleshly; sensual; opposed to spiritual; as carnal pleasure.",
+"condemnation": "The act of condemning; the judicial act of declaring one guilty, and dooming him to punishment.",
+"damnation": "Sentence or condemnation to everlasting punishment in the future state; or the state of eternal torments.",
+"ransom": "In Scripture, the price paid for a forfeited life, or for delivery or release from capital punishment.",
+"kinsman": "A man of the same race or family; one related by blood.",
+"birthright": "Any right or privilege, to which a person is entitled by birth, such as an estate descendible by law to an heir, or civil liberty under a free constitution.",
+"firstborn": "The eldest child; the first in the order of birth.",
+"priesthood": "The order of men set apart for sacred offices; the order composed of priests.",
+"nazarite": "A jew who professed extraordinary purity of life and devotion.",
+"amen": "In English, after the oriental manner, it is used at the beginning, but more generally at the end of declarations and prayers, in the sense of, be it firm, be it established.",
+"alleluia": "Praise ye Jehovah; give praise to God; a word used in songs or praise, or a term of rejoicing in solemn ascriptions of thanksgiving to God.",
+"jehovah": "The Scripture name of the Supreme Being.",
+"sabaoth": "Armies",
+"godhead": "Godship; deity; divinity; divine nature or essence; applied to the true God, and to heathen deities.",
+"comforter": "The title of the Holy Spirit, whom the Father will send in my name--he shall teach you all things.",
+"bishop": "In the primitive church, a spiritual overseer; an elder or presbyter; one who had the pastoral care of a church.",
+"deacon": "A person in the lowest degree of holy orders. The office of deacon was instituted by the apostles, and seven persons were chosen at first, to serve at the feasts of christians and distribute bread and wine to the communicants, and to minister to the wants of the poor.",
+"presbytery": "A body of elders in the christian church.",
+"evangelist": "A preacher or publisher of the gospel of Jesus Christ, licensed to preach, but not having charge of a particular church.",
+"steward": "A man employed in great families to manage the domestic concerns, superintend the other servants, collect the rents or income, keep the accounts, etc.",
+"malefactor": "One who commits a crime; one guilty of violating the laws, in such a manner as to subject him to public prosecution and punishment, particularly to capital punishment; a criminal.",
+"divination": "The act of divining; a foretelling future events, or discovering things secret or obscure, by the aid of superior beings, or by other than human means.",
+"soothsayer": "A foreteller; a prognosticator; one who undertakes to foretell future events without inspiration.",
+"necromancer": "One who pretends to foretell future events by holding converse with departed spirits; a conjurer.",
+"wizard": "A conjurer; an enchanter; a sorcerer.",
+"witchcraft": "The practices of witches; sorcery; enchantments; intercourse with the devil.",
+"sorcery": "Magic; enchantment; witchcraft",
+"enchantment": "The act of producing certain wonderful effects by the invocation or aid of demons, or the agency of certain supposed spirits; the use of magic arts, spells or charms; incantation.",
+"communion": "Fellowship; intercourse between two persons or more; interchange of transactions, or offices; a state of giving and receiving; agreement; concord.",
+"infirmity": "An unsound or unhealthy state of the body; weakness; feebleness.",
+"bondage": "Slavery or involuntary servitude; captivity; imprisonment; restraint of a person's liberty by compulsion.",
+"heir": "One who is entitled to possess. In Scripture, saints are called heirs of the promise, heirs of righteousness, heirs of salvation, etc., by virtue of the death of Christ, or of God's gracious promises.",
+"guile": "Craft; cunning; artifice; duplicity; deceit; usually in a bad sense.",
+"variance": "Difference that produces dispute or controversy; disagreement; dissension; discord.",
+"emulations": "In a bad sense, a striving to equal or do more than others to obtain carnal favors or honors.",
+"seditions": "A factious commotion of the people, a tumultuous assembly of men rising in opposition to law or the administration of justice, and in disturbance of the public peace.",
+"revellings": "A feasting with noisy merriment; revelry.",
+"slothful": "Inactive; sluggish; lazy; indolent; idle.",
+"offering": "That which is presented in divine service; an animal or a portion of bread or corn, or of gold and silver, or other valuable articles, presented to God as an atonement for sin, or as a return of thanks for his favors, or for other religious purpose; a sacrifice; an oblation.",
+"gentiles": "In the scriptures, a pagan; a worshipper of false gods; any person not a Jew or a christian; a heathen.",
+"atonement": "In theology, the expiation of sin made by the obedience and personal sufferings of Christ.",
+"covenant": "A mutual consent or agreement of two or more persons, to do or to forbear some act or thing; a contract; stipulation.",
+"unction": "Divine or sanctifying grace."
 };
 
 /* the build wraps this in an IIFE and adds "use strict" itself */
@@ -3275,7 +3525,7 @@ function vRead(){
     h+='<button class="rsdone" data-a="readeropts">Done</button>';
     h+='</div>';
   }
-  gseen={};              /* each old word is marked once per chapter */
+  gseen=glossSeen(vs.length);   /* how often a word is marked in this chapter */
   h+='<div class="rd'+(S.page==='paper'?' paper':'')+
      (S.speaking&&!(Speech.isPaused&&Speech.isPaused())?' aloud':'')+
      (S.speaking&&Speech.isPaused&&Speech.isPaused()?' held':'')+
@@ -3444,13 +3694,17 @@ function vProfile(){
     '(public domain). Map lettering in PT Sans and PT Serif (SIL Open Font License).</p>'+
     '<p><b>Your highlights and notes</b> are stored on this device only. Nothing is uploaded. '+
     'If you open this file somewhere else, they will not follow you.</p>'+
+    '<p><b>Word meanings.</b> The plain meanings are written for this app. The big words of the faith '+
+    'also show a line from Noah Webster\u2019s <em>American Dictionary of the English Language</em> (1828), '+
+    'which is in the public domain; the lines are taken from the transcription at '+
+    'codeberg.org/cobycat/webster1828 (CC BY-SA 4.0), and the list of them is shared under the same licence.</p>'+
     '<p><b>Sources.</b> King James Bible and Josephus\u2019s <em>Antiquities</em> from Project Gutenberg; '+
     'the Apocrypha from eBible.org. All in the public domain.</p></div>';
   /* which version this is, so a report can say exactly what it was seen on */
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v100 · Oct 15 18:47';
+var APP_STAMP='v101 · Oct 16 03:38';
 
 /* ================= SEARCH ================= */
 
@@ -4202,9 +4456,15 @@ function markText(t, pat, loose){
    Old words, and the Bible's own terms, carry a faint dotted underline; a tap
    opens their meaning. The underline takes the colour of the text around it,
    so a word stays black in the early morning and white at night, and only
-   the words of Christ are ever red. Each word is marked once per chapter,
-   where it first appears, so the page stays calm. */
-var GLOSS_FORM=null, gseen={};
+   the words of Christ are ever red. An old word is marked once a chapter,
+   where it first appears. The big words of the faith (righteousness,
+   Gentiles, propitiation) are marked again further on, since that is where
+   people stumble: at most twice a chapter, three times in a chapter of more
+   than 40 verses, never twice in a verse and at least GLOSS_GAP verses
+   apart, so the page stays calm. */
+var GLOSS_FORM=null, gseen={}, GLOSS_GAP=5;
+/* what a chapter's marks are counted in: the most times a big word is marked */
+function glossSeen(nverses){ return {__cap:nverses>40?3:2}; }
 function glossIndex(){
   if(GLOSS_FORM) return GLOSS_FORM;
   GLOSS_FORM={};
@@ -4225,25 +4485,38 @@ function glossRuleOk(e, w, before, after, ref){
    and escaped characters come through exactly as they were. */
 function glossify(html, ref, seen){
   if(S.wordMeanings===false||!html) return html;
-  var idx=glossIndex();
+  var idx=glossIndex(), vn=+((/:(\d+)$/.exec(ref||'')||[0,0])[1]), cap=seen.__cap||2;
   return html.split(/(<[^>]+>)/).map(function(seg){
     if(!seg||seg.charAt(0)==='<') return seg;
     return seg.replace(/&#?[a-z0-9]+;|[A-Za-z]+/gi, function(m, off){
       if(m.charAt(0)==='&') return m;
       var w=m.toLowerCase(), i=idx[w];
       if(i===undefined) return m;
-      var e=GLOSSARY[i];
-      if(seen[e[0]]) return m;
+      var e=GLOSSARY[i], had=seen[e[0]];
+      if(had&&(e[2]!=='t'||had.n>=cap||vn-had.v<GLOSS_GAP)) return m;
       var before=seg.slice(Math.max(0,off-24),off), after=seg.slice(off+m.length,off+m.length+24);
       if(!glossRuleOk(e,w,before,after,ref)) return m;
-      seen[e[0]]=1;
-      return '<span class="gw" data-gw="'+i+'" role="button" tabindex="0">'+m+'</span>';
+      seen[e[0]]={n:had?had.n+1:1, v:vn};
+      var gs=glossSenseAt(e[0], before);
+      return '<span class="gw" data-gw="'+i+'"'+(gs>-1?' data-gs="'+gs+'"':'')+' role="button" tabindex="0">'+m+'</span>';
     });
   }).join('');
 }
 function glossLookup(word){
   var i=glossIndex()[String(word||'').trim().toLowerCase()];
   return i===undefined?null:{i:i,e:GLOSSARY[i]};
+}
+/* a sense told by the word just before this one ("burnt offering", "peace
+   offering"), where one verse names several */
+function glossSenseAt(head, before){
+  var ss=(typeof GLOSS_SENSES!=='undefined')&&GLOSS_SENSES[head];
+  if(!ss) return -1;
+  var b=String(before||'').toLowerCase(), any=false, k;
+  for(k=0;k<ss.length;k++) if(ss[k].before){ any=true; if(ss[k].before.test(b)) return k; }
+  if(!any) return -1;
+  /* none of them: the plain sense, whatever else the verse names */
+  for(k=0;k<ss.length;k++) if(ss[k].dflt) return k;
+  return 0;
 }
 /* which of a word's meanings this verse uses (GLOSS_SENSES in glossary.js);
    the same order of checks as glossary_work/checksenses.py */
@@ -4274,24 +4547,29 @@ function glossCard(e, shown, verse){
   var h='<div class="wdk">'+(e[2]==='t'?'Bible term':'Old word')+'</div>'+
     '<div class="wdh">'+esc(form?shown.toLowerCase():e[0])+'</div>'+
     (form?'<div class="wdf">a form of \u201c'+esc(e[0])+'\u201d</div>':'');
-  if(!ss) return h+'<p class="wdm">'+esc(e[3])+'</p>';
+  if(!ss) return h+'<p class="wdm">'+esc(e[3])+'</p>'+gloss1828(e);
   if(verse){
-    var pick=glossSense(e[0], verse.text, verse.ref, shown||e[0]);
+    var pick=(verse.pick!=null&&ss[verse.pick])?+verse.pick:glossSense(e[0], verse.text, verse.ref, shown||e[0]);
     h+='<div class="wdin">In this verse</div><p class="wdm">'+esc(ss[pick].m)+'</p>';
     var others=ss.filter(function(x,k){ return k!==pick; });
     if(others.length) h+='<div class="wdalt"><div class="wdin">'+(others.length===1?'Its other meaning':'Its other meanings')+'</div>'+
       others.map(function(x){ return '<div class="wdo"><p class="wdom">'+esc(x.m)+'</p><p class="wdoe">'+glossExample(x, e[0])+'</p></div>'; }).join('')+'</div>';
-    return h;
+    return h+gloss1828(e);
   }
   return h+'<ol class="wdsenses">'+ss.map(function(x){
-    return '<li><p class="wdom">'+esc(x.m)+'</p><p class="wdoe">'+glossExample(x, e[0])+'</p></li>'; }).join('')+'</ol>';
+    return '<li><p class="wdom">'+esc(x.m)+'</p><p class="wdoe">'+glossExample(x, e[0])+'</p></li>'; }).join('')+'</ol>'+gloss1828(e);
 }
-function openWordSheet(i, key, shown){
+/* the big words also carry Webster's own definition of 1828, labelled as his */
+function gloss1828(e){
+  var w=(typeof GLOSS_1828!=='undefined')&&GLOSS_1828[e[0]];
+  return w?'<div class="wd1828"><div class="wdin">Webster\u2019s 1828</div><p class="wdw">\u201c'+esc(w)+'\u201d</p></div>':'';
+}
+function openWordSheet(i, key, shown, gs){
   var e=GLOSSARY[i]; if(!e) return;
   S.sheet=null;
   var h='<div class="grabzone"><div class="grab"></div></div><div class="wdsheet">';
   var pk=key?parseKey(key):null, raw=pk?(vText(pk.b,pk.c,pk.v)||''):'';
-  h+=glossCard(e, shown, pk?{text:raw, ref:vRef(pk.b,pk.c,pk.v)}:null);
+  h+=glossCard(e, shown, pk?{text:raw, ref:vRef(pk.b,pk.c,pk.v), pick:(gs===undefined||gs===''?null:+gs)}:null);
   if(key){
     var p=pk, t=esc(raw);
     if(shown){
@@ -9733,7 +10011,7 @@ document.addEventListener('click',inPane(function(ev){
   /* --- highlighting --- */
   if(d.gw!==undefined&&d.gw!==''){
     var vhost=t.closest?t.closest('[data-vs]'):null;
-    openWordSheet(+d.gw, vhost?vhost.getAttribute('data-vs'):null, t.textContent||'');
+    openWordSheet(+d.gw, vhost?vhost.getAttribute('data-vs'):null, t.textContent||'', d.gs);
     return; }
   /* anywhere else a verse is offered (a word's card), it opens the verse card */
   if(d.vs){ closeSheet(); openPop(d.vs); return; }
