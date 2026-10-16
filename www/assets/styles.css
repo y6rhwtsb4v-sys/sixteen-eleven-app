@@ -2995,7 +2995,7 @@ html[data-theme="dark"] .pane.pg-paper .vpop,
   --ink:#EEE6DA; --ink-dark:#EEE6DA; --ink2:#BBAF9E; --ink3:#9C9184; --ink-mid:#BBAF9E;
   --line:rgba(230,210,180,.10); --blue:#E0776A; --blue-l:#2A241F;
   --wj:#F08A80; color-scheme:dark; color:var(--ink)}
-.sp-downloads{--lth1:#22324A;--lth2:#0B1220}
+.sp-downloads{--lth1:#46283F;--lth2:#1C0D18}   /* plum: no navy (see browser/nonavy.py) */
 .paywall .pwfreedl{display:block;margin:12px auto 0;font-size:14px;color:var(--blue);text-decoration:underline;
   text-underline-offset:3px;background:none;min-height:44px}
 .setver{margin:18px 2px 6px;text-align:center;font-size:12px;color:var(--ink3)}
@@ -3080,3 +3080,7 @@ html[data-theme="dark"] .pane.pg-paper[data-screen="reader"]>.top{
 /* Webster's 1828 line under the big words */
 .wd1828{margin:14px 0 2px;padding-top:6px;border-top:1px solid var(--line)}
 .wdw{font-family:var(--serif);font-style:italic;font-size:16px;line-height:1.5;color:var(--ink2);margin:4px 0 0}
+
+/* Save a study sheet as PDF, Markdown or text */
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.row3 .btn{margin:0;padding-left:6px;padding-right:6px}

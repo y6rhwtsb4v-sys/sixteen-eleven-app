@@ -1391,7 +1391,7 @@ function sheetBooks(sh){
   (sh.items||[]).forEach(function(it){ parseRefs(it.refs||'').forEach(function(r){ if(r.ok) need[r.b]=1; }); });
   return Object.keys(need).map(Number);
 }
-function sheetAsText(sh){
+function sheetAsText(sh, all){
   var out=[sh.name];
   if(sh.desc) out.push(sh.desc);
   out.push('');
@@ -1399,7 +1399,7 @@ function sheetAsText(sh){
     out.push((it.n||String(k+1))+'. '+it.q);
     parseRefs(it.refs||'').forEach(function(r){
       if(!r.ok){ out.push('   '+r.label); return; }
-      var t=rangeText(r.b, r.c, r.v1||1, r.v2||0);
+      var t=rangeText(r.b, r.c, r.v1||1, r.v2||0, all);
       out.push('   '+r.label+(t?' \u2014 \u201c'+t+'\u201d':''));
     });
     if(it.note) out.push('   Note: '+it.note);
@@ -1413,6 +1413,133 @@ function sheetFile(sh){
             sheets:[JSON.parse(JSON.stringify(sh))]};
   var name='study-sheet-'+String(sh.name||'sheet').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)+'.json';
   return {name:name, blob:new Blob([JSON.stringify(data,null,1)],{type:'application/json'})};
+}
+/* ---------- a study sheet as a file: Markdown, plain text or PDF ----------
+   The PDF is written here, with no library: Times in its three faces (one of
+   the fonts every PDF reader has, so nothing is embedded), set on Letter
+   pages with the verses written out in full and the page numbers at the
+   foot. Widths are Adobe's own for Times, so the lines wrap where they
+   should. Characters outside the Windows Latin set become "?". */
+var PDFW={r:[250,333,408,500,500,833,778,180,333,333,500,564,250,333,250,278,500,500,500,500,500,500,500,500,500,500,278,278,564,564,564,444,921,722,667,667,722,611,556,722,722,333,389,722,611,889,722,722,556,722,667,556,611,722,722,944,722,722,611,333,278,333,469,500,333,444,500,444,500,444,333,500,500,278,278,500,278,778,500,500,500,500,333,389,278,500,500,722,500,500,444,480,200,480,541,350,500,350,333,500,444,1000,500,500,333,1000,556,333,889,350,611,350,350,333,333,444,444,350,500,1000,333,980,389,333,722,350,444,722,250,333,500,500,500,500,200,500,333,760,276,500,564,333,760,333,400,564,300,300,333,500,453,250,333,300,310,500,750,750,750,444,722,722,722,722,722,722,889,667,611,611,611,611,333,333,333,333,722,722,722,722,722,722,722,564,722,722,722,722,722,722,556,500,444,444,444,444,444,444,667,444,444,444,444,444,278,278,278,278,500,500,500,500,500,500,500,564,500,500,500,500,500,500,500,500],
+  b:[250,333,555,500,500,1000,833,278,333,333,500,570,250,333,250,278,500,500,500,500,500,500,500,500,500,500,333,333,570,570,570,500,930,722,667,722,722,667,611,778,778,389,500,778,667,944,722,778,611,778,722,556,667,722,722,1000,722,722,667,333,278,333,581,500,333,500,556,444,556,444,333,500,556,278,333,556,278,833,556,500,556,556,444,389,333,556,500,722,500,500,444,394,220,394,520,350,500,350,333,500,500,1000,500,500,333,1000,556,333,1000,350,667,350,350,333,333,500,500,350,500,1000,333,1000,389,333,722,350,444,722,250,333,500,500,500,500,220,500,333,747,300,500,570,333,747,333,400,570,300,300,333,556,540,250,333,300,330,500,750,750,750,500,722,722,722,722,722,722,1000,722,667,667,667,667,389,389,389,389,722,722,778,778,778,778,778,570,778,722,722,722,722,722,611,556,500,500,500,500,500,500,722,444,444,444,444,444,278,278,278,278,500,556,500,500,500,500,500,570,500,556,556,556,556,500,556,500],
+  i:[250,333,420,500,500,833,778,214,333,333,500,675,250,333,250,278,500,500,500,500,500,500,500,500,500,500,333,333,675,675,675,500,920,611,611,667,722,611,611,722,722,333,444,667,556,833,667,722,611,722,611,500,556,722,611,833,611,556,556,389,278,389,422,500,333,500,500,444,500,444,278,500,500,278,278,444,278,722,500,500,500,500,389,389,278,500,444,667,444,444,389,400,275,400,541,350,500,350,333,500,556,889,500,500,333,1000,500,333,944,350,556,350,350,333,333,556,556,350,500,889,333,980,389,333,667,350,389,556,250,389,500,500,500,500,275,500,333,760,276,500,675,333,760,333,400,675,300,300,333,500,523,250,333,300,310,500,750,750,750,500,611,611,611,611,611,611,889,667,611,611,611,611,333,333,333,333,722,667,722,722,722,722,722,675,722,722,722,722,722,556,611,500,500,500,500,500,500,500,667,444,444,444,444,444,278,278,278,278,500,500,500,500,500,500,500,675,500,500,500,500,500,444,500,444]};
+var PDF_MAP={8364: 128, 8218: 130, 402: 131, 8222: 132, 8230: 133, 8224: 134, 8225: 135, 710: 136, 8240: 137, 352: 138, 8249: 139, 338: 140, 381: 142, 8216: 145, 8217: 146, 8220: 147, 8221: 148, 8226: 149, 8211: 150, 8212: 151, 732: 152, 8482: 153, 353: 154, 8250: 155, 339: 156, 382: 158, 376: 159};
+function pdfCode(u){
+  if((u>=32&&u<127)||(u>=160&&u<256)) return u;
+  if(u===0x2009||u===0x200a||u===0x202f) return 32;
+  return PDF_MAP[u]||63;
+}
+function pdfWidth(s, f, size){
+  var w=0; for(var i=0;i<s.length;i++) w+=PDFW[f][pdfCode(s.charCodeAt(i))-32]||500;
+  return w*size/1000;
+}
+function pdfWrap(s, f, size, max){
+  var out=[], line='';
+  String(s).split(/\s+/).forEach(function(word){
+    if(!word) return;
+    var t=line?line+' '+word:word;
+    if(pdfWidth(t,f,size)<=max){ line=t; return; }
+    if(line) out.push(line);
+    while(pdfWidth(word,f,size)>max){         /* a word longer than the line */
+      var k=word.length; while(k>1&&pdfWidth(word.slice(0,k),f,size)>max) k--;
+      out.push(word.slice(0,k)); word=word.slice(k);
+    }
+    line=word;
+  });
+  if(line) out.push(line);
+  return out.length?out:[''];
+}
+function pdfStr(s){
+  var o='(';
+  for(var i=0;i<s.length;i++){
+    var c=pdfCode(s.charCodeAt(i));
+    if(c===40||c===41||c===92) o+='\\'+String.fromCharCode(c);
+    else if(c>126) o+='\\'+('00'+c.toString(8)).slice(-3);
+    else o+=String.fromCharCode(c);
+  }
+  return o+')';
+}
+/* blocks: {t:text, f:'r'|'b'|'i', s:size, gap:space above, ind:indent} */
+function makePdf(blocks, title){
+  var PW=612, PH=792, M=60, pages=[], cur=null, y=0;
+  function page(){ cur=[]; pages.push(cur); y=PH-M; }
+  page();
+  blocks.forEach(function(b){
+    var lh=b.s*1.38, ind=b.ind||0, lines=pdfWrap(b.t, b.f, b.s, PW-2*M-ind);
+    y-=(b.gap||0);
+    lines.forEach(function(l){
+      if(y-lh<M){ page(); }
+      y-=lh;
+      cur.push('BT /F'+b.f+' '+b.s+' Tf '+(M+ind).toFixed(1)+' '+(y+lh*0.25).toFixed(1)+' Td '+pdfStr(l)+' Tj ET');
+    });
+  });
+  var objs=[], n=pages.length;
+  objs[1]='<< /Type /Catalog /Pages 2 0 R >>';
+  var kids=[]; for(var i=0;i<n;i++) kids.push((7+2*i)+' 0 R');
+  objs[2]='<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+n+' >>';
+  objs[3]='<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>';
+  objs[4]='<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold /Encoding /WinAnsiEncoding >>';
+  objs[5]='<< /Type /Font /Subtype /Type1 /BaseFont /Times-Italic /Encoding /WinAnsiEncoding >>';
+  objs[6]='<< /Title '+pdfStr(title||'Study sheet')+' /Producer (Sixteen Eleven) >>';
+  pages.forEach(function(ops, k){
+    var foot='BT /Fr 9 Tf '+((PW-pdfWidth(String(k+1),'r',9))/2).toFixed(1)+' 34 Td '+pdfStr(String(k+1))+' Tj ET';
+    var body=ops.concat([foot]).join('\n');
+    objs[7+2*k]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+PW+' '+PH+'] /Resources << /Font << /Fr 3 0 R /Fb 4 0 R /Fi 5 0 R >> >> /Contents '+(8+2*k)+' 0 R >>';
+    objs[8+2*k]='<< /Length '+body.length+' >>\nstream\n'+body+'\nendstream';
+  });
+  var out='%PDF-1.4\n', offs=[];
+  for(var j=1;j<objs.length;j++){ offs[j]=out.length; out+=j+' 0 obj\n'+objs[j]+'\nendobj\n'; }
+  var xref=out.length;
+  out+='xref\n0 '+objs.length+'\n0000000000 65535 f \n';
+  for(j=1;j<objs.length;j++) out+=('000000000'+offs[j]).slice(-10)+' 00000 n \n';
+  out+='trailer\n<< /Size '+objs.length+' /Root 1 0 R /Info 6 0 R >>\nstartxref\n'+xref+'\n%%EOF\n';
+  return new Blob([out],{type:'application/pdf'});
+}
+/* the sheet once, for all three files: the question, each passage with its
+   verses written out, the note */
+function sheetParts(sh){
+  return {name:sh.name||'Study sheet', desc:sh.desc||'', items:(sh.items||[]).map(function(it,k){
+    return {n:it.n||String(k+1), q:it.q||'', note:it.note||'', refs:parseRefs(it.refs||'').map(function(r){
+      return {label:r.label, text:r.ok?rangeText(r.b, r.c, r.v1||1, r.v2||0, true):''}; })};
+  })};
+}
+function sheetAsMarkdown(sh){
+  var p=sheetParts(sh), out=['# '+p.name];
+  if(p.desc) out.push('', '*'+p.desc+'*');
+  p.items.forEach(function(it){
+    out.push('', '## '+it.n+'. '+it.q);
+    it.refs.forEach(function(r){ out.push('', '> **'+r.label+'**'+(r.text?' \u2014 '+r.text:'')); });
+    if(it.note) out.push('', '*Note:* '+it.note);
+  });
+  out.push('', '---', '', 'King James Version. Made with Sixteen Eleven.', '');
+  return out.join('\n');
+}
+function sheetAsPdf(sh){
+  var p=sheetParts(sh), bl=[{t:p.name, f:'b', s:22}];
+  if(p.desc) bl.push({t:p.desc, f:'i', s:12.5, gap:4});
+  p.items.forEach(function(it){
+    bl.push({t:it.n+'. '+it.q, f:'b', s:14, gap:18});
+    it.refs.forEach(function(r){
+      bl.push({t:r.label, f:'b', s:11, gap:7, ind:14});
+      if(r.text) bl.push({t:r.text, f:'r', s:11.5, ind:14});
+    });
+    if(it.note) bl.push({t:'Note: '+it.note, f:'i', s:11, gap:7, ind:14});
+  });
+  bl.push({t:'King James Version. Made with Sixteen Eleven.', f:'i', s:9.5, gap:24});
+  return makePdf(bl, p.name);
+}
+function sheetSlug(sh){
+  return 'study-sheet-'+(String(sh.name||'sheet').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'sheet');
+}
+/* Save as: a browser downloads it; the store apps hand it to the share sheet
+   (Save to Files, Mail, Print and the rest) */
+function saveSheetAs(sh, kind){
+  return sheetReady(sh).then(function(){
+    var name=sheetSlug(sh)+'.'+kind, blob;
+    if(kind==='pdf') blob=sheetAsPdf(sh);
+    else blob=new Blob([kind==='md'?sheetAsMarkdown(sh):sheetAsText(sh, true)+'\n'],{type:kind==='md'?'text/markdown':'text/plain'});
+    return saveFile(name, blob).then(function(r){ return r&&r.ok?(r.shared===false?'':payNative()?'shared':'savedas'):'failed'; });
+  });
 }
 /* the verses must be loaded to be written out */
 function sheetReady(sh){
@@ -1452,7 +1579,7 @@ function shareSheetFile(sh){
   }
   try{ saveFile(f.name, f.blob); return Promise.resolve('saved'); }catch(e){ return Promise.resolve('failed'); }
 }
-var SHEET_SAY={shared:'', copied:'Copied. Paste it into a message or email.', saved:'Saved. Send the file to someone with Sixteen Eleven; they tap Add a shared sheet in Study.',
+var SHEET_SAY={shared:'', savedas:'Saved to your downloads.', copied:'Copied. Paste it into a message or email.', saved:'Saved. Send the file to someone with Sixteen Eleven; they tap Add a shared sheet in Study.',
   failed:'That did not work on this device.'};
 /* a shared sheet arriving: the same merge a backup uses, sheets only */
 function importSheetFile(file){
@@ -2880,10 +3007,11 @@ function vLibrary(){
      a long scroll past Revelation: the Apocrypha, the Atlas, Word study, the
      Tracker, then the reader's own books. */
   if(S.cat==='all'||S.cat==='apoc') h+=apocCover();
+  /* the narration kept on this phone sits up front, where it is seen */
+  if(S.cat==='all'||S.cat==='mine') h+=downloadsCover();
   if(S.cat==='all'||S.cat==='atlas') h+=atlasCover();
   if(S.cat==='all'||S.cat==='words') h+=wordsCover();
   if(S.cat==='all'||S.cat==='tracker') h+=trackerCover();
-  if(S.cat==='all') h+=downloadsCover();
   if(S.cat==='all'||S.cat==='mine') h+=S.shelf.map(docCover).join('');
   h+=list.map(function(bk){ return coverHTML(bk); }).join('');
   h+='</div>';
@@ -3704,7 +3832,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v101 · Oct 16 03:38';
+var APP_STAMP='v102 · Oct 16 04:19';
 
 /* ================= SEARCH ================= */
 
@@ -4720,11 +4848,13 @@ function popMoreHTML(key, p, mine){
 /* what a typed reference resolves to: the verse (or the first and last of a
    range) in full, or a word on why it does not resolve yet */
 /* the words of a verse, or of a short run of verses, numbered when more than one */
-function rangeText(b,c,v1,v2){
+/* a passage's verses; past twelve it stops at "…", unless all are wanted
+   (a study sheet saved as a file) */
+function rangeText(b,c,v1,v2,all){
   if(!v2||v2<=v1) return vText(b,c,v1)||'';
-  var t=[];
-  for(var v=v1;v<=v2&&v<v1+12;v++){ var x=vText(b,c,v); if(x) t.push(v+' '+x); }
-  if(v2>=v1+12) t.push('\u2026');
+  var t=[], cap=all?1e4:12;
+  for(var v=v1;v<=v2&&v<v1+cap;v++){ var x=vText(b,c,v); if(x) t.push(v+' '+x); }
+  if(v2>=v1+cap) t.push('\u2026');
   return t.join(' ');
 }
 function refPreviewHTML(raw){
@@ -5309,7 +5439,13 @@ function vSheetDetail(){
      '<button class="btn sec" data-a="sheetsharetext">As text</button>'+
      '<button class="btn sec" data-a="sheetsharefile">As a Sixteen Eleven file</button></div>'+
      '<p class="vnote" style="margin:8px 2px 0">Text reads anywhere, every verse written out. The file adds the whole sheet '+
-     'to another reader\u2019s Study.</p>';
+     'to another reader\u2019s Study.</p>'+
+     '<div class="lab sgroup" style="margin-top:18px">Save as a file</div><div class="row3">'+
+     '<button class="btn sec" data-a="sheetsave" data-kind="pdf">PDF</button>'+
+     '<button class="btn sec" data-a="sheetsave" data-kind="md">Markdown</button>'+
+     '<button class="btn sec" data-a="sheetsave" data-kind="txt">Text</button></div>'+
+     '<p class="vnote" style="margin:8px 2px 0">Every verse written out in full: a PDF to print or keep, Markdown for notes apps, '+
+     'plain text for anywhere.</p>';
   h+='<div style="height:14px"></div><button class="btn gh" data-a="delsheet">Delete this sheet</button>';
   return h;
 }
@@ -7643,6 +7779,8 @@ function audInit(){
     AUD.dir=(r&&r.uri)||null; if(!AUD.dir) return;
     if(!/\/$/.test(AUD.dir)) AUD.dir+='/';
     AUD.on=true;
+    /* the shelf may already be drawn: show the Downloads board's real state */
+    if(S.tab==='library'&&S.book===null&&S.reading===null&&!AUD.sheet){ S.keepScroll=true; try{ render(); }catch(e){} }
     return Promise.all([Store.get('strata:dlhave'),Store.get('strata:dlwant'),Store.get('strata:dloffered')]);
   }).then(function(v){
     if(!v) return;
@@ -8366,11 +8504,15 @@ function lexSuggest(q){
   return list.concat(other.filter(function(w){ return w!==q; }).slice(0,Math.max(10,24-list.length)));
 }
 /* Downloads: the narrated books kept on this phone for listening offline.
-   Only in the store apps (the website streams and cannot keep files). With
-   the narration owned it opens the download manager; without it, the
-   "Listen offline" paywall, which also offers the two free books. */
+   Always on the shelf. In the store apps, with the narration owned it opens
+   the download manager; without it, the "Listen offline" paywall, which also
+   offers the two free books. The website streams and cannot keep files, so
+   there it says where downloads are. It used to show only once the app's
+   audio folder had answered, and as that answer comes after the first
+   drawing of the shelf, it could be missing until something redrew it. */
 function downloadsCover(){
-  if(!AUD.on) return '';
+  if(!AUD.on) return specialCover({kind:'downloads', attr:'data-a="dlshelf"', title:'Downloads',
+    label:'Downloads: narration kept on this phone', caption:'Listen offline', emblem:EMBLEM.download});
   var books=audNarratedBooks(), full=0;
   books.forEach(function(n){ var st=audBookState(n); if(st.total&&st.have===st.total) full++; });
   var busy=AUD.queue.length||AUD.active;
@@ -8379,8 +8521,24 @@ function downloadsCover(){
     caption:busy?audProgressText():full?full+' of '+books.length+' kept':'Listen offline', emblem:EMBLEM.download});
 }
 function openDownloads(){
+  if(!AUD.on) return openDownloadsInfo();
   if(hasAudio()) openAudioSheet();
   else openPaywall('downloads');
+}
+/* where there is nowhere to keep files: the website, or the app before its
+   audio folder is ready */
+function openDownloadsInfo(){
+  if(!sheet) return;
+  S.sheet=null; closePop&&closePop();
+  var nat=payNative();
+  sheet.innerHTML='<div class="grabzone"><div class="grab"></div></div><div class="dlsheet" role="dialog" aria-label="Downloads">'+
+    '<div class="pwhead"><div class="pwkick">Listen anywhere</div><h2>Downloads</h2>'+
+    (nat?'<p>Getting the narration folder ready on this phone. Try again in a moment.</p>'
+        :'<p>Keeping the narration on your phone, to listen with no connection, is in the Sixteen Eleven app for iPhone and Android. '+
+         'Here on the web the narration plays as it streams.</p>')+'</div>'+
+    '<button class="btn dlwide" data-a="dlclose">'+(nat?'OK':'Got it')+'</button></div>';
+  placeOverlays(); sheet.classList.add('on'); scrim.classList.add('on'); initSheetDrag();
+  if(nat&&!AUD.dir) try{ audInit(); }catch(e){}
 }
 function wordsCover(){
   return specialCover({kind:'words', attr:'data-a="openwords"', title:'Word study',
@@ -9973,6 +10131,11 @@ document.addEventListener('click',inPane(function(ev){
     S.sheetMsg='One moment\u2026'; S.keepScroll=true; render();
     (d.a==='sheetsharetext'?shareSheetText(shs):shareSheetFile(shs)).then(function(r){
       S.sheetMsg=SHEET_SAY[r]||''; S.keepScroll=true; render(); });
+    return; }
+  if(d.a==='sheetsave'&&d.kind){
+    var shv=findSheet(S.sheet); if(!shv) return;
+    S.sheetMsg='One moment\u2026'; S.keepScroll=true; render();
+    saveSheetAs(shv, d.kind).then(function(r){ S.sheetMsg=SHEET_SAY[r]||''; S.keepScroll=true; render(); });
     return; }
   if(d.a==='sheetimport'){ var sf=document.getElementById('sheetfile'); if(sf) sf.click(); return; }
   if(d.a==='dlfree'){ PAY.from=null; PAY.open=null; openAudioSheet(); return; }
