@@ -3035,3 +3035,44 @@ html[data-theme="dark"] .pane.pg-paper .vpop,
   box-shadow:0 1px 0 rgba(60,40,22,.10),0 4px 10px -2px rgba(60,40,22,.20)}
 html[data-theme="dark"] .pane.pg-paper[data-screen="reader"]>.top{
   box-shadow:0 1px 0 rgba(0,0,0,.6),0 5px 12px -2px rgba(0,0,0,.45)}
+
+/* ---------- your own books: the document reader ---------- */
+.docv .dochead h2{margin:6px 0 2px;font-family:var(--serif);font-size:24px;font-weight:500;line-height:1.2}
+.docv .docsub{font-size:13px;color:var(--ink3);margin-bottom:12px}
+.doctools{position:-webkit-sticky;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:6px;padding:8px 0;
+  background:var(--bg);border-bottom:1px solid var(--line);margin-bottom:12px}
+.doctools .docpg{flex:1;font-size:13px;color:var(--ink2)}
+.doctools button{min-width:44px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card);
+  color:var(--ink);font-size:15px;font-weight:600}
+.doctools button[disabled]{opacity:.4}
+.doctools .docbtn{padding:0 14px}
+.docpages{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.docpage{position:relative;margin:0 auto 14px;background:#fff;border-radius:3px;
+  box-shadow:0 1px 3px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.10)}
+.docpage canvas{display:block;width:100%;height:100%;border-radius:3px}
+.docpage .docpn{position:absolute;top:0;right:0;bottom:0;left:0;display:grid;place-items:center;font-size:13px;color:#9a9086}
+.docpage canvas + .docpn{display:none}
+.docpage .docpn:has(+ canvas){display:none}
+[data-theme="dark"] .docpage{box-shadow:0 1px 3px rgba(0,0,0,.6),0 6px 18px rgba(0,0,0,.4)}
+.docbody{font-family:var(--serif);font-size:var(--rdsize,19px);line-height:1.62;color:var(--ink);overflow-wrap:break-word}
+.docbody p{margin:0 0 .85em}
+.docbody h1,.docbody h2,.docbody h3,.docbody h4{font-family:var(--serif);font-weight:500;line-height:1.25;margin:1.2em 0 .5em}
+.docbody h1{font-size:1.5em}.docbody h2{font-size:1.3em}.docbody h3{font-size:1.15em}
+.docbody img{display:block;max-width:100%;height:auto;margin:1em auto;border-radius:4px}
+.docbody blockquote{margin:1em 0;padding-left:1em;border-left:3px solid var(--line);color:var(--ink2)}
+.docbody table{border-collapse:collapse;max-width:100%;display:block;overflow-x:auto;font-size:.85em}
+.docbody td,.docbody th{border:1px solid var(--line);padding:4px 8px}
+.docbody hr{border:0;border-top:1px solid var(--line);margin:1.5em 0}
+.doctext p{white-space:pre-wrap}
+.docmore{text-align:center;color:var(--ink3);font-size:13px;padding:20px 0}
+.docnav{display:flex;justify-content:space-between;gap:10px;margin:22px 0 10px}
+.docnav .btn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.doctoc{list-style:none;margin:0 0 14px;padding:0;border:1px solid var(--line);border-radius:12px;max-height:50vh;overflow:auto;background:var(--card)}
+.doctoc li+li{border-top:1px solid var(--line)}
+.doctoc button{display:block;width:100%;text-align:left;padding:12px 14px;font-size:15px;color:var(--ink);background:none;min-height:44px}
+.doctoc button.on{color:var(--blue);font-weight:600}
+/* a book of your own on the shelf: a plain bound cover with its format */
+.cover.docbook{background:linear-gradient(160deg,var(--a),var(--b))}
+.cover.docbook .docfmt{position:absolute;top:10px;right:10px;z-index:2;padding:2px 7px;border-radius:5px;font-size:12px;
+  font-weight:700;letter-spacing:.06em;color:#F3E6C8;border:1px solid rgba(243,230,200,.5)}
+.cover.docbook .ct{color:#F3E6C8}
