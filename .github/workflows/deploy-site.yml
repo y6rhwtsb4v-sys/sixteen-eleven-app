@@ -24,11 +24,23 @@ jobs:
         run: |
           [ -n "$T" ] || { echo "::error title=Missing secret::Add CLOUDFLARE_API_TOKEN in Settings > Secrets and variables > Actions"; exit 1; }
           [ -n "$A" ] || { echo "::error title=Missing secret::Add CLOUDFLARE_ACCOUNT_ID in Settings > Secrets and variables > Actions"; exit 1; }
-      - uses: cloudflare/wrangler-action@v3
+      - uses: actions/setup-node@v4
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+          node-version: 22
+      - name: Deploy with Wrangler
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          npx --yes wrangler@4 deploy 2>&1 | tee wrangler.log
+      # the run's log cannot be read through the API, but annotations can
+      - name: Report why Wrangler failed
+        if: failure()
+        run: |
+          grep -iE "error|✘|failed|authentication|permission|not found|code: " wrangler.log | tail -20 > why.txt || true
+          [ -s why.txt ] || tail -20 wrangler.log > why.txt
+          printf '::error title=wrangler::%s\n' "$(sed 's/%/%25/g' why.txt | awk '{printf "%s%%0A", $0}')"
       - name: Check the pages are live
         run: |
           sleep 10
