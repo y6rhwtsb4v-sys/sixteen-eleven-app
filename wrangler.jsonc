@@ -1,0 +1,10 @@
+// The website, app.sixteeneleven.bible: an assets-only Worker serving www/
+// (the same build the store apps carry). Deployed by
+// .github/workflows/deploy-site.yml, or by hand with `npx wrangler deploy`.
+{
+  "name": "raspy-snow-43d6",
+  "compatibility_date": "2026-09-21",
+  "assets": {
+    "directory": "./www"
+  }
+}

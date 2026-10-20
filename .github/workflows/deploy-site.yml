@@ -1,0 +1,41 @@
+# Puts the website (www/) live at app.sixteeneleven.bible with Wrangler.
+# The Cloudflare dashboard refuses an upload this size, so it goes this way.
+# Runs on every push to main that changes www/ or this file, or by hand from
+# the Actions tab. Needs two repository secrets:
+#   CLOUDFLARE_API_TOKEN   a token from the "Edit Cloudflare Workers" template
+#   CLOUDFLARE_ACCOUNT_ID  the Account ID from the Workers & Pages overview
+name: Deploy website
+on:
+  workflow_dispatch:
+  push:
+    branches: ['main']
+    paths: ['www/**', 'wrangler.jsonc', '.github/workflows/deploy-site.yml']
+concurrency: deploy-site
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the secrets are there
+        env:
+          T: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          A: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          [ -n "$T" ] || { echo "::error title=Missing secret::Add CLOUDFLARE_API_TOKEN in Settings > Secrets and variables > Actions"; exit 1; }
+          [ -n "$A" ] || { echo "::error title=Missing secret::Add CLOUDFLARE_ACCOUNT_ID in Settings > Secrets and variables > Actions"; exit 1; }
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+      - name: Check the pages are live
+        run: |
+          sleep 10
+          for p in / /privacy /support; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -L "https://app.sixteeneleven.bible$p")
+            echo "$p $code"; [ "$code" = 200 ] || echo "::warning title=Not live yet::$p answered $code"
+          done
+          curl -sL https://app.sixteeneleven.bible/privacy | grep -q 'scribe@sixteeneleven.bible' \
+            && echo "::notice title=Website::privacy and support pages are live" \
+            || echo "::warning title=Website::the privacy page does not show the contact email yet"
