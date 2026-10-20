@@ -60,7 +60,19 @@ jobs:
           echo "Tester build $BUILD_NUMBER: all features unlocked" >> "$GITHUB_STEP_SUMMARY"
       - run: bash scripts/prepare.sh ios
       - run: gem install fastlane --no-document || sudo gem install fastlane --no-document
-      - run: fastlane ios beta
+      - name: Run fastlane ios beta
+        run: |
+          set -o pipefail
+          fastlane ios beta 2>&1 | tee fastlane.log
+      # the run's own log cannot be read through the API, but annotations can:
+      # on failure, the last lines of fastlane's output go into one
+      - name: Report why fastlane failed
+        if: failure()
+        run: |
+          xcodebuild -version | tr '\n' ' ' | sed 's/^/::warning title=Xcode::/'; echo
+          grep -iE "error|failed|❌|\[!\]" fastlane.log | tail -25 > why.txt || true
+          [ -s why.txt ] || tail -25 fastlane.log > why.txt
+          printf '::error title=fastlane::%s\n' "$(sed 's/%/%25/g' why.txt | awk '{printf "%s%%0A", $0}')"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
