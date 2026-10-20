@@ -1178,14 +1178,18 @@ function watchBack(){
     if(!v||!v.addEventListener||v.__back) return;
     v.__back=1;
     var pane=v.parentNode;
-    v.addEventListener('scroll',function(){ updateBackFloat(pane, v); },{passive:true});
+    /* once a frame at most: it reads the bar's height, which is a layout */
+    var queued=0;
+    v.addEventListener('scroll',function(){ if(queued) return; queued=1;
+      (window.requestAnimationFrame||setTimeout)(function(){ queued=0; updateBackFloat(pane, v); }); },{passive:true});
   });
 }
 function watchScroll(){
   watchBack();
   if(S.scrollWatched) return;
   S.scrollWatched=1;
-  var tick=function(){ showTopBtn(scrolled()>420); };
+  var q=0, tick=function(){ if(q) return; q=1;
+    (window.requestAnimationFrame||setTimeout)(function(){ q=0; showTopBtn(scrolled()>420); }); };
   try{ view.addEventListener('scroll',tick,{passive:true}); }catch(e){}
   try{ window.addEventListener('scroll',tick,{passive:true}); }catch(e){}
 }
@@ -3059,7 +3063,7 @@ function coverHTML(bk, _x, force){
           '<span class="cscrim"></span>'
         : '<span class="cmark"><svg viewBox="0 0 100 100">'+motif+'</svg></span>')+
       '<span class="ctool"></span>'+
-      '<span class="cbody"><span class="ct">'+esc(bk.name)+'</span></span>'+
+      '<span class="cbody"><span class="ct'+(String(bk.name).split(' ').some(function(w){ return w.length>=11; })?' ctlong':'')+'">'+esc(bk.name)+'</span></span>'+
       (started?'<span class="ribbon" aria-hidden="true"></span>':'')+
     '</button>'+
     '<span class="cn">'+esc(apoc?bk.sub:(pr&&pr.done>0&&pr.done<pr.total
@@ -4144,7 +4148,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v103 · Oct 16 14:56';
+var APP_STAMP='v104 · Oct 20 11:46';
 
 /* ================= SEARCH ================= */
 
@@ -7040,13 +7044,23 @@ function startAutoScroll(){
       if(prev===null){ prev=t; at=el.scrollTop; job.id=requestAnimationFrame(frame); return; }
       var dt=Math.min(0.1,(t-prev)/1000); prev=t;
       try{
-        if(Math.abs(el.scrollTop-at)>2) at=el.scrollTop;
+        /* whole pixels go to the scroll position; the fraction left over is
+           a transform on the text, which the phone draws between pixels, so
+           even the slowest speed glides instead of stepping */
+        var base=Math.floor(at);
+        if(Math.abs(el.scrollTop-base)>2){ at=el.scrollTop; base=at; }
         var max=el.scrollHeight-el.clientHeight;
+        var rd=el.querySelector('.rd');
         if(at>=max-0.5){
           /* at the end of the chapter, roll into the next one */
+          if(rd) rd.style.transform='';
           if(!turnPage(1)){ stopAutoScroll(); return; }
           el.scrollTop=0; at=0;
-        } else { at=Math.min(max, at+px*dt); el.scrollTop=at; }
+        } else {
+          at=Math.min(max, at+px*dt); base=Math.floor(at);
+          if(el.scrollTop!==base) el.scrollTop=base;
+          if(rd){ rd.style.willChange='transform'; rd.style.transform='translate3d(0,'+(-(at-base)).toFixed(3)+'px,0)'; }
+        }
       }catch(e){ stopAutoScroll(); return; }
       job.id=requestAnimationFrame(frame);
     };
@@ -7079,6 +7093,7 @@ function stopAutoScroll(){
   if(j.raf){ j.on=false; try{ cancelAnimationFrame(j.id); }catch(e){} }
   else clearInterval(j);
   S.scrollTimer=null;
+  try{ [].forEach.call(document.querySelectorAll('.rd'), function(r){ r.style.transform=''; r.style.willChange=''; }); }catch(e){}
 }
 
 

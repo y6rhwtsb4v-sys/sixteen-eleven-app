@@ -1871,6 +1871,11 @@ body[data-x] .pane:not([data-screen="reader"])>.pv{background:var(--bg)}
   text-shadow:0 1px 2px rgba(0,0,0,.6)}
 .libwrap .cover:not(.hasart) .cbody{top:50%;bottom:auto;transform:translateY(-50%)}
 .libwrap .cover:not(.hasart) .ct{font-size:15px}
+/* the Bible's own covers: the title set flush left inside the painted frame,
+   wrapping onto a second line rather than running past it */
+.libwrap .cover.hasart:not(.special) .cbody{left:17px;right:12px;width:auto;text-align:left}
+.libwrap .cover.hasart:not(.special) .ct{white-space:normal;overflow-wrap:normal;line-height:1.12}
+.libwrap .cover.hasart:not(.special) .ct.ctlong{font-size:12px;letter-spacing:.02em}
 .ribbon{position:absolute;right:14px;bottom:-7px;width:7px;height:22px;z-index:4;
   background:var(--blue2);-webkit-clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%);clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%)}
 .libwrap .cover{overflow:visible}
@@ -3131,3 +3136,27 @@ html[data-theme="dark"] .pane.pg-paper[data-screen="reader"]>.top{
 .todaystrip .tst{grid-area:t;font-family:var(--disp);font-size:16px;font-weight:700;color:var(--ink);margin-top:2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .todaystrip .tsn{grid-area:n;font-size:14px;font-weight:700;color:var(--ink2)}
 .todaystrip.met .tsn{color:var(--gold);font-size:18px}
+
+/* ---------- smooth scrolling in the reader ----------
+   The fades under the bar and round the verse read aloud were masks on the
+   scrolling page itself. On iPhone a mask on a scroller takes scrolling off
+   the fast path: the whole page is repainted on every frame, and it stutters,
+   most of all with the old words glowing. The fades are now painted over the
+   page instead, in the page's own colour, and the page scrolls untouched. */
+.pane[data-screen="reader"]>.pv,
+body.focusing .pane[data-screen="reader"]>.pv,
+.pane.pg-paper[data-screen="reader"]>.pv{-webkit-mask-image:none!important;mask-image:none!important}
+.pane[data-screen="reader"]>.top::after{content:'';position:absolute;left:0;right:0;top:100%;height:9px;
+  background:linear-gradient(to bottom,var(--bg),rgba(0,0,0,0));pointer-events:none;z-index:1}
+.pane.pg-paper[data-screen="reader"]>.top::after{display:none}
+body.immersive .pane[data-screen="reader"]>.top::after{display:none}
+/* reading aloud: the window round the verse. The bar's own fade grows to
+   the top of the window; the foot of the page fades from below. (The pane's
+   ::before is the notch strip, so it is left alone.) */
+body.focusing .pane[data-screen="reader"]>.top::after,
+body.focusing .pane.pg-paper[data-screen="reader"]>.top::after{display:block;height:20vh;
+  background:linear-gradient(to bottom,var(--bg) 0%,rgba(0,0,0,0) 100%)}
+body.focusing .pane[data-screen="reader"]::after{content:'';position:absolute;left:0;right:0;pointer-events:none;z-index:20;
+  bottom:0;height:34%;
+  background:linear-gradient(to top,var(--bg) 0%,var(--bg) 24%,rgba(0,0,0,0) 100%)}
+.pane[data-screen="reader"]>.pv{overscroll-behavior-y:contain}
