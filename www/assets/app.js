@@ -1874,6 +1874,9 @@ function loadAll(cb){
     return Store.get('strata:goal');
   }).then(function(g){
     try{ goalLoad(g); }catch(e){}
+    return Store.get('strata:notepark');
+  }).then(function(np){
+    if(np&&typeof np==='object'&&Date.now()-(+np.at||0)<7*864e5) NOTEPARK=np;
     return Promise.all([Store.get('strata:sync'), Store.get('strata:syncbase')]);
   }).then(function(sy){
     try{ syncLoad(sy[0], sy[1]); }catch(e){}
@@ -2920,9 +2923,67 @@ function leaveReading(){
   if(LAYOUT==='split'&&S.reading===null) return;
   stopSpeaking();
 }
+/* ---------- notes keep their place ----------
+   Leaving Notes for the Bible (or anywhere) used to close the note being
+   written and drop you at the top of the list. Now the note is saved and
+   parked: where the cursor was, whether you were typing, how far down the
+   page you were. Coming back to Notes opens it again just so, with the
+   keyboard up if it was. The list keeps its scroll the same way. Kept in
+   storage too, so it survives the app being closed in the background. */
+var NOTEPARK=null;
+function noteParkSave(){ Store.set('strata:notepark', NOTEPARK); }
+function noteParkLeave(){
+  var y=0; try{ y=scrolled(); }catch(e){}
+  if(S.editing){
+    var nb=document.getElementById('nbody'), nt=document.getElementById('ntitle');
+    if(nb) S.editing.body=nb.value;
+    if(nt) S.editing.title=nt.value;
+    var saved=commitNote(S.editing);
+    var act=document.activeElement, was=S.leftFocus||''; S.leftFocus='';
+    if(was==='nbody') act=nb; else if(was==='ntitle') act=nt;
+    var typing=!!(act&&((nb&&act===nb)||(nt&&act===nt)));
+    /* the keyboard is put away before the tab bar can be tapped, so typing
+       a moment ago counts as typing */
+    if(!typing&&S.noteBlurAt&&Date.now()-S.noteBlurAt<20000){ typing=true; act=(S.noteBlurField==='title')?nt:nb; }
+    NOTEPARK={id:(saved&&saved.id)||S.editing.id||null, draft:saved?null:{b:S.editing.b,c:S.editing.c,v:S.editing.v},
+      caret:nb&&typeof nb.selectionStart==='number'?nb.selectionStart:(typeof S.editCaret==='number'?S.editCaret:null),
+      field:(act===nt)?'title':'body', typing:typing, y:y, at:Date.now()};
+    if(!NOTEPARK.id&&!NOTEPARK.draft) NOTEPARK=null;
+  } else if(S.tab==='notes'&&S.reading===null){
+    NOTEPARK={list:true, y:y, at:Date.now()};
+  }
+  noteParkSave();
+}
+function noteParkReturn(){
+  var p=NOTEPARK; if(!p) return;
+  S.noteBlurAt=0;
+  NOTEPARK=null; noteParkSave();
+  if(p.list){ noteParkScroll(p.y); return; }
+  var n=p.id?S.notes.filter(function(x){ return x.id===p.id; })[0]:null;
+  if(p.id&&!n) return;            /* deleted meanwhile (on another device, say) */
+  S.editing=n?{id:n.id,b:n.b,c:n.c,v:n.v,body:n.body,title:n.title||'',tags:(n.tags||[]).slice(),
+      links:(n.links||[]).map(function(l){ return l.slice(); })}
+    :{id:null,b:p.draft.b,c:p.draft.c,v:p.draft.v,body:'',title:'',tags:[],links:[]};
+  S.editCaret=(typeof p.caret==='number')?p.caret:null;
+  S.editFocusBody=!!(p.typing&&p.field==='body');
+  S.noteParkTitle=!!(p.typing&&p.field==='title');
+  noteParkScroll(p.y);
+}
+function noteParkScroll(y){
+  if(!y) return;
+  /* after the page is drawn: twice, as the note box grows to its text */
+  var go=function(){ try{ view.scrollTop=y; }catch(e){} try{ if(window.pageYOffset<y&&document.documentElement.scrollHeight>window.innerHeight) window.scrollTo(0,y); }catch(e){} };
+  setTimeout(go,0); setTimeout(go,120);
+}
 function goTab(k, quiet){
   leaveReading();
   if(S.reading!==null) closePop();
+  /* Notes tapped while already in Notes goes to the list, as before (the
+     note is saved); from anywhere else, Notes brings back what was left */
+  var onNotes=(S.tab==='notes'&&S.reading===null&&S.book===null);
+  if(k==='notes'&&onNotes){ if(S.editing) commitNote(S.editing); NOTEPARK=null; noteParkSave(); }
+  else if(S.editing||onNotes) noteParkLeave();
+  var back=(k==='notes'&&!onNotes);
   S.tab=k;S.editing=null;S.apocOpen=false;S.trackerOpen=false;S.wordsOpen=false;
   S.atlasOpen=false;S.mapEra=null;S.plate=null;
   if(S.mode==='mybooks') S.mode='shelf';
@@ -2934,7 +2995,9 @@ function goTab(k, quiet){
     }
   } else { S.book=null;S.reading=null; }
   S.jumpRef=null;
+  if(back&&NOTEPARK){ S.keepScroll=true; noteParkReturn(); }
   if(!quiet) render();
+  if(S.noteParkTitle){ S.noteParkTitle=false; try{ var nt=document.getElementById('ntitle'); if(nt){ nt.focus(); } }catch(e){} }
 }
 
 /* ================= HOME ================= */
@@ -4474,7 +4537,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v105 · Oct 24 18:13';
+var APP_STAMP='v106 · Oct 24 18:32';
 
 /* ================= SEARCH ================= */
 
@@ -10365,7 +10428,7 @@ function renderInner(quiet){
   if(ntl&&ntl.addEventListener){
     ntl.addEventListener('input',inPane(function(){
       if(S.editing){ S.editing.title=ntl.value; queueNoteSave(); } }));
-    ntl.addEventListener('blur',function(){ if(S.editing&&noteSaveTimer) commitNote(S.editing); });
+    ntl.addEventListener('blur',function(){ S.noteBlurAt=Date.now(); S.noteBlurField='title'; if(S.editing&&noteSaveTimer) commitNote(S.editing); });
   }
   var nta=document.getElementById('ntagadd');
   if(nta&&nta.addEventListener) nta.addEventListener('input',function(){
@@ -10386,7 +10449,7 @@ function renderInner(quiet){
       if(S.editing){ S.editing.body=nb.value; S.editCaret=nb.selectionStart; queueNoteSave(); }
       grow();
     }));
-    nb.addEventListener('blur',function(){ if(S.editing&&noteSaveTimer){ commitNote(S.editing); refreshNoteRefs(); } });
+    nb.addEventListener('blur',function(){ S.noteBlurAt=Date.now(); S.noteBlurField='body'; if(S.editing&&noteSaveTimer){ commitNote(S.editing); refreshNoteRefs(); } });
     /* the body only takes focus when the editor first opens, never over a
        field you are typing in */
     if(S.editing&&S.editFocusBody&&!quiet){
@@ -10450,7 +10513,7 @@ document.addEventListener('click',inPane(function(ev){
   /* a tap that takes you somewhere else (a search result, a chapter, another
      side) puts the keyboard away: the field it was typing in is left behind */
   if(typingNow()&&(d.goverse||d.nav||d.pick||d.readch||d.drawerch||d.ch||d.book||d.opennote||d.open||d.ref)){
-    try{ var ae=document.activeElement; if(ae&&!t.contains(ae)&&ae.blur) ae.blur(); }catch(e){}
+    try{ var ae=document.activeElement; S.leftFocus=ae&&ae.id||''; if(ae&&!t.contains(ae)&&ae.blur) ae.blur(); }catch(e){}
     kbOpen(false);
   }
 
