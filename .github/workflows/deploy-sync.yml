@@ -1,0 +1,42 @@
+# Puts the sync locker (sync/worker.js) live at sync.sixteeneleven.bible.
+# Separate from the website, so it can go live before an app update that uses
+# it is released. Uses the same two secrets as "Deploy website".
+name: Deploy sync
+on:
+  workflow_dispatch:
+  push:
+    branches: ['main', 'sync']
+    paths: ['sync/**', '.github/workflows/deploy-sync.yml']
+concurrency: deploy-sync
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Deploy with Wrangler
+        working-directory: sync
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          npx --yes wrangler@4 deploy 2>&1 | tee ../wrangler.log
+      - name: Report why Wrangler failed
+        if: failure()
+        run: |
+          grep -iE "error|✘|failed|authentication|permission|not found|code: " wrangler.log | tail -20 > why.txt || true
+          [ -s why.txt ] || tail -20 wrangler.log > why.txt
+          printf '::error title=wrangler::%s\n' "$(sed 's/%/%25/g' why.txt | awk '{printf "%s%%0A", $0}')"
+      - name: Check it answers
+        run: |
+          sleep 15
+          for u in https://sync.sixteeneleven.bible/api/health; do
+            echo "$u $(curl -s -o /dev/null -w '%{http_code}' "$u")"
+          done
+          grep -oE 'https://[a-z0-9.-]+workers\.dev' wrangler.log | head -1 | sed 's/^/::notice title=workers.dev::/' || true
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://sync.sixteeneleven.bible/api/health)
+          [ "$code" = 200 ] && echo "::notice title=Sync::live at sync.sixteeneleven.bible" || echo "::warning title=Sync::sync.sixteeneleven.bible answered $code"

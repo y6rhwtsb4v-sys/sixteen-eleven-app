@@ -1,0 +1,10 @@
+// The sync locker: an encrypted file per sync code, in the private R2 bucket
+// "sixteen-eleven-sync". Deployed by .github/workflows/deploy-sync.yml.
+{
+  "name": "sixteen-eleven-sync",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "routes": [{ "pattern": "sync.sixteeneleven.bible", "custom_domain": true }],
+  "r2_buckets": [{ "binding": "SYNC", "bucket_name": "sixteen-eleven-sync" }]
+}
