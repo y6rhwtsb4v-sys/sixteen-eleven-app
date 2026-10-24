@@ -3160,3 +3160,21 @@ body.focusing .pane[data-screen="reader"]::after{content:'';position:absolute;le
   bottom:0;height:34%;
   background:linear-gradient(to top,var(--bg) 0%,var(--bg) 24%,rgba(0,0,0,0) 100%)}
 .pane[data-screen="reader"]>.pv{overscroll-behavior-y:contain}
+
+/* ---------- sync across devices (Settings) ---------- */
+.synccard .btn{margin-top:8px}
+.syncjoin{display:flex;gap:8px;margin-top:6px}
+.syncjoin input{flex:1;min-width:0;font:inherit;font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);
+  background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
+.syncjoin .btn{width:auto;margin:0;flex:none;padding-left:18px;padding-right:18px}
+.syncerr{color:var(--blue);font-size:13.5px;margin:8px 2px 0}
+.syncstat{display:flex;align-items:center;gap:9px;font-size:14.5px;color:var(--ink)}
+.syncdot{width:10px;height:10px;border-radius:5px;background:#3E8E5A;flex:none}
+.syncdot.busy{background:var(--gold)}
+.syncdot.bad{background:var(--blue)}
+.synccode{font-family:ui-monospace,Menlo,monospace;font-size:15px;letter-spacing:.02em;white-space:nowrap;color:var(--ink);background:var(--bg);
+  border:1px solid var(--line);border-radius:10px;padding:12px 8px;text-align:center;margin-top:6px;overflow-x:auto}
+.synccode.hid{color:var(--ink3)}
+.syncbtns{margin-top:8px}.syncbtns .btn{margin-top:0}
+.syncdel{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px}
+.syncdel p{margin:0 0 6px;font-size:14px;color:var(--ink2)}

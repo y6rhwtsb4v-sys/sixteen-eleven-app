@@ -82,3 +82,14 @@ The app uses only standard HTTPS. `ITSAppUsesNonExemptEncryption` is set to fals
 ## UK
 
 In the UK the KJV is under Crown copyright (Cambridge University Press administers it). Leave the UK out of the storefronts until CUP says yes.
+
+## Sync across devices (version 1.1)
+
+Optional, no account. Data is encrypted on the device (AES-256-GCM, key derived
+from the reader's sync code) before it is sent to sync.sixteeneleven.bible
+(Cloudflare Worker + private R2 bucket "sixteen-eleven-sync"); the server never
+gets the code and cannot decrypt anything. Under Apple's definition, data the
+developer cannot access is not "collected", so the App Privacy answers stay as
+they are. Review notes for 1.1: "Settings > Sync across devices: Turn on sync on
+one device, then enter the code shown on a second device or at
+app.sixteeneleven.bible. No account or sign-in."

@@ -21,12 +21,14 @@
 <body><main>
 <p><a href="index.html">← Back to the app</a></p>
 <h1>Privacy</h1>
-<p class="sub">Sixteen Eleven — last updated 20 October 2026</p>
+<p class="sub">Sixteen Eleven — last updated 24 October 2026</p>
 
 <h2>The short version</h2>
 <p>Sixteen Eleven does not collect anything about you. There are no accounts, no
 analytics, no advertising, no tracking, and no server that receives your
-activity. Everything you create stays on your own device.</p>
+activity. Everything you create stays on your own device, unless you turn on
+sync, which sends it to your other devices encrypted so that only they can
+read it.</p>
 
 <h2>What is stored, and where</h2>
 <p>These are kept in your browser's own storage on your device:</p>
@@ -57,6 +59,18 @@ reach the network, and only when you use them:</p>
 </ul>
 <p>Importing an EPUB, PDF or text book happens entirely on your device; the
 file is never uploaded.</p>
+
+<h2>Sync across devices (optional)</h2>
+<p>If you turn on sync, the app makes a private sync code on your device. Your
+highlights, notes, study sheets, chapters read, bookmarks, cross references,
+daily goal and reading plans are encrypted on your device with a key made from
+that code (AES-256-GCM) before they are sent to our sync server
+(sync.sixteeneleven.bible, on Cloudflare). The server stores only that
+encrypted file and an identifier derived from the code; it never receives the
+code itself, and we cannot read what is stored. There is no account, name or
+email. Turning sync off and choosing to delete the server copy removes the
+file from the server.
+Anyone who has your sync code can read your synced data, so keep it private.</p>
 
 <h2>Purchases</h2>
 <p>In the App Store and Google Play versions, subscriptions and one-time

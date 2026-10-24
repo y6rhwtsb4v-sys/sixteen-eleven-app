@@ -1739,6 +1739,8 @@ var Store=(function(){
        the key is remembered, retried, and the reader is told until it lands. */
     set:function(k,v){
       mem[k]=v;
+      /* what is synced across devices goes up a few seconds after it changes */
+      try{ if(typeof SYNC!=='undefined'&&SYNC&&SYNC.on&&!SYNC.applying&&SYNC_KEYS[k]) syncSoon(); }catch(e){}
       if(hasArtifact) return window.storage.set(k,JSON.stringify(v)).then(function(){ storeOk(k); },
         function(e){ storeFailed(k,e); });
       try{ if(L){ L.setItem(k,JSON.stringify(v)); storeOk(k); } }
@@ -1872,6 +1874,9 @@ function loadAll(cb){
     return Store.get('strata:goal');
   }).then(function(g){
     try{ goalLoad(g); }catch(e){}
+    return Promise.all([Store.get('strata:sync'), Store.get('strata:syncbase')]);
+  }).then(function(sy){
+    try{ syncLoad(sy[0], sy[1]); }catch(e){}
     return Store.get('strata:split');
   }).then(function(sp){
     /* the tablet's two sides: how wide the left one is, and what the right
@@ -3489,6 +3494,323 @@ function goalInit(){
     if(document.visibilityState==='visible'){ goalRemindSoon(); if(S.trackerOpen){ S.keepScroll=true; render(); } } }); }catch(e){}
 }
 
+/* ================= SYNC ACROSS DEVICES =================
+   No account. Turning sync on makes a sync code on this device, 25 letters
+   and digits in five groups (the last one a check, so a mistyped code is
+   caught before anything is fetched). Entering the same code on another
+   phone, tablet or the website joins it.
+
+   From the code the device derives, with HKDF, an AES-GCM key and an access
+   token. Everything is encrypted here before it leaves; the server
+   (sync.sixteeneleven.bible, sixteen-eleven-app/sync/worker.js) keeps one
+   encrypted file per code and only ever sees the token. It cannot read the
+   notes, and without the code nobody can.
+
+   What travels: highlights, notes, study sheets, chapters read, bookmarks,
+   your own cross references, the daily goal, reading plans and the reading
+   log. Each is a key in a flat map ("h|43:3:16" -> "y", "n|<id>" -> note...).
+   A sync is a three-way merge: the map as it was at the last sync (kept
+   here), this device's map now, and the server's. A key changed on one side
+   only takes that side, so a note deleted on the phone is deleted on the
+   iPad too; a key changed on both keeps this device's version, except the
+   counts and dates (chapters read, the reading log), which keep the later or
+   larger. The write is conditional (If-Match), so two devices syncing at
+   once cannot overwrite each other: the loser merges again and retries. */
+var SYNC_BASE='https://sync.sixteeneleven.bible/api/sync/';
+var SYNC={on:false, code:'', etag:'', last:0, busy:false, msg:'', err:'', base:null, applying:false, t:null, show:false, confirmDel:false, joinErr:''};
+var SYNC_KEYS={'strata:highlights':1,'strata:notes':1,'strata:sheets':1,'strata:read':1,
+  'strata:bookmarks':1,'strata:userrefs':1,'strata:goal':1};
+var B32='0123456789ABCDEFGHJKMNPQRSTVWXYZ';   /* Crockford: no I, L, O, U */
+
+function syncCheckChar(s){
+  var t=0; for(var i=0;i<s.length;i++) t=(t*31+B32.indexOf(s[i])+7)%32;
+  return B32[t];
+}
+function syncNewCode(){
+  var b=new Uint8Array(24); crypto.getRandomValues(b);
+  var s=''; for(var i=0;i<24;i++) s+=B32[b[i]%32];
+  return s+syncCheckChar(s);
+}
+/* as typed: any case, spaces or dashes, O for 0 and I or L for 1 */
+function syncNormalize(s){
+  s=String(s||'').toUpperCase().replace(/[\s\-_.]/g,'').replace(/O/g,'0').replace(/[IL]/g,'1');
+  if(!/^[0-9A-HJKMNP-TV-Z]{25}$/.test(s)) return null;
+  return syncCheckChar(s.slice(0,24))===s[24]?s:null;
+}
+function syncPretty(c){ return c?c.match(/.{1,5}/g).join('-'):''; }
+function hex(buf){ return Array.prototype.map.call(new Uint8Array(buf),function(b){ return ('0'+b.toString(16)).slice(-2); }).join(''); }
+function syncKeys(code){
+  var enc=new TextEncoder(), salt=enc.encode('sixteen-eleven-sync-v1');
+  return crypto.subtle.importKey('raw', enc.encode(code), 'HKDF', false, ['deriveBits','deriveKey']).then(function(ikm){
+    return Promise.all([
+      crypto.subtle.deriveBits({name:'HKDF', hash:'SHA-256', salt:salt, info:enc.encode('auth')}, ikm, 256),
+      crypto.subtle.deriveKey({name:'HKDF', hash:'SHA-256', salt:salt, info:enc.encode('encrypt')}, ikm,
+        {name:'AES-GCM', length:256}, false, ['encrypt','decrypt'])
+    ]);
+  }).then(function(r){
+    var token=hex(r[0]);
+    return crypto.subtle.digest('SHA-256', enc.encode(token)).then(function(d){ return {token:token, id:hex(d), key:r[1]}; });
+  });
+}
+/* one byte of format (1 plain, 2 gzip), twelve of nonce, then the cipher */
+function syncSeal(keys, obj){
+  var raw=new TextEncoder().encode(JSON.stringify(obj));
+  var gz=(typeof CompressionStream!=='undefined')
+    ? new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer().then(function(b){ return [2,new Uint8Array(b)]; }).catch(function(){ return [1,raw]; })
+    : Promise.resolve([1,raw]);
+  return gz.then(function(p){
+    var iv=crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.encrypt({name:'AES-GCM', iv:iv}, keys.key, p[1]).then(function(ct){
+      var out=new Uint8Array(13+ct.byteLength); out[0]=p[0]; out.set(iv,1); out.set(new Uint8Array(ct),13); return out;
+    });
+  });
+}
+function syncOpen(keys, buf){
+  var u=new Uint8Array(buf);
+  return crypto.subtle.decrypt({name:'AES-GCM', iv:u.slice(1,13)}, keys.key, u.slice(13)).then(function(pt){
+    if(u[0]===2) return new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    return new TextDecoder().decode(pt);
+  }).then(function(t){ return JSON.parse(t); });
+}
+
+/* ---------- the flat map ---------- */
+function syncMap(){
+  var m={};
+  function put(k,v){ m[k]=JSON.stringify(v); }
+  Object.keys(S.hl||{}).forEach(function(k){ put('h|'+k, S.hl[k]); });
+  (S.notes||[]).forEach(function(n){ if(n&&n.id) put('n|'+n.id, n); });
+  (S.sheets||[]).forEach(function(s){ if(s&&s.id) put('s|'+s.id, s); });
+  Object.keys(S.read||{}).forEach(function(k){ put('r|'+k, S.read[k]); });
+  Object.keys(S.marks||{}).forEach(function(k){ put('m|'+k, S.marks[k]); });
+  Object.keys(S.userRefs||{}).forEach(function(k){ if((S.userRefs[k]||[]).length) put('u|'+k, S.userRefs[k]); });
+  if(GOAL.perDay) put('g|perDay', GOAL.perDay);
+  if(GOAL.active) put('g|active', GOAL.active);
+  Object.keys(GOAL.plans||{}).forEach(function(id){ put('gp|'+id, GOAL.plans[id]); });
+  Object.keys(GOAL.log||{}).forEach(function(d){ if(GOAL.log[d]) put('gl|'+d, GOAL.log[d]); });
+  return m;
+}
+function syncMerge(base, local, remote){
+  var out={}, keys={};
+  [base,local,remote].forEach(function(o){ for(var k in o) keys[k]=1; });
+  for(var k in keys){
+    var b=base[k], l=local[k], r=remote[k], v;
+    if(l===r) v=l;
+    else if(l===b) v=r;
+    else if(r===b) v=l;
+    else {
+      var p=k.slice(0,k.indexOf('|'));
+      if((p==='r'||p==='gl')&&l!==undefined&&r!==undefined) v=(+JSON.parse(l)>=+JSON.parse(r))?l:r;
+      else if(p==='gp'&&l!==undefined&&r!==undefined){
+        var a=JSON.parse(l), c=JSON.parse(r), done={};
+        [a.done||{}, c.done||{}].forEach(function(d){ for(var x in d) done[x]=Math.max(done[x]||0, d[x]); });
+        v=JSON.stringify({start:Math.min(a.start||Date.now(), c.start||Date.now()), done:done});
+      }
+      else v=(l!==undefined)?l:r;   /* edited here and there: this device's; deleted on one, edited on the other: kept */
+    }
+    if(v!==undefined) out[k]=v;
+  }
+  return out;
+}
+function syncSame(a, b){
+  var ka=Object.keys(a), kb=Object.keys(b);
+  if(ka.length!==kb.length) return false;
+  for(var i=0;i<ka.length;i++) if(a[ka[i]]!==b[ka[i]]) return false;
+  return true;
+}
+/* the merged map back into the app, through the same checks a backup goes
+   through, keeping this device's order and adding the new at the end */
+function syncApply(m){
+  var hl={}, notes={}, sheets={}, read={}, marks={}, refs={}, plans={}, log={}, per=0, active=null;
+  for(var k in m){
+    var i=k.indexOf('|'), p=k.slice(0,i), key=k.slice(i+1), v;
+    try{ v=JSON.parse(m[k]); }catch(e){ continue; }
+    if(p==='h') hl[key]=v;
+    else if(p==='n') notes[key]=v;
+    else if(p==='s') sheets[key]=v;
+    else if(p==='r'&&/^\d{1,4}:\d{1,3}$/.test(key)&&typeof v==='number') read[key]=v;
+    else if(p==='m') marks[key]=v;
+    else if(p==='u'&&validKey(key)&&Array.isArray(v)) refs[key]=v.filter(function(x){ return typeof x==='string'; }).map(function(x){ return x.slice(0,80); });
+    else if(p==='gp'&&v&&typeof v==='object') plans[key]={start:+v.start||Date.now(), done:(v.done&&typeof v.done==='object')?v.done:{}};
+    else if(p==='gl'&&typeof v==='number') log[key]=v;
+    else if(k==='g|perDay') per=Math.max(0,Math.min(20,v|0));
+    else if(k==='g|active'&&typeof v==='string'&&planDef(v)) active=v;
+  }
+  function ordered(list, byId){
+    var out=[], seen={};
+    (list||[]).forEach(function(x){ if(x&&byId[x.id]!==undefined){ out.push(byId[x.id]); seen[x.id]=1; } });
+    Object.keys(byId).sort().forEach(function(id){ if(!seen[id]) out.push(byId[id]); });
+    return out;
+  }
+  SYNC.applying=true;
+  try{
+    S.hl=cleanHighlights(hl);
+    S.notes=migrateNotes(ordered(S.notes, notes));
+    S.sheets=cleanSheets(ordered(S.sheets, sheets));
+    S.read=read; S.marks=cleanMarks(marks); S.userRefs=refs;
+    GOAL.perDay=per; GOAL.active=active; GOAL.plans=plans; GOAL.log=log;
+    saveHl(); saveNotes(); saveSheets(); saveRead(); saveUserRefs(); Store.set('strata:bookmarks',S.marks); goalSave();
+  } finally { SYNC.applying=false; }
+  try{ goalRemindSoon(); }catch(e){}
+}
+
+/* ---------- talking to the locker ---------- */
+function syncFetch(keys, opt){
+  opt=opt||{}; opt.headers=Object.assign({'Authorization':'Bearer '+keys.token}, opt.headers||{});
+  opt.cache='no-store';
+  return fetch(SYNC_BASE+keys.id, opt);
+}
+function syncPull(keys){
+  return syncFetch(keys).then(function(r){
+    if(r.status===404) return {data:null, etag:''};
+    if(!r.ok) throw new Error('The sync server answered '+r.status+'.');
+    var etag=r.headers.get('ETag')||'';
+    return r.arrayBuffer().then(function(b){ return syncOpen(keys,b); }).then(function(d){
+      if(!d||d.app!=='sixteen-eleven'||typeof d.map!=='object') throw new Error('That sync data could not be read.');
+      return {data:d, etag:etag};
+    }, function(e){ throw new Error(e&&e.message&&/read/.test(e.message)?e.message:'That sync data could not be opened with this code.'); });
+  });
+}
+function syncPush(keys, map, etag){
+  return syncSeal(keys, {app:'sixteen-eleven', v:1, at:Date.now(), map:map}).then(function(body){
+    return syncFetch(keys, {method:'PUT', body:body, headers:etag?{'If-Match':etag}:{'If-None-Match':'*'}});
+  }).then(function(r){
+    if(r.status===412) return {conflict:true};
+    if(!r.ok) throw new Error('The sync server answered '+r.status+'.');
+    return {etag:r.headers.get('ETag')||''};
+  });
+}
+function syncSave(){
+  Store.set('strata:sync',{on:SYNC.on, code:SYNC.code, etag:SYNC.etag, last:SYNC.last});
+  Store.set('strata:syncbase', SYNC.base||null);
+}
+var syncRunning=null;
+function syncNow(){
+  if(!SYNC.on||!SYNC.code) return Promise.resolve();
+  if(syncRunning) return syncRunning.then(function(){ return syncNow(); });
+  SYNC.busy=true; SYNC.err=''; syncPaint();
+  var keys, tries=0;
+  function round(){
+    tries++;
+    return syncPull(keys).then(function(rem){
+      var local=syncMap(), base=SYNC.base||{};
+      var merged=rem.data?syncMerge(base, local, rem.data.map):local;
+      if(!syncSame(merged, local)){ syncApply(merged); SYNC.changed=true; }
+      if(rem.data&&syncSame(merged, rem.data.map)){ SYNC.etag=rem.etag; return merged; }
+      return syncPush(keys, merged, rem.etag).then(function(p){
+        if(p.conflict){ if(tries<4) return round(); throw new Error('Another device kept changing at the same moment. Try again.'); }
+        SYNC.etag=p.etag; return merged;
+      });
+    });
+  }
+  syncRunning=syncKeys(SYNC.code).then(function(k){ keys=k; return round(); }).then(function(merged){
+    SYNC.base=merged; SYNC.last=Date.now(); SYNC.msg=''; syncSave();
+  }).catch(function(e){
+    SYNC.err=(navigator.onLine===false)?'Offline. Your changes will sync when you are back online.':((e&&e.message)||'Sync did not finish.');
+  }).then(function(){
+    SYNC.busy=false; syncRunning=null;
+    /* new notes or highlights from another device show at once, unless
+       something is being typed, which a redraw would interrupt */
+    var typing=document.activeElement&&/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName||'')||(document.activeElement&&document.activeElement.isContentEditable);
+    if(S.tab==='about'||(SYNC.changed&&!typing)){ S.keepScroll=true; try{ render(); }catch(e){} }
+    SYNC.changed=false;
+  });
+  return syncRunning;
+}
+function syncSoon(ms){ if(!SYNC.on) return; clearTimeout(SYNC.t); SYNC.t=setTimeout(syncNow, ms==null?4000:ms); }
+/* the Settings card redraws itself; elsewhere the page is left alone */
+function syncPaint(){ if(S.tab==='about'){ S.keepScroll=true; try{ render(); }catch(e){} } }
+
+function syncStart(){            /* "Turn on sync": a new code for this device */
+  SYNC.code=syncNewCode(); SYNC.on=true; SYNC.etag=''; SYNC.base={}; SYNC.show=true; SYNC.joinErr='';
+  syncSave(); return syncNow();
+}
+function syncJoin(typed){        /* "I have a sync code" */
+  var code=syncNormalize(typed);
+  if(!code){ SYNC.joinErr='That is not a sync code. Check each letter: it has 25, in five groups.'; syncPaint(); return Promise.resolve(); }
+  SYNC.busy=true; SYNC.joinErr=''; syncPaint();
+  return syncKeys(code).then(syncPull).then(function(rem){
+    if(!rem.data){ SYNC.busy=false; SYNC.joinErr='Nothing is stored for that code yet. Check it against the code on your other device.'; syncPaint(); return; }
+    SYNC.code=code; SYNC.on=true; SYNC.etag=''; SYNC.base={}; SYNC.busy=false;
+    syncSave(); return syncNow();
+  }, function(e){ SYNC.busy=false; SYNC.joinErr=(navigator.onLine===false)?'You are offline. Connect, then try again.':((e&&e.message)||'That did not work.'); syncPaint(); });
+}
+function syncOff(deleteCloud){
+  var code=SYNC.code;
+  var p=(deleteCloud&&code)?syncKeys(code).then(function(k){ return syncFetch(k,{method:'DELETE'}); }).catch(function(){}):Promise.resolve();
+  return p.then(function(){
+    SYNC.on=false; SYNC.code=''; SYNC.etag=''; SYNC.base=null; SYNC.last=0; SYNC.show=false; SYNC.confirmDel=false; SYNC.err='';
+    SYNC.msg=deleteCloud?'Sync is off, and the copy on the server is deleted. Everything stays on this device.':'Sync is off on this device. Everything stays here, and your other devices keep syncing.';
+    syncSave(); syncPaint();
+  });
+}
+function syncLoad(v, base){
+  if(v&&typeof v==='object'&&v.on&&syncNormalize(v.code)){
+    SYNC.on=true; SYNC.code=syncNormalize(v.code); SYNC.etag=v.etag||''; SYNC.last=+v.last||0;
+    SYNC.base=(base&&typeof base==='object')?base:{};
+  }
+}
+function syncInit(){
+  if(SYNC.on) syncSoon(800);
+  try{ document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') syncSoon(600); }); }catch(e){}
+  try{ window.addEventListener('online', function(){ syncSoon(500); }); }catch(e){}
+}
+function syncAgo(t){
+  if(!t) return 'not yet';
+  var s=Math.round((Date.now()-t)/1000);
+  if(s<45) return 'just now';
+  if(s<3600) return Math.round(s/60)+' min ago';
+  if(s<86400) return Math.round(s/3600)+' h ago';
+  return new Date(t).toLocaleDateString();
+}
+function vSyncCard(){
+  var h='<div class="h2">Sync across devices</div><div class="card about synccard">';
+  if(!SYNC.on){
+    h+='<p>Keep your notes, highlights, study sheets, chapters read, bookmarks, daily goal and reading plans the same on '+
+       'your phone, tablet and the website. No account: a private sync code connects them. Everything is encrypted on '+
+       'this device before it leaves, so nobody else can read it, us included.</p>'+
+       '<button class="btn" data-a="syncstart"'+(SYNC.busy?' disabled':'')+'>Turn on sync</button>'+
+       '<div class="lab" style="margin-top:16px">Already syncing on another device?</div>'+
+       '<div class="syncjoin"><input id="synccode" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" '+
+       'placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" aria-label="Sync code" maxlength="40">'+
+       '<button class="btn sec" data-a="syncjoin"'+(SYNC.busy?' disabled':'')+'>Join</button></div>'+
+       (SYNC.joinErr?'<p class="syncerr" role="alert">'+esc(SYNC.joinErr)+'</p>':'')+
+       (SYNC.busy?'<p class="vnote" role="status">Connecting…</p>':'')+
+       (SYNC.msg?'<p class="vnote" role="status">'+esc(SYNC.msg)+'</p>':'');
+  } else {
+    h+='<div class="syncstat"><span class="syncdot'+(SYNC.err?' bad':SYNC.busy?' busy':'')+'"></span>'+
+       '<span>'+(SYNC.busy?'Syncing…':SYNC.err?esc(SYNC.err):'On · synced '+esc(syncAgo(SYNC.last)))+'</span></div>'+
+       '<div class="lab" style="margin-top:14px">Your sync code</div>'+
+       '<div class="synccode'+(SYNC.show?'':' hid')+'" aria-live="polite">'+(SYNC.show?esc(syncPretty(SYNC.code)):'•••••-•••••-•••••-•••••-•••••')+'</div>'+
+       '<div class="row3 syncbtns">'+
+       '<button class="btn sec" data-a="syncshow">'+(SYNC.show?'Hide':'Show')+'</button>'+
+       '<button class="btn sec" data-a="synccopy">Copy</button>'+
+       '<button class="btn sec" data-a="syncshare">Share</button></div>'+
+       '<p class="vnote" style="margin:8px 2px 0">Enter this code on your other devices, in Settings, Sync across devices. '+
+       'Keep it safe: it is the only key to your synced notes, and anyone who has it can read them.</p>'+
+       (SYNC.msg?'<p class="vnote" role="status">'+esc(SYNC.msg)+'</p>':'')+
+       '<button class="btn" data-a="syncnow" style="margin-top:12px"'+(SYNC.busy?' disabled':'')+'>Sync now</button>'+
+       '<button class="btn gh" data-a="syncoff">Turn off on this device</button>'+
+       (SYNC.confirmDel
+         ? '<div class="syncdel"><p>Delete the synced copy from the server? Your other devices stop syncing; what is on each device stays.</p>'+
+           '<div class="row2"><button class="btn gh" data-a="syncdelno">Keep it</button><button class="btn" data-a="syncdelyes">Delete</button></div></div>'
+         : '<button class="btn gh" data-a="syncdel">Turn off and delete the server copy</button>');
+  }
+  return h+'</div>';
+}
+function syncCopy(){
+  var t=syncPretty(SYNC.code);
+  return copyPlain(t).then(function(ok){ SYNC.msg=ok?'Sync code copied.':'Could not copy; tap Show and write it down.'; syncPaint(); });
+}
+function syncShare(){
+  var text='My Sixteen Eleven sync code: '+syncPretty(SYNC.code)+'\nIn the app: Settings, Sync across devices, then enter this code.';
+  if(payNative()){
+    try{ var SH=window.Capacitor.registerPlugin('Share');
+      return Promise.resolve(SH.share({title:'Sixteen Eleven sync code', text:text})).catch(function(){}); }catch(e){}
+  }
+  if(navigator.share) return navigator.share({title:'Sixteen Eleven sync code', text:text}).catch(function(){});
+  return syncCopy();
+}
+
 /* The Apocrypha sits behind one cover, then opens as a list with overviews. */
 function vApocrypha(){
   var h='<div class="libwrap">';
@@ -4072,10 +4394,14 @@ function vProfile(){
   h+=payCard();
   if(PAY.on&&!PAY.offerings&&!PAY.loadingOffers){ PAY.loadingOffers=1;
     payLoadOfferings().then(function(){ if(S.tab==='about'){ S.keepScroll=true; render(); } }); }
+  h+=vSyncCard();
   h+='<div class="h2">Your data</div>';
-  h+='<div class="card about"><p>Highlights, notes and study sheets are stored on '+
+  h+='<div class="card about"><p>'+(SYNC.on
+      ?'Highlights, notes and study sheets are kept on this device, and an encrypted copy is synced to your other devices. '+
+       'A backup file is still worth keeping.'
+      :'Highlights, notes and study sheets are stored on '+
     'this device only. Nothing is uploaded. Clearing site data or switching phones '+
-    'loses them, so keep a backup.</p>'+
+    'loses them, so keep a backup, or turn on sync above.')+'</p>'+
     '<button class="btn" data-a="exportdata">Download a backup</button>'+
     '<div style="height:8px"></div>'+
     '<button class="fol" data-a="toggleauto-backup" aria-selected="'+(!!S.autoBackup)+'">'+
@@ -4148,7 +4474,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v104 · Oct 20 12:46';
+var APP_STAMP='v105 · Oct 24 18:13';
 
 /* ================= SEARCH ================= */
 
@@ -10318,6 +10644,17 @@ document.addEventListener('click',inPane(function(ev){
   if(d.a==='closemine'){ S.mode='shelf'; render(); return; }
   if(d.a==='closeeras'){ S.mode='shelf'; S.openEra=null; render(); return; }
   if(d.a==='opentracker'){ S.trackerOpen=true; render(); return; }
+  /* --- sync across devices --- */
+  if(d.a==='syncstart'){ SYNC.msg=''; syncStart(); return; }
+  if(d.a==='syncjoin'){ var sci=document.getElementById('synccode'); SYNC.msg=''; syncJoin(sci?sci.value:''); return; }
+  if(d.a==='syncshow'){ SYNC.show=!SYNC.show; syncPaint(); return; }
+  if(d.a==='synccopy'){ syncCopy(); return; }
+  if(d.a==='syncshare'){ syncShare(); return; }
+  if(d.a==='syncnow'){ SYNC.msg=''; syncNow(); return; }
+  if(d.a==='syncoff'){ syncOff(false); return; }
+  if(d.a==='syncdel'){ SYNC.confirmDel=true; syncPaint(); return; }
+  if(d.a==='syncdelno'){ SYNC.confirmDel=false; syncPaint(); return; }
+  if(d.a==='syncdelyes'){ syncOff(true); return; }
   /* --- goals and plans --- */
   if(d.gpace){ GOAL.perDay=+d.gpace; S.goalMsg=''; goalSave(); goalRemindSoon(); S.keepScroll=true; render(); return; }
   if(d.a==='goaloff'){ GOAL.perDay=0; GOAL.remind.on=false; goalSave(); goalSchedule(); S.keepScroll=true; render(); return; }
@@ -10907,6 +11244,7 @@ function start(){
   try{ payInit(); }catch(e){}
   try{ audInit(); }catch(e){}
   setTimeout(function(){ try{ goalInit(); }catch(e){} }, 1500);
+  setTimeout(function(){ try{ syncInit(); }catch(e){} }, 1200);
   Store.get('strata:worduse').then(function(u){ if(u&&u.d) S.wordUse=u; });
   initLayout();
   try{ FlexGap.init(); }catch(e){}
