@@ -38,5 +38,7 @@ jobs:
             echo "$u $(curl -s -o /dev/null -w '%{http_code}' "$u")"
           done
           grep -oE 'https://[a-z0-9.-]+workers\.dev' wrangler.log | head -1 | sed 's/^/::notice title=workers.dev::/' || true
+          node sync/smoke.mjs | tee smoke.txt
+          printf '::notice title=Sync smoke test::%s\n' "$(awk '{printf "%s%%0A", $0}' smoke.txt)"
           code=$(curl -s -o /dev/null -w '%{http_code}' https://sync.sixteeneleven.bible/api/health)
           [ "$code" = 200 ] && echo "::notice title=Sync::live at sync.sixteeneleven.bible" || echo "::warning title=Sync::sync.sixteeneleven.bible answered $code"
