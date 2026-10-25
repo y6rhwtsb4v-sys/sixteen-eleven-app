@@ -4537,7 +4537,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v106 · Oct 25 07:10';
+var APP_STAMP='v107 · Oct 25 08:01';
 
 /* ================= SEARCH ================= */
 
@@ -7911,24 +7911,48 @@ function payInit(){
     Store.get('strata:ent').then(function(c){
       if(c&&c.ent&&c.exp>Date.now()&&!PAY.fresh){ PAY.ent=c.ent; applyLayout(); render(); }
     });
-    try{ PAY.plugin=window.Capacitor.registerPlugin('Purchases'); }catch(e){ PAY.plugin=null; }
+    PAY.stage='plugin';
+    try{ var CP=window.Capacitor;
+      if(CP.isPluginAvailable&&!CP.isPluginAvailable('Purchases')) PAY.storeErr='the store plugin is not in this build';
+      PAY.plugin=CP.registerPlugin('Purchases'); }catch(e){ PAY.plugin=null; PAY.storeErr='the store plugin would not load: '+String(e&&e.message||e).slice(0,200); }
     if(!PAY.plugin) return;
     var key=PAY.keys[payPlatform()]||PAY.keys.ios;
     /* back from the App Store's code sheet or a purchase elsewhere */
     try{ document.addEventListener('visibilitychange',function(){
       if(document.visibilityState==='visible'&&PAY.redeemWatch&&Date.now()-PAY.redeemWatch<15*60000) payRecheck(); }); }catch(e){}
-    Promise.resolve(PAY.plugin.configure({apiKey:key})).then(function(){
+    PAY.stage='starting the store';
+    PAY.ready=payWait(PAY.plugin.configure({apiKey:key}),'starting the store').then(function(){
+      PAY.stage='checking what you own';
       try{ PAY.plugin.addCustomerInfoUpdateListener(function(ci){ payApply(ci); }); }catch(e){}
-      return PAY.plugin.getCustomerInfo();
-    }).then(function(r){ payApply(r&&(r.customerInfo||r));
-      return payLoadOfferings().then(function(){ if(PAY.open) drawPaywall(); if(WEL.open) drawWelcome(); });
-    }).catch(function(){});
+      return payWait(PAY.plugin.getCustomerInfo(),'checking what you own');
+    });
+    PAY.ready.then(function(r){ payApply(r&&(r.customerInfo||r));
+      return payLoadOfferings().then(function(){
+        if(/^Connecting/.test(PAY.msg||'')) PAY.msg='';
+        if(PAY.open) drawPaywall(); if(WEL.open) drawWelcome(); });
+    }).catch(function(e){
+      /* the store would not start: keep its words for the paywall's "Details for support" */
+      PAY.storeErr=PAY.stage+': '+payErrText(e);
+    });
     return;
   }
   if(payTestMode()){
     PAY.on=true; PAY.test=true;
     Store.get('strata:enttest').then(function(e){ if(e){ PAY.ent=e; applyLayout(); render(); } });
   }
+}
+/* a store call that never answers is reported, not waited on for ever */
+function payWait(p, what){
+  return new Promise(function(res, rej){
+    var t=setTimeout(function(){ rej({message:'no answer after 20 seconds while '+what}); }, 20000);
+    Promise.resolve(p).then(function(v){ clearTimeout(t); res(v); }, function(e){ clearTimeout(t); rej(e); });
+  });
+}
+function payErrText(e){
+  var u=e&&(e.underlyingErrorMessage||(e.data&&e.data.underlyingErrorMessage))||'';
+  var m=(e&&(e.message||e.errorMessage))||e||'unknown';
+  if(typeof m==='object'){ try{ m=JSON.stringify(m); }catch(x){ m='unknown'; } }
+  return ((e&&e.code!=null?'code '+e.code+': ':'')+m+(u?' ('+u+')':'')).slice(0,300);
 }
 function payApply(ci){
   if(!ci) return;
@@ -7970,20 +7994,26 @@ function payTestOfferings(){
 function payLoadOfferings(){
   if(PAY.offerings) return Promise.resolve(PAY.offerings);
   if(PAY.test){ PAY.offerings=payTestOfferings(); if(PAY.trial==null) PAY.trial=true; return Promise.resolve(PAY.offerings); }
-  if(!PAY.plugin) return Promise.resolve(null);
-  return Promise.resolve(PAY.plugin.getOfferings()).then(function(o){
+  if(!PAY.plugin){ if(!PAY.storeErr) PAY.storeErr='the store plugin did not load'; return Promise.resolve(null); }
+  if(PAY.loading) return PAY.loading;
+  /* the store must have started before it is asked for prices */
+  PAY.loading=Promise.resolve(PAY.ready).catch(function(){}).then(function(){
+    return payWait(PAY.plugin.getOfferings(),'loading the prices');
+  }).then(function(o){
     PAY.offerings=o||null;
     /* loaded, but with nothing to sell: the store side is not set up */
     var cur=o&&(o.current||(o.all&&o.all['default']));
     PAY.storeErr=!cur?'no current offering in RevenueCat':
       !((cur.availablePackages||[]).length)?'the offering has no packages':'';
+    PAY.loading=null;
     return payCheckTrial().then(function(){ return PAY.offerings; });
   }).catch(function(e){
     /* why, in the store's own words, so it can be put right */
-    var u=e&&(e.underlyingErrorMessage||(e.data&&e.data.underlyingErrorMessage))||'';
-    PAY.storeErr=String((e&&e.code!=null?'code '+e.code+': ':'')+((e&&(e.message||e.errorMessage))||e||'unknown')+(u?' ('+u+')':'')).slice(0,300);
+    PAY.loading=null;
+    PAY.storeErr='prices: '+payErrText(e)+(PAY.storeErr&&!/^prices:/.test(PAY.storeErr)?'; '+PAY.storeErr:'');
     return null;
   });
+  return PAY.loading;
 }
 /* Is the free trial really on offer to this person? Someone who has had it
    before, or is already subscribed, is charged at once, so the paywall must
@@ -7998,7 +8028,7 @@ function payCheckTrial(){
     return Promise.resolve();
   }
   if(!PAY.plugin||!PAY.plugin.checkTrialOrIntroductoryPriceEligibility){ PAY.trial=null; return Promise.resolve(); }
-  return Promise.resolve(PAY.plugin.checkTrialOrIntroductoryPriceEligibility({productIdentifiers:['study_annual']}))
+  return payWait(PAY.plugin.checkTrialOrIntroductoryPriceEligibility({productIdentifiers:['study_annual']}),'checking the free trial')
     .then(function(r){
       var e=r&&(r.study_annual||(r.eligibility&&r.eligibility.study_annual));
       var st=e&&(e.status!=null?e.status:e);
@@ -8037,6 +8067,13 @@ function payPkg(offering, id){
   for(var i=0;i<list.length;i++) if(list[i].identifier===id) return list[i];
   return null;
 }
+function payPkgIds(){
+  var o=PAY.offerings; if(!o) return '';
+  var all=o.all||{}, out=[];
+  Object.keys(all).forEach(function(k){ out.push(k+': '+((all[k]&&all[k].availablePackages)||[]).map(function(p){ return p.identifier; }).join(' ')); });
+  if(o.current&&o.current.identifier) out.unshift('current '+o.current.identifier);
+  return out.join(', ').slice(0,200);
+}
 function payPrice(offering, id, fallback){
   var p=payPkg(offering,id);
   return (p&&p.product&&p.product.priceString)||fallback;
@@ -8046,11 +8083,17 @@ function payBuy(offering, id){
   if(PAY.busy) return;
   if(!p){
     /* ask the store once more before giving up, and say why if it still fails */
+    if(PAY.loading){ PAY.msg='Connecting to the App Store\u2026'; payRedraw();
+      /* the prices are on their way: buy when they come, or say why not */
+      if(!payBuy.waiting){ payBuy.waiting=true; payBuy.retried=true;
+        PAY.loading.then(function(){ payBuy.waiting=false; payBuy(offering, id); }); }
+      return; }
     if(!payBuy.retried){ payBuy.retried=true; PAY.offerings=null; PAY.msg='Connecting to the App Store\u2026'; payRedraw();
       payLoadOfferings().then(function(){ payBuy(offering, id); }); return; }
     payBuy.retried=false;
+    var have=payPkgIds();
     PAY.msg='The store is not answering. Check the connection and try again.'+
-      (PAY.storeErr?' (Details for support: '+PAY.storeErr+')':'');
+      ' (Details for support: '+(PAY.storeErr||('no package "'+id+'" in "'+offering+'"; the store offered '+(have||'nothing')))+')';
     payRedraw(); return; }
   payBuy.retried=false;
   PAY.busy=true; PAY.msg=''; payRedraw();

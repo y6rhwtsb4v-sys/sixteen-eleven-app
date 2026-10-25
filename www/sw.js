@@ -7,7 +7,7 @@
    build could keep serving itself out of cache after it had been fixed.
 
    Bump CACHE whenever the scripture data changes. */
-const CACHE = 'sixteen-eleven-v106';
+const CACHE = 'sixteen-eleven-v107';
 const SHELL = [
   './', './index.html',
   './assets/styles.css',
