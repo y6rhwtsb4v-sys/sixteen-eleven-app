@@ -938,6 +938,72 @@ var GLOSS_1828={
    Reading the elements unconditionally threw on the hosted build before a
    single line rendered, which is what left it stuck on "Loading the
    scriptures". Absent elements are now simply absent. */
+/* ---- the bridge to the phone's own code ----
+   The store app loads this script as it is, without Capacitor's JavaScript
+   package, and the bridge the phone injects has no registerPlugin(): that
+   lives in the package. Without it the store, the native narrator, sharing
+   files and reminders never reached the phone at all. This is the same
+   connection the package makes, built from what the bridge does provide:
+   the list of native plugins (PluginHeaders) and nativePromise/nativeCallback.
+   The phone already defines Capacitor.Plugins.<name> for each of its plugins,
+   so registerPlugin() hands that back, and builds the connection itself only
+   for a plugin the phone listed but did not define. */
+(function capBridge(){
+  var C=(typeof window!=='undefined')?window.Capacitor:null;
+  if(!C||C.registerPlugin||typeof C.nativePromise!=='function') return;
+  var plugins=C.Plugins=C.Plugins||{};
+  function header(name){
+    var hs=C.PluginHeaders||[];
+    for(var i=0;i<hs.length;i++) if(hs[i]&&hs[i].name===name) return hs[i];
+    return null;
+  }
+  function unimplemented(name, m){
+    var e=new Error('"'+name+(m?'.'+m+'()':'')+'" is not implemented on '+(C.getPlatform?C.getPlatform():'this phone'));
+    e.code='UNIMPLEMENTED'; return Promise.reject(e);
+  }
+  function register(name){
+    /* the phone itself defines Capacitor.Plugins.<name> for each plugin it
+       has; use that, and build the connection only where it did not */
+    if(plugins[name]) return plugins[name];
+    var h=header(name);
+    function method(m){
+      var mh=null, list=(h&&h.methods)||[];
+      for(var i=0;i<list.length;i++) if(list[i].name===m){ mh=list[i]; break; }
+      if(!mh) return function(){ return unimplemented(name, h?m:''); };
+      if(mh.rtype==='promise') return function(opts){ return C.nativePromise(name, m, opts||{}); };
+      /* callback methods: a listener, called each time the phone has news */
+      return function(opts, cb){
+        if(typeof opts==='function'){ cb=opts; opts={}; }
+        var id;
+        var p=new Promise(function(res){ id=C.nativeCallback(name, m, opts||{}, cb); res(id); });
+        return p;
+      };
+    }
+    function addListener(eventName, cb){
+      if(!h) return unimplemented(name, 'addListener');
+      var id=C.nativeCallback(name, 'addListener', {eventName:eventName}, cb);
+      var remove=function(){
+        try{ C.nativeCallback(name, 'removeListener', {eventName:eventName, callbackId:id}, cb); }catch(e){}
+        return Promise.resolve();
+      };
+      var p=Promise.resolve({remove:remove});
+      p.remove=remove;
+      return p;
+    }
+    var cache={};
+    var proxy=new Proxy({}, {get:function(_, prop){
+        if(prop==='then'||prop==='$$typeof'||typeof prop!=='string') return undefined;
+      if(prop==='toJSON') return function(){ return {}; };
+      if(prop==='addListener') return addListener;
+      return cache[prop]||(cache[prop]=method(prop));
+    }});
+    if(h) plugins[name]=proxy;
+    return proxy;
+  }
+  C.registerPlugin=register;
+  if(!C.isPluginAvailable) C.isPluginAvailable=function(n){ return Object.prototype.hasOwnProperty.call(plugins, n)||!!header(n); };
+})();
+
 function inlineJSON(id){
   try{
     var el=document.getElementById(id);
@@ -4537,7 +4603,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v107 · Oct 25 08:01';
+var APP_STAMP='v107 · Oct 25 10:26';
 
 /* ================= SEARCH ================= */
 
