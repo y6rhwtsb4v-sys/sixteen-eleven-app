@@ -4537,7 +4537,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v106 · Oct 24 18:32';
+var APP_STAMP='v106 · Oct 25 07:10';
 
 /* ================= SEARCH ================= */
 
@@ -7973,8 +7973,17 @@ function payLoadOfferings(){
   if(!PAY.plugin) return Promise.resolve(null);
   return Promise.resolve(PAY.plugin.getOfferings()).then(function(o){
     PAY.offerings=o||null;
+    /* loaded, but with nothing to sell: the store side is not set up */
+    var cur=o&&(o.current||(o.all&&o.all['default']));
+    PAY.storeErr=!cur?'no current offering in RevenueCat':
+      !((cur.availablePackages||[]).length)?'the offering has no packages':'';
     return payCheckTrial().then(function(){ return PAY.offerings; });
-  }).catch(function(){ return null; });
+  }).catch(function(e){
+    /* why, in the store's own words, so it can be put right */
+    var u=e&&(e.underlyingErrorMessage||(e.data&&e.data.underlyingErrorMessage))||'';
+    PAY.storeErr=String((e&&e.code!=null?'code '+e.code+': ':'')+((e&&(e.message||e.errorMessage))||e||'unknown')+(u?' ('+u+')':'')).slice(0,300);
+    return null;
+  });
 }
 /* Is the free trial really on offer to this person? Someone who has had it
    before, or is already subscribed, is charged at once, so the paywall must
@@ -8035,7 +8044,15 @@ function payPrice(offering, id, fallback){
 function payBuy(offering, id){
   var p=payPkg(offering,id);
   if(PAY.busy) return;
-  if(!p){ PAY.msg='The store is not answering. Check the connection and try again.'; payRedraw(); return; }
+  if(!p){
+    /* ask the store once more before giving up, and say why if it still fails */
+    if(!payBuy.retried){ payBuy.retried=true; PAY.offerings=null; PAY.msg='Connecting to the App Store\u2026'; payRedraw();
+      payLoadOfferings().then(function(){ payBuy(offering, id); }); return; }
+    payBuy.retried=false;
+    PAY.msg='The store is not answering. Check the connection and try again.'+
+      (PAY.storeErr?' (Details for support: '+PAY.storeErr+')':'');
+    payRedraw(); return; }
+  payBuy.retried=false;
   PAY.busy=true; PAY.msg=''; payRedraw();
   var done=function(ci){
     PAY.busy=false;
