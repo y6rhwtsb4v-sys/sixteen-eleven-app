@@ -42,6 +42,9 @@ jobs:
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
       IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
       IOS_SIGNING_B64: ${{ secrets.IOS_SIGNING_B64 }}
+      # the Intel Macs are slow to answer; fastlane's default gives up too soon
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: '60'
+      FASTLANE_XCODEBUILD_SETTINGS_RETRIES: '6'
     steps:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
@@ -58,7 +61,19 @@ jobs:
           perl -0pi -e 's#<script src="assets/app.js"#<script src="assets/tester.js"></script><script src="assets/app.js"#' www/index.html
           grep -q 'assets/tester.js' www/index.html
           echo "Tester build $BUILD_NUMBER: all features unlocked" >> "$GITHUB_STEP_SUMMARY"
-      - run: bash scripts/prepare.sh ios
+      - run: bash scripts/prepare.sh ios 2>&1 | tee prepare.log
+      # which native plugins made it into the iOS project, so a missing one
+      # (the store, notifications) shows on the run instead of failing silently
+      - name: Report the native plugins
+        run: |
+          P=$(ls ios/App/CapApp-SPM/Package.swift 2>/dev/null || true)
+          if [ -n "$P" ]; then
+            echo "::notice title=iOS plugins (SPM)::$(grep -oE 'name: \"[^\"]+\"|path: \"[^\"]+\"' "$P" | tr '\n' ' ')"
+          fi
+          [ -f ios/App/Podfile ] && echo "::notice title=iOS plugins (CocoaPods)::$(grep -oE "pod '[^']+'" ios/App/Podfile | tr '\n' ' ')"
+          W=$(grep -iE "warn|not compatible|skipp" prepare.log | head -8 | tr '\n' ' ')
+          [ -n "$W" ] && echo "::warning title=cap sync::$W" || true
+          grep -qi purchases "$P" ios/App/Podfile 2>/dev/null && echo "::notice title=Store plugin::RevenueCat is in the iOS project" || echo "::error title=Store plugin::RevenueCat (Purchases) is NOT in the iOS project"
       - run: gem install fastlane --no-document || sudo gem install fastlane --no-document
       - name: Run fastlane ios beta
         run: |
