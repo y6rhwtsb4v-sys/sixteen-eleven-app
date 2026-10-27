@@ -3178,3 +3178,62 @@ body.focusing .pane[data-screen="reader"]::after{content:'';position:absolute;le
 .syncbtns{margin-top:8px}.syncbtns .btn{margin-top:0}
 .syncdel{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px}
 .syncdel p{margin:0 0 6px;font-size:14px;color:var(--ink2)}
+
+/* ================= PAPER ONLY, EDGE TO EDGE =================
+   Plain is retired: the reader is paper by day and by night. On a phone the
+   sheet no longer sits inset as a card with rounded corners and a shadow;
+   the whole reading area is the paper, out to the edges of the screen. The
+   grain and the faint stains move from the sheet to the scroller, scrolling
+   with the words (background-attachment:local). Tablet layouts keep their
+   own desk and sheet. */
+html body:not(.lay-tablet):not(.lay-split) .pane.pg-paper[data-screen="reader"]>.pv,
+html[data-theme="dark"] body:not(.lay-tablet):not(.lay-split) .pane.pg-paper[data-screen="reader"]>.pv{
+  --bg:#F1ECE0;
+  background-color:#FBF6EC !important;
+  background-image:
+    radial-gradient(ellipse 30% 9% at 12% 6%,  rgba(150,116,64,.08), transparent 70%),
+    radial-gradient(ellipse 24% 7% at 88% 22%, rgba(150,116,64,.07), transparent 70%),
+    radial-gradient(ellipse 34% 8% at 74% 90%, rgba(140,106,58,.08), transparent 70%),
+    radial-gradient(ellipse 22% 6% at 22% 64%, rgba(150,116,64,.06), transparent 70%),
+    linear-gradient(90deg, rgba(140,106,56,.09), transparent 4%, transparent 96%, rgba(140,106,56,.09)),
+    url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=) !important;
+  background-repeat:no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,repeat !important;
+  background-attachment:local,local,local,local,local,local !important;
+  background-blend-mode:multiply,multiply,multiply,multiply,multiply,multiply !important}
+body:not(.lay-tablet):not(.lay-split) .rd.paper,
+[data-theme="dark"] body:not(.lay-tablet):not(.lay-split) .rd.paper{
+  background:transparent !important;box-shadow:none !important;border-radius:0 !important;
+  margin-left:0;margin-right:0;padding-left:4px;padding-right:4px}
+body:not(.lay-tablet):not(.lay-split) .rd.paper::before{display:none}
+
+/* ================= FOLLOWING THE READING: NO BAND =================
+   While the chapter is read aloud the verse being read is no longer painted
+   with a band. The page fades out under the bar and above the player, in the
+   paper's own colour, and the verses away from the one being read dim, so
+   the words being read stand out by themselves. A verse you highlighted
+   keeps its own colour. */
+.rd.aloud .v.speaking:not(.hl-yellow):not(.hl-green):not(.hl-blue):not(.hl-pink):not(.hl-purple),
+.rd.held .v.speaking:not(.hl-yellow):not(.hl-green):not(.hl-blue):not(.hl-pink):not(.hl-purple){
+  background:transparent !important;box-shadow:none !important}
+body.focusing .pane.pg-paper[data-screen="reader"]>.top::after{display:block;height:22vh;
+  background:linear-gradient(to bottom,rgba(241,236,224,1) 0%,rgba(241,236,224,.86) 35%,rgba(241,236,224,0) 100%)}
+body.focusing .pane.pg-paper[data-screen="reader"]::after{
+  background:linear-gradient(to top,rgba(241,236,224,1) 0%,rgba(241,236,224,1) 22%,rgba(241,236,224,.8) 45%,rgba(241,236,224,0) 100%)}
+.rd.paper.listening .v{opacity:.22}
+.rd.paper.listening .v.near2{opacity:.34}
+.rd.paper.listening .v.near1{opacity:.55}
+.rd.paper.listening .v.speaking{opacity:1}
+/* full-screen reading with the page moving by itself: the same soft fade at
+   the top and bottom, so the lines in the middle are the ones you read */
+body.immersive .pane.pg-paper[data-screen="reader"]::after{content:'';position:absolute;left:0;right:0;top:0;bottom:0;
+  pointer-events:none;z-index:20;
+  background:linear-gradient(to bottom,rgba(241,236,224,1) 0%,rgba(241,236,224,0) 18%,rgba(241,236,224,0) 74%,rgba(241,236,224,1) 100%)}
+
+/* ---------- a Share button on each note ---------- */
+.nshare{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  width:34px;height:34px;min-height:0;margin:-8px -8px -8px 2px;border-radius:17px;color:var(--ink3);align-self:center}
+.nshare svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nshare:active{background:var(--line)}
+.nshare.ined{width:auto;margin:0 14px 0 auto;padding:8px 12px;color:var(--blue);font-size:15px;font-weight:600}
+.nedbar .nsaved{margin-left:auto}
+.nedbar .nshare.ined{margin-left:12px;margin-right:14px}

@@ -1757,7 +1757,7 @@ var S={tab:'bible', mode:'shelf', book:null, btab:'overview', ch:1,
        voiceMode:'system', kokoroVoice:'bm_george', sysVoiceURI:null,
        readMode:'flow', passages:[], shelf:[], openBook:null, importing:null,
        voiceQuality:'smooth', autoNext:true,
-       textSize:2, page:'plain', redLetters:true, readerOpts:false, restoreMsg:'', restoreErr:0, copied:false, updateShown:false,
+       textSize:2, page:'paper', redLetters:true, readerOpts:false, restoreMsg:'', restoreErr:0, copied:false, updateShown:false,
        backfill:0, awaiting:0, loadError:'', xrDrawn:0, read:{},
        userRefs:{}, refAdding:false, refDraft:'', refMsg:'', searchHist:[], sheetMsg:'',
        filing:false, fileMsg:'', noteDraftOpen:false, editCaret:null,
@@ -1958,13 +1958,9 @@ function loadAll(cb){
   }).then(function(pl){
     if(pl&&typeof pl==='object'){
       if(typeof pl.size==='number') S.textSize=pl.size;
-      if(pl.page) S.page=pl.page;
-      /* Once, on the move to the redesign: paper was the old default, and the
-         design sets the text on the plain ground. Someone who chose Contrast
-         keeps it; Paper is still in Aa for anyone who wants it back. */
-      if(!pl.pv && S.page==='paper') S.page='plain';
-      /* the Contrast page is retired: text size covers what it was for */
-      if(S.page==='contrast') S.page='plain';
+      /* the page is paper, by day and by night: Plain and Contrast are
+         retired, so whatever was saved before reads as paper now */
+      S.page='paper';
       if(typeof pl.red==='boolean') S.redLetters=pl.red;
       /* the place is kept whenever the book and chapter exist. The store
          app loads books one by one, so the book may not be in memory yet:
@@ -2521,6 +2517,62 @@ function smallCaps(html){
    marks a breath, not a sentence end. Read literally that produces a hard
    stop every few words, which is most of what makes narration sound
    mechanical. Small caps LORD also trips some engines into spelling it out. */
+/* ---------- saying the hard names ----------
+   Phone voices guess at names they have never met, so "Job" came out as a
+   job of work, "Pharaoh" as "far-o-ah", "Capernaum" anyhow. These are the
+   names, places and old words they most often get wrong, spelt the way they
+   are said. Only what the voice hears changes; the page is untouched. Each
+   respelling is one word, so the words still line up with the text as it is
+   read. The recorded narration is made with the same list
+   (voice/render_voice.py), so the two voices agree. Keep them in step. */
+var SAY={
+  /* people */
+  Job:'Jobe', Pharaoh:'Fairoh', Pharaohs:'Fairohs', Melchizedek:'Melkizzedek', Melchisedec:'Melkizzedek',
+  Nebuchadnezzar:'Nebbuhkudnezzar', Nebuchadrezzar:'Nebbuhkudrezzar', Belshazzar:'Belshazzer',
+  Shadrach:'Shaydrack', Meshach:'Meeshack', Abednego:'Abbednegoh', Methuselah:'Methoozelah',
+  Zerubbabel:'Zeruhbabbel', Mephibosheth:'Meffibbosheth', Ahasuerus:'Ahazzyooerus', Artaxerxes:'Artazurkseez',
+  Hezekiah:'Hezzekyah', Zedekiah:'Zeddekyah', Gedaliah:'Geddalyah', Hilkiah:'Hilkyah', Jehoshaphat:'Jehoshafat',
+  Jehu:'Jeehew', Rehoboam:'Reeuhboam', Jeroboam:'Jerruhboam', Naaman:'Nayuhmun', Gehazi:'Guhhayzye',
+  Mordecai:'Mordekye', Haman:'Hayman', Eliphaz:'Ellifaz', Zophar:'Zohfar', Elihu:'Elyhew',
+  Asaph:'Aysaff', Jeduthun:'Jedoothun', Malachi:'Malakye', Haggai:'Haggye', Zephaniah:'Zeffanyah',
+  Zechariah:'Zekkaryah', Zacharias:'Zakkaryus', Habakkuk:'Habbakuk', Nahum:'Nayhum', Hosea:'Hozayuh',
+  Amos:'Aymus', Nehemiah:'Neeuhmyah', Esaias:'Eezayus', Elias:'Eelyus', Eliseus:'Ellisseeus', Elisha:'Eelysha',
+  Levi:'Leevye', Esau:'Eesaw', Laban:'Layban', Leah:'Leeuh', Sarai:'Sayrye', Nahor:'Nayhor',
+  Terah:'Teeruh', Enoch:'Eenuck', Lamech:'Laymeck', Japheth:'Jayfeth', Aaron:'Airun', Korah:'Koruh',
+  Balaam:'Baylum', Balak:'Baylack', Rahab:'Rayhab', Achan:'Aykan', Jephthah:'Jefthuh', Joab:'Joeab',
+  Ahithophel:'Ahithofel', Hiram:'Hyrum', Caiaphas:'Kayuhfus', Herodias:'Herohdeeus', Iscariot:'Iskarryot',
+  Thaddaeus:'Thaddeeus', Cephas:'Seefus', Nicodemus:'Nickuhdeemus', Zacchaeus:'Zakkeeus', Bartimaeus:'Bartimmeeus',
+  Philemon:'Fylemon', Onesimus:'Onessimus', Epaphroditus:'Eppafrodytus', Timotheus:'Timmotheeus',
+  Aquila:'Akwilla', Messias:'Messyus', Antiochus:'Anteyokus', Epiphanes:'Ippiffaneez', Maccabeus:'Makkabeeus',
+  Maccabees:'Makkabeez', Holofernes:'Holofurneez', Asmodeus:'Azmodeeus', Baruch:'Bayrook', Esdras:'Ezdrus',
+  Sirach:'Syrak', Ecclesiastes:'Ekkleezeeasteez', Ecclesiasticus:'Ekkleezeeastikus',
+  /* peoples */
+  Pharisees:'Farrisees', Pharisee:'Farrisee', Sadducees:'Sadjoosees', Philistines:'Fillistines',
+  Philistine:'Fillistine', Chaldeans:'Kaldeeans', Chaldees:'Kaldeez', Canaanites:'Kaynunites',
+  Canaanite:'Kaynunite', Jebusites:'Jebbyoosites', Perizzites:'Perrizites', Girgashites:'Gurgashites',
+  Moabites:'Moeuhbites', Edomites:'Eedumites', Levites:'Leevites', Medes:'Meeds',
+  /* places */
+  Canaan:'Kaynun', Capernaum:'Kapernayum', Gethsemane:'Gethsemmanee', Nineveh:'Ninnuhvuh',
+  Chaldea:'Kaldeeuh', Moab:'Moeab', Edom:'Eedum', Sion:'Syon', Shiloh:'Shyloh', Beersheba:'Beersheeba',
+  Hebron:'Heebron', Shechem:'Sheckem', Sidon:'Sydon', Zidon:'Zydon', Elam:'Eelam', Zoar:'Zohar',
+  Ramah:'Raymuh', Gibeah:'Gibbeeuh', Gibeon:'Gibbeeun', Kadesh:'Kaydesh', Ephraim:'Eefrum',
+  Manasseh:'Manassuh', Issachar:'Issakar', Zebulun:'Zebbyoolun', Naphtali:'Naftalye', Babel:'Baybel',
+  Haran:'Hayran', Mamre:'Mamree', Machpelah:'Makpeeluh', Rameses:'Rammuhseez', Succoth:'Sukkoth',
+  Marah:'Mahruh', Elim:'Eelim', Rephidim:'Reffidim', Nebo:'Neeboh', Ophir:'Ohfer', Sheba:'Sheeba',
+  Shushan:'Shooshan', Ai:'Ayeye', Ephesus:'Effesus', Philippi:'Fillippye', Thessalonica:'Thessalonyka',
+  Colosse:'Kolossee', Laodicea:'Layoddisseeuh', Thyatira:'Thyuhtyruh', Cenchrea:'Senkreeuh',
+  /* old words */
+  shew:'show', shewed:'showed', shewest:'showest', sheweth:'showeth', shewing:'showing', shewn:'shown',
+  shewbread:'showbread', Shew:'Show', Shewed:'Showed', sware:'swair', wroth:'rawth', ere:'air',
+  bewray:'beray', bewrayeth:'berayeth', trow:'troe', doth:'duth', yea:'yay', Yea:'Yay',
+  victuals:'vittles', sepulchre:'sepulker', sepulchres:'sepulkers', tetrarch:'tetrark',
+  phylacteries:'filacteries', cherubims:'chairubims', cherubim:'chairubim', ephod:'eefod',
+  cubit:'kyoobit', cubits:'kyoobits', ephah:'eefuh', chapiter:'chappiter', chapiters:'chappiters',
+  concupiscence:'konkyoopissence', Selah:'Seelah', Urim:'Yoorim', Thummim:'Thummeem'
+};
+var SAY_RE=new RegExp('\\b('+Object.keys(SAY).sort(function(a,b){ return b.length-a.length; }).join('|')+')\\b','g');
+function sayFix(s){ return String(s).replace(SAY_RE, function(w){ return SAY[w]||w; }); }
+
 function speechText(t){
   if(!t) return '';
   var s=String(t);
@@ -2537,7 +2589,7 @@ function speechText(t){
      called:." so the mark is dropped before the sentence is closed. */
   s=s.replace(/[:;,]+$/,'');
   if(s&&!/[.!?]$/.test(s)) s+='.';
-  return s;
+  return sayFix(s);
 }
 
 /* Group verses into passages so the voice gets whole sentences to work with.
@@ -4377,16 +4429,12 @@ function vRead(){
         ['XS','S','M','L','XL','XXL'][S.textSize]);
     h+=rGroup('page','Page',
         '<div class="rrow">'+
-        '<button data-page="paper" aria-selected="'+(S.page==='paper')+'">Paper</button>'+
-        '<button data-page="plain" aria-selected="'+(S.page==='plain')+'">Plain</button>'+
-        '</div>'+
-        '<div class="rrow" style="margin-top:8px">'+
         '<button class="redtog" data-a="togglered" aria-selected="'+
         (S.redLetters!==false)+'">Words of Christ in red</button></div>'+
         '<div class="rrow" style="margin-top:8px">'+
         '<button class="redtog" data-a="togglewords" aria-selected="'+
         (S.wordMeanings!==false)+'">Mark old words to explain them</button></div>',
-        ({paper:'Paper',plain:'Plain'})[S.page]||'Plain');
+        (S.redLetters!==false?'Red letters':'All in black'));
     h+=rGroup('look','Appearance',
         '<div class="rrow">'+['auto','light','dark'].map(function(t){
           return '<button data-settheme="'+t+'" aria-selected="'+((S.theme||'auto')===t)+
@@ -4494,8 +4542,6 @@ function vProfile(){
   h+='<div class="setgrp">Appearance</div><div class="setcard">'+
     seg('Theme',[['light','Early morning'],['dark','Night'],['auto','Match device']].map(function(o){
       return '<button data-settheme="'+o[0]+'" aria-selected="'+((S.theme||'auto')===o[0])+'">'+o[1]+'</button>';}).join(''))+
-    seg('Page',[['plain','Plain'],['paper','Paper']].map(function(o){
-      return '<button data-page="'+o[0]+'" aria-selected="'+(S.page===o[0])+'">'+o[1]+'</button>';}).join(''))+
     '</div>';
   h+='<div class="setgrp">Reading</div><div class="setcard">'+
     seg('Text size',['XS','S','M','L','XL','XXL'].map(function(n,k){
@@ -5939,7 +5985,7 @@ function noteHTML(n){
   return '<div class="ncard" role="button" tabindex="0" data-editnote="'+esc(n.id)+'">'+
     '<div class="ncrow"><span class="ncref">'+
       esc(n.b==null?'General note':vRef(n.b,n.c,n.v))+'</span>'+
-      '<span class="ncdate">'+esc(when)+'</span></div>'+
+      '<span class="ncdate">'+esc(when)+'</span>'+noteShareBtn(n.id)+'</div>'+
     '<div class="nctitle">'+esc(n.title||'Untitled')+'</div>'+
     (q?'<div class="ncverse">'+esc(q)+'</div>':'')+
     (n.body?'<div class="ncbody">'+linkRefs(n.body)+'</div>':'')+
@@ -5947,6 +5993,52 @@ function noteHTML(n){
       return '<button class="ntag" data-notefilter="'+esc(t)+'">'+esc(t)+'</button>';
     }).join('')+'</div>':'')+
     '</div>';
+}
+
+/* ---------- sharing one note ----------
+   Every note card has its own Share button, and so does a note while it is
+   open. What goes out is the note as a person would read it: the title, the
+   verse it is on written out in full, what you wrote, and its tags. On the
+   phone it is the system share sheet; in a browser without one, the
+   clipboard. */
+function noteShareBtn(id, inEditor){
+  return '<button class="nshare'+(inEditor?' ined':'')+'" data-sharenote="'+esc(id)+'" aria-label="Share this note" title="Share this note">'+
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="'+POP_ICON.share+'"/></svg>'+(inEditor?'<span>Share</span>':'')+'</button>';
+}
+function noteForSharing(n){
+  var out=[];
+  if(n.title) out.push(n.title);
+  if(n.b!=null) out.push('\u201c'+vText(n.b,n.c,n.v)+'\u201d\n\u2014 '+vRef(n.b,n.c,n.v)+' (KJV)');
+  if(n.body) out.push(n.body);
+  if(n.tags&&n.tags.length) out.push(n.tags.map(function(t){ return '#'+t.replace(/\s+/g,''); }).join(' '));
+  out.push('Shared from Sixteen Eleven');
+  return out.join('\n\n');
+}
+function shareNote(id){
+  /* an open note is saved first, so what is shared is what is on the screen */
+  if(S.editing&&S.editing.id===id){ try{ commitNote(S.editing); }catch(e){} }
+  var n=S.notes.filter(function(x){ return x.id===id; })[0];
+  if(!n) return Promise.resolve(false);
+  var text=noteForSharing(n), title=n.title||(n.b!=null?vRef(n.b,n.c,n.v):'A note');
+  var copied=function(){
+    var done=function(ok){ announce(ok?'Copied the note. Paste it anywhere.':'Could not share the note.'); return ok; };
+    if(navigator.clipboard&&navigator.clipboard.writeText)
+      return navigator.clipboard.writeText(text).then(function(){ return done(true); }).catch(function(){ return done(legacyCopy(text)); });
+    return Promise.resolve(done(legacyCopy(text)));
+  };
+  if(payNative()){
+    try{
+      var SH=window.Capacitor.registerPlugin('Share');
+      return Promise.resolve(SH.share({title:title, text:text, dialogTitle:'Share this note'}))
+        .then(function(){ return true; }).catch(function(e){
+          if(/cancel/i.test(String((e&&(e.message||e.errorMessage))||e||''))) return false;
+          return copied(); });
+    }catch(e){}
+  }
+  if(navigator.share)
+    return navigator.share({title:title, text:text}).then(function(){ return true; })
+      .catch(function(e){ return (e&&e.name==='AbortError')?false:copied(); });
+  return copied();
 }
 
 function openNoteFor(key){
@@ -5990,6 +6082,7 @@ function vNoteEdit(){
   var h='<div class="nedbar">'+
     '<button class="backlink" data-a="savenote">\u2190 '+(S.noteReturn?'Back':'Notes')+'</button>'+
     '<span class="nsaved" id="nsaved" aria-live="polite"></span>'+
+    (e.id?noteShareBtn(e.id,true):'')+
     '<button class="neddone" data-a="savenote">Done</button></div>';
   h+='<div class="ncrow ned"><span class="ncref">'+
      esc(e.b==null?'General note':vRef(e.b,e.c,e.v))+'</span>'+
@@ -8442,11 +8535,10 @@ function drawWelcome(){
     h='<div class="welpage"><div class="welin">'+
       '<div class="welkick">Step 2 of '+steps+'</div><h2>Make the page yours</h2>'+
       '<p class="welsub">You can change these any time in Settings.</p>'+
-      '<div class="welpreview'+(S.page==='paper'?' paper':'')+'" style="--wsz:'+(SZ[S.textSize]||'17px')+'">'+
+      '<div class="welpreview paper" style="--wsz:'+(SZ[S.textSize]||'17px')+'">'+
         '<span class="welref">Psalm 119:105</span>'+
         '<p>'+(S.wordMeanings!==false?'<span class="gw">Thy</span>':'Thy')+' word <i>is</i> a lamp '+(S.wordMeanings!==false?'<span class="gw">unto</span>':'unto')+' my feet, and a light unto my path.</p></div>'+
       '<div class="wellab">Theme</div>'+segs('theme',[['light','Early morning'],['dark','Night'],['auto','Match device']],S.theme||'auto')+
-      '<div class="wellab">Page</div>'+segs('page',[['plain','Plain'],['paper','Paper']],S.page||'plain')+
       '<div class="wellab">Text size</div>'+segs('size',[[0,'XS'],[1,'S'],[2,'M'],[3,'L'],[4,'XL'],[5,'XXL']],S.textSize)+
       /* old words: on unless turned off, and said to be the better choice */
       '<div class="wellab">Old words <span class="welrec">Recommended on</span></div>'+
@@ -8484,7 +8576,6 @@ function welcomeAct(w, v){
   if(w==='next'){ if(WEL.step+1>=steps) closeWelcome(); else { WEL.step++; drawWelcome(); } return; }
   if(w==='done'){ closeWelcome(); return; }
   if(w==='theme'){ setTheme(v); drawWelcome(); return; }
-  if(w==='page'){ S.page=v; savePlace(); S.keepScroll=true; render(); drawWelcome(); return; }
   if(w==='size'){ S.textSize=+v; savePlace(); S.keepScroll=true; render(); drawWelcome(); return; }
   if(w==='words'){ S.wordMeanings=(v==='on'); Store.set('strata:words',S.wordMeanings); S.keepScroll=true; render(); drawWelcome(); return; }
   if(w==='wordmark'){ S.wordMark=(v==='line')?'line':'glow'; Store.set('strata:wordmark',S.wordMark); applyWordMark(); drawWelcome(); return; }
@@ -8934,7 +9025,7 @@ function playRecorded(bookName, ch, fromVerse){
   if(v===1&&!recordedTitle(bi, ch)&&typeof window!=='undefined'&&window.speechSynthesis&&
      typeof SpeechSynthesisUtterance!=='undefined'){
     try{
-      var u=new SpeechSynthesisUtterance(spokenTitle(BK(bi), ch));
+      var u=new SpeechSynthesisUtterance(sayFix(spokenTitle(BK(bi), ch)));
       u.rate=Speech.getRate(); if(Speech.getVoice()) u.voice=Speech.getVoice();
       var fin=function(){ if(said) return; said=true; if(S.speaking) go(); };
       u.onend=fin; u.onerror=fin;
@@ -10611,7 +10702,7 @@ document.addEventListener('click',inPane(function(ev){
   }
   var t=ev.target.closest('[data-nav],[data-a],[data-mode],[data-era],[data-book],[data-sec],'+
     '[data-btab],[data-ch],[data-readch],[data-step],[data-vs],[data-color],[data-cf],'+
-    '[data-ss],[data-goverse],[data-editnote],[data-delnote],[data-open],[data-rate],'+
+    '[data-ss],[data-goverse],[data-sharenote],[data-editnote],[data-delnote],[data-open],[data-rate],'+
     '[data-sheet],[data-ref],[data-edititem],[data-delitem],'+
     '[data-drawerbook],[data-drawerch],'+
     '[data-kvoice],[data-svoice],[data-read],[data-userbook],[data-delbook],'+
@@ -11045,7 +11136,7 @@ document.addEventListener('click',inPane(function(ev){
     if(nu){ stopSpeaking(); S.book=nu.b; S.reading=nu.b; S.ch=nu.c; S.tab='bible'; render(); }
     return; }
   if(d.size!==undefined&&d.size!==''){S.keepScroll=true; S.textSize=+d.size; savePlace(); render(); return; }
-  if(d.page){S.keepScroll=true; S.page=d.page; savePlace(); render(); return; }
+  if(d.page){ return; }   /* Plain is retired: the page is always paper */
   if(d.wordmark){ S.wordMark=d.wordmark==='line'?'line':'glow'; Store.set('strata:wordmark',S.wordMark); applyWordMark();
     announce(S.wordMark==='glow'?'Old words glow softly.':'Old words are underlined.');
     S.keepScroll=true; render(); return; }
@@ -11196,6 +11287,7 @@ document.addEventListener('click',inPane(function(ev){
     }
     return; }
   if(d.notefilter){ S.noteFilter=d.notefilter; S.keepScroll=true; render(); return; }
+  if(d.sharenote){ shareNote(d.sharenote); return; }
   if(d.editnote){
     /* an existing note opens without the keyboard, so a tap goes where it lands */
     S.editFocusBody=false; S.noteReturn=false;

@@ -33,6 +33,19 @@ breaths, the divine name is softened, passages land on a falling cadence.
 import argparse, json, os, re, sys, unicodedata
 
 # ---------------------------------------------------------------- text shaping
+# the hard names and old words, spelt as they are said: the same list the
+# app's device voice uses (SAY in app.js, written out to say.json)
+try:
+    SAY = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'say.json'), encoding='utf-8'))
+except Exception:
+    SAY = {}
+SAY_RE = re.compile(r'\b(' + '|'.join(sorted(map(re.escape, SAY), key=len, reverse=True)) + r')\b') if SAY else None
+
+
+def say_fix(s):
+    return SAY_RE.sub(lambda m: SAY.get(m.group(0), m.group(0)), s) if SAY_RE else s
+
+
 def speech_text(t):
     """Port of the app's speechText(). Keep the two in step."""
     if not t:
@@ -50,7 +63,7 @@ def speech_text(t):
     s = re.sub(r'[:;,]+$', '', s)
     if s and s[-1] not in '.!?':
         s += '.'
-    return s
+    return say_fix(s)
 
 
 def passages(verses, target=380, cap=560):
