@@ -46,8 +46,11 @@ def say_fix(s):
     return SAY_RE.sub(lambda m: SAY.get(m.group(0), m.group(0)), s) if SAY_RE else s
 
 
-def speech_text(t):
-    """Port of the app's speechText(). Keep the two in step."""
+def speech_text(t, respell=True):
+    """Port of the app's speechText(). Keep the two in step. respell=False
+    leaves the names as printed: passages() measures with that, so where a
+    chapter is cut into passages never moves, and the checker compares what
+    it hears with the words as printed."""
     if not t:
         return ''
     s = str(t)
@@ -63,7 +66,7 @@ def speech_text(t):
     s = re.sub(r'[:;,]+$', '', s)
     if s and s[-1] not in '.!?':
         s += '.'
-    return say_fix(s)
+    return say_fix(s) if respell else s
 
 
 def passages(verses, target=380, cap=560):
@@ -73,7 +76,7 @@ def passages(verses, target=380, cap=560):
     918 of them, so blocks are kept near 380 characters, 560 at most."""
     out, cur, first = [], '', 1
     for i, v in enumerate(verses, 1):
-        t = speech_text(v)
+        t = speech_text(v, respell=False)
         if not t:
             continue
         if cur and len(cur) + len(t) + 1 > cap:
@@ -198,10 +201,10 @@ def main():
         m4a_path = os.path.join(a.out, stem + '.m4a')
         if not os.path.exists(m4a_path):          # resumable: done files are kept
             if a.no_turbo:
-                wav = model.generate(j['text'], audio_prompt_path=a.sample,
+                wav = model.generate(say_fix(j['text']), audio_prompt_path=a.sample,
                                      exaggeration=a.exaggeration, cfg_weight=a.cfg)
             else:
-                wav = model.generate(j['text'], audio_prompt_path=a.sample)
+                wav = model.generate(say_fix(j['text']), audio_prompt_path=a.sample)
             sf.write(wav_path, wav.squeeze(0).cpu().numpy(), model.sr)
             # AAC in .m4a plays everywhere, including Safari on iOS 12, which
             # cannot play Opus/Ogg at all. 48k mono is clean for a voice.
