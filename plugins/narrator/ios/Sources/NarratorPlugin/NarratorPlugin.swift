@@ -42,6 +42,9 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
     private var clips: [Clip] = []
     private var index = 0
     private var rate: Float = 1
+    /// "Solemn": the pitch follows the speed, as a tape played a little slow does,
+    /// so the voice comes out slightly lower as well as slower.
+    private var tape = false
     private var artist = "Sixteen Eleven"
     private var wantPlaying = false
     private var pendingFraction: Double = 0
@@ -86,6 +89,7 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
         let start = call.getInt("index") ?? 0
         let fraction = call.getDouble("fraction") ?? 0
         let r = call.getFloat("rate") ?? 1
+        let tp = call.getBool("varispeed") ?? false
         let who = call.getString("artist") ?? "Sixteen Eleven"
         DispatchQueue.main.async {
             guard !list.isEmpty, start >= 0, start < list.count else {
@@ -96,6 +100,7 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
             self.setUpRemote()
             self.clips = list
             self.rate = r
+            self.tape = tp
             self.artist = who
             self.start(at: start, fraction: fraction, play: true)
             call.resolve()
@@ -135,8 +140,11 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func setRate(_ call: CAPPluginCall) {
         let r = call.getFloat("rate") ?? 1
+        let tp = call.getBool("varispeed") ?? self.tape
         DispatchQueue.main.async {
             self.rate = r
+            self.tape = tp
+            for item in self.player.items() { item.audioTimePitchAlgorithm = tp ? .varispeed : .timeDomain }
             if self.player.rate > 0 { self.player.rate = r }
             self.updateNowPlaying()
             call.resolve()
@@ -278,7 +286,9 @@ public class NarratorPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func makeItem(_ i: Int) -> AVPlayerItem {
         let item = AVPlayerItem(url: clips[i].url)
-        item.audioTimePitchAlgorithm = .timeDomain   // clearest for speech at other speeds
+        // clearest for speech at other speeds; varispeed lets the pitch drop with
+        // the speed for the "Solemn" reading
+        item.audioTimePitchAlgorithm = tape ? .varispeed : .timeDomain
         return item
     }
 

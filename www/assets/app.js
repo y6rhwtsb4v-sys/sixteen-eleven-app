@@ -1906,6 +1906,9 @@ function loadAll(cb){
     return Store.get('strata:focus');
   }).then(function(fo){
     if(typeof fo==='boolean') S.focus=fo;
+    return Store.get('strata:tone');
+  }).then(function(tn){
+    if(tn==='solemn'){ S.tone='solemn'; try{ Speech.setSolemn(true); }catch(e){} }
     return Store.get('strata:words');
   }).then(function(wm){
     if(typeof wm==='boolean') S.wordMeanings=wm;
@@ -2170,6 +2173,18 @@ var Speech=(function(){
   function report(i,f){ if(onProgress&&playing&&!paused) onProgress(i,Math.max(0,Math.min(1,f))); }
   function stopEst(){ if(est){ clearInterval(est); est=null; } }
   var rate=1, voice=null;
+  /* "Solemn": the reading a little slower and, at the normal speed, a little
+     lower too, the way a tape played slightly slow drops in pitch. It is done
+     as the recording plays, so every chapter has it without being recorded
+     again. At other speeds only the pace changes: a voice dropped in pitch
+     and then sped up sounds wrong. */
+  var SOLEMN=0.94, solemn=false;
+  function eff(){ return solemn?rate*SOLEMN:rate; }
+  function tape(){ return solemn&&rate===1; }
+  function applyTone(){
+    if(nat){ try{ Narrator.setRate({rate:eff(), varispeed:tape()}); }catch(e){} }
+    if(el){ try{ el.playbackRate=eff(); el.preservesPitch=el.webkitPreservesPitch=el.mozPreservesPitch=!tape(); }catch(e){} }
+  }
   var el=null, urls=[], nextURL=null, token=0;
 
   function supported(){ return !!synth && typeof SpeechSynthesisUtterance!=='undefined'; }
@@ -2180,7 +2195,7 @@ var Speech=(function(){
     if(!supported()||i>=queue.length){ stop(); if(onDone)onDone(); return; }
     idx=i; if(onTick) onTick(idx);
     var u=new SpeechSynthesisUtterance(queue[i]);
-    u.rate=rate; if(voice) u.voice=voice;
+    u.rate=eff(); u.pitch=solemn?0.88:1; if(voice) u.voice=voice;
     /* The voice says which word it has reached, so the page can light the
        verse being heard inside a longer passage. A voice that never says
        falls back to an estimate from the time spoken. */
@@ -2317,7 +2332,7 @@ var Speech=(function(){
       Narrator.load({
         items: queue.map(function(u,i){ var m=(meta&&meta[i])||{};
           return {url:u, title:m.title||'', album:m.album||''}; }),
-        index: idx, fraction: startFrac||0, rate: rate, artist: 'Sixteen Eleven'
+        index: idx, fraction: startFrac||0, rate: eff(), varispeed: tape(), artist: 'Sixteen Eleven'
       }).catch(function(){ nat=false; playing=false; if(onState) onState();
         /* the player could not start: the page stops thinking it is reading */
         setTimeout(function(){ try{ stopSpeaking(); announce('The narration could not start. Try again in a moment.'); }catch(_){} },0); });
@@ -2331,7 +2346,8 @@ var Speech=(function(){
       if(onTick) onTick(idx);
       try{
         el.src = queue[idx];
-        el.playbackRate = rate;
+        el.playbackRate = eff();
+        try{ el.preservesPitch = el.webkitPreservesPitch = el.mozPreservesPitch = !tape(); }catch(e){}
         el.ontimeupdate = function(){ if(el.duration) report(idx, el.currentTime / el.duration); };
         if(seek > 0){ var sf = seek; seek = 0;
           el.onloadedmetadata = function(){ try{ el.currentTime = sf * el.duration; }catch(e){} }; }
@@ -2351,7 +2367,9 @@ var Speech=(function(){
     voices:voices, engine:engine,
     isPlaying:function(){return playing;}, isPaused:function(){return paused;},
     at:function(){return idx;},
-    setRate:function(r){rate=r; if(nat){ try{ Narrator.setRate({rate:r}); }catch(e){} }},
+    setRate:function(r){rate=r; applyTone();},
+    setSolemn:function(on){ solemn=!!on; applyTone(); }, isSolemn:function(){ return solemn; },
+    effRate:function(){ return eff(); },
     getRate:function(){return rate;},
     onState:function(f){onState=f;}, isNative:function(){return nat;},
     setVoice:function(v){voice=v;}, getVoice:function(){return voice;},
@@ -4152,6 +4170,10 @@ function speakOptionsHTML(noSpeed){
     });
     h+='</div>';
   }
+    h+='<div class="lab" style="margin-top:13px">Reading tone</div><div class="rates">'+
+       '<button data-tone="standard" aria-selected="'+(S.tone!=='solemn')+'">Standard</button>'+
+       '<button data-tone="solemn" aria-selected="'+(S.tone==='solemn')+'">Solemn</button>'+
+       '</div>';
     h+='<div class="lab" style="margin-top:13px">Voice quality</div><div class="rates">'+
        '<button data-vq="smooth" aria-selected="'+(S.voiceQuality!=='fast')+'">Smooth</button>'+
        '<button data-vq="fast" aria-selected="'+(S.voiceQuality==='fast')+'">Faster</button>'+
@@ -9065,7 +9087,7 @@ function playRecorded(bookName, ch, fromVerse){
      typeof SpeechSynthesisUtterance!=='undefined'){
     try{
       var u=new SpeechSynthesisUtterance(sayFix(spokenTitle(BK(bi), ch)));
-      u.rate=Speech.getRate(); if(Speech.getVoice()) u.voice=Speech.getVoice();
+      u.rate=Speech.effRate(); u.pitch=Speech.isSolemn()?0.88:1; if(Speech.getVoice()) u.voice=Speech.getVoice();
       var fin=function(){ if(said) return; said=true; if(S.speaking) go(); };
       u.onend=fin; u.onerror=fin;
       window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
@@ -10747,7 +10769,7 @@ document.addEventListener('click',inPane(function(ev){
     '[data-kvoice],[data-svoice],[data-read],[data-userbook],[data-delbook],'+
     '[data-cat],[data-apoc],[data-size],[data-markread],[data-vq],[data-page],'+
     '[data-mapera],[data-mapframe],[data-plate],[data-platezoom],[data-settheme],'+
-    '[data-scrollspeed],[data-scrollstep],[data-rsgroup],[data-savestab],[data-notefilter],[data-wordmark],'+
+    '[data-scrollspeed],[data-scrollstep],[data-tone],[data-rsgroup],[data-savestab],[data-notefilter],[data-wordmark],'+
     '[data-dellink],[data-deltag],[data-bmfolder],[data-bmf],[data-sfilter],'+
     '[data-delref],[data-snap],[data-snapdl],[data-search],[data-forget],[data-smode],[data-doc],[data-docch],'+
     '[data-filenote],[data-gw],[data-pick],[data-pcolor],[data-word],[data-strong],'+
@@ -11475,6 +11497,12 @@ document.addEventListener('click',inPane(function(ev){
     if(S.readerOpts){ S.keepScroll=true; render(); }
     announce(spd?'Scrolling, '+['Off','slow','steady','brisk','fast'][spd]+'. Touch the page to hold it.':'Scrolling stopped.');
     return; }
+  if(d.tone){
+    /* slower and a little lower, applied as it plays: nothing is recorded again */
+    S.tone=d.tone==='solemn'?'solemn':'standard'; Store.set('strata:tone',S.tone);
+    Speech.setSolemn(S.tone==='solemn');
+    announce(S.tone==='solemn'?'Solemn reading: a little slower and lower.':'Standard reading.');
+    S.keepScroll=true; render(); return; }
   if(d.scrollstep){ setScrollSpeed((S.scrollSpeed||0)+(+d.scrollstep), true); return; }
   if(d.a==='navback'){
     if(navBack()) return;

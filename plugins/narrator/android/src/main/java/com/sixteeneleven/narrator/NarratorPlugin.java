@@ -12,6 +12,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaController;
@@ -266,6 +267,7 @@ public class NarratorPlugin extends Plugin {
         final int index = call.getInt("index", 0);
         final double fraction = call.getDouble("fraction", 0.0);
         final float rate = call.getFloat("rate", 1f);
+        final boolean tape = call.getBoolean("varispeed", false);
         String artist = call.getString("artist", "Sixteen Eleven");
         final List<MediaItem> list = new ArrayList<>();
         try {
@@ -294,7 +296,8 @@ public class NarratorPlugin extends Plugin {
             pendingFraction = fraction;
             pendingPlay = true;
             c.setMediaItems(list, index, 0);
-            c.setPlaybackSpeed(rate);
+            // "Solemn": the pitch follows the speed, a little lower as well as slower
+            c.setPlaybackParameters(new PlaybackParameters(rate, tape ? rate : 1f));
             // with a place to seek to inside the first clip, wait for it to
             // load, seek, then play (see onPlaybackStateChanged)
             c.setPlayWhenReady(fraction <= 0);
@@ -353,8 +356,9 @@ public class NarratorPlugin extends Plugin {
     @PluginMethod
     public void setRate(final PluginCall call) {
         final float rate = call.getFloat("rate", 1f);
+        final boolean tape = call.getBoolean("varispeed", false);
         withController(call, c -> {
-            c.setPlaybackSpeed(rate);
+            c.setPlaybackParameters(new PlaybackParameters(rate, tape ? rate : 1f));
             call.resolve();
         });
     }
