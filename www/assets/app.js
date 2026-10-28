@@ -2772,6 +2772,8 @@ function speakFrom(v){
      aloud in silence: the pill said Pause, and Pause did nothing. */
   if(Speech.start(lines,0) && Speech.isPlaying()){
     S.speaking=true; S.speakAt=0; S.speakVerse=v;
+    /* the reading moves the page itself; the self-scroll steps aside */
+    if(AUTO.on&&!S.immersive) stopAutoScroll();
   } else {
     S.speaking=false; S.speakAt=-1; S.speakVerse=0;
     if(!S.voiceNotice) S.voiceNotice='Read aloud could not start on this device.';
@@ -2813,7 +2815,6 @@ function chapterFinished(){
 var nextChapterTimer=null;
 function stopSpeaking(){
   clearTimeout(nextChapterTimer); nextChapterTimer=null;
-  stopAutoScroll();
   holdPlace();
   Speech.stop(); Glide.stop(); S.speaking=false; S.speakAt=-1; S.speakVerse=0;
   renderSpeakBar(); paintSpeaking();
@@ -7575,73 +7576,111 @@ function immersiveOff(){
   S.keepScroll=true; render();
   return true;
 }
-function startAutoScroll(){
-  stopAutoScroll();
+/* The page moves by itself without the phone's main thread doing the work.
+   It used to step scrollTop by a fraction of a pixel every frame, which the
+   phone redraws on the main thread: any other work (the old words glowing,
+   saving the place) and the frame was late, and the page juddered. Now the
+   whole page is handed to the compositor as one smooth CSS movement of up to
+   a screenful at a time; at the end of each stretch the distance moved is
+   folded back into the scroll position in the same instant, so nothing
+   jumps. A finger on the page pauses it; it carries on a moment after you
+   let go. */
+var AUTO={on:false, job:null, idle:null, self:false, watch:null};
+function autoEl(){ return paneEl(readerSide()||CUR,2)||document.getElementById('view'); }
+function autoKids(el){ return [].filter.call(el.children, function(c){ return c.nodeType===1; }); }
+function autoFreeze(){
+  var j=AUTO.job; if(!j) return 0;
+  clearTimeout(j.timer); AUTO.job=null;
+  var moved=0;
+  try{
+    /* read the movement off the text itself: a hidden element reports where
+       it is going, not where it is */
+    var probe=j.el.querySelector('.rd')||j.kids.filter(function(c){ return c.offsetParent!==null; })[0]||j.kids[0];
+    var m=getComputedStyle(probe).transform;
+    var mm=/matrix(3d)?\(([^)]+)\)/.exec(m||'');
+    if(mm){ var n=mm[2].split(',').map(parseFloat); moved=-(mm[1]?n[13]:n[5])||0; }
+  }catch(e){}
+  j.kids.forEach(function(c){ c.style.transition='none'; c.style.transform=''; c.style.willChange=''; });
+  if(moved>0){ AUTO.self=true; j.el.scrollTop=j.el.scrollTop+Math.round(moved); setTimeout(function(){ AUTO.self=false; },60); }
+  return moved;
+}
+function autoChunk(){
+  if(!AUTO.on) return;
   var px=SCROLL_SPEEDS[S.scrollSpeed||0];
-  if(!px) return;
-  var el=paneEl(readerSide()||CUR,2)||document.getElementById('view');
-  if(!el) return;
-  /* Every frame by a fraction of a pixel. Whole pixels twenty times a second
-     read as a judder, the slow speeds most of all. The position is kept as a
-     fraction because scrollTop rounds; if you move the page yourself it
-     carries on from where you left it. */
-  if(window.requestAnimationFrame){
-    var job={raf:true, on:true, id:0}, prev=null, at=el.scrollTop;
-    var frame=function(t){
-      if(!job.on) return;
-      if(prev===null){ prev=t; at=el.scrollTop; job.id=requestAnimationFrame(frame); return; }
-      var dt=Math.min(0.1,(t-prev)/1000); prev=t;
-      try{
-        /* whole pixels go to the scroll position; the fraction left over is
-           a transform on the text, which the phone draws between pixels, so
-           even the slowest speed glides instead of stepping */
-        var base=Math.floor(at);
-        if(Math.abs(el.scrollTop-base)>2){ at=el.scrollTop; base=at; }
-        var max=el.scrollHeight-el.clientHeight;
-        var rd=el.querySelector('.rd');
-        if(at>=max-0.5){
-          /* at the end of the chapter, roll into the next one */
-          if(rd) rd.style.transform='';
-          if(!turnPage(1)){ stopAutoScroll(); return; }
-          el.scrollTop=0; at=0;
-        } else {
-          at=Math.min(max, at+px*dt); base=Math.floor(at);
-          if(el.scrollTop!==base) el.scrollTop=base;
-          if(rd){ rd.style.willChange='transform'; rd.style.transform='translate3d(0,'+(-(at-base)).toFixed(3)+'px,0)'; }
-        }
-      }catch(e){ stopAutoScroll(); return; }
-      job.id=requestAnimationFrame(frame);
-    };
-    job.id=requestAnimationFrame(frame);
-    S.scrollTimer=job;
+  var el=autoEl();
+  if(!px||!el||S.reading===null){ stopAutoScroll(); return; }
+  var max=el.scrollHeight-el.clientHeight, rem=max-el.scrollTop;
+  if(rem<2){
+    /* the end of the chapter: on into the next one */
+    if(!turnPage(1)){ stopAutoScroll(); renderScrollCtl(); return; }
+    setTimeout(function(){ var e2=autoEl(); if(e2){ AUTO.self=true; e2.scrollTop=0; setTimeout(function(){ AUTO.self=false; },60); } autoChunk(); }, 500);
     return;
   }
-  var last=null, acc=0;
-  S.scrollTimer=setInterval(function(){
-    var now=Date.now();
-    if(last===null){ last=now; return; }
-    acc+=px*(now-last)/1000; last=now;
-    if(acc>=1){
-      var step=Math.floor(acc); acc-=step;
-      try{
-        var before=el.scrollTop;
-        el.scrollTop=before+step;
-        /* at the end of the chapter, roll into the next one */
-        if(el.scrollTop===before && el.scrollHeight-el.clientHeight-before<2){
-          if(!turnPage(1)) { stopAutoScroll(); return; }
-          el.scrollTop=0;
-        }
-      }catch(e){ stopAutoScroll(); }
-    }
-  },50);
+  var D=Math.min(rem, Math.max(240, el.clientHeight)), dur=D/px;
+  var kids=autoKids(el);
+  kids.forEach(function(c){ c.style.transition='none'; c.style.transform='translate3d(0,0,0)'; c.style.willChange='transform'; });
+  void el.offsetHeight;                     /* start from where it is now */
+  kids.forEach(function(c){ c.style.transition='transform '+dur.toFixed(3)+'s linear'; c.style.transform='translate3d(0,'+(-D)+'px,0)'; });
+  var job={el:el, kids:kids, D:D};
+  job.timer=setTimeout(function(){ if(AUTO.job===job){ autoFreeze(); autoChunk(); } }, dur*1000+30);
+  AUTO.job=job;
+}
+function autoPause(){ if(AUTO.on){ autoFreeze(); clearTimeout(AUTO.idle); } }
+function autoResumeSoon(ms){
+  if(!AUTO.on) return;
+  clearTimeout(AUTO.idle);
+  AUTO.idle=setTimeout(function(){ if(AUTO.on&&!AUTO.job) autoChunk(); }, ms||1400);
+}
+function startAutoScroll(){
+  stopAutoScroll();
+  if(!SCROLL_SPEEDS[S.scrollSpeed||0]) return;
+  AUTO.on=true; S.scrollTimer=AUTO;
+  autoChunk();
+  /* a redraw replaces the page under the movement: pick it up again, and
+     stop if the reader has been left */
+  AUTO.watch=setInterval(function(){
+    if(!AUTO.on) return;
+    if(S.reading===null){ stopAutoScroll(); renderScrollCtl(); return; }
+    var j=AUTO.job;
+    if(j&&(!j.el.isConnected||!j.kids.every(function(c){ return c.isConnected; }))){ AUTO.job=null; autoChunk(); }
+  }, 400);
+  renderScrollCtl();
 }
 function stopAutoScroll(){
-  var j=S.scrollTimer;
-  if(!j) return;
-  if(j.raf){ j.on=false; try{ cancelAnimationFrame(j.id); }catch(e){} }
-  else clearInterval(j);
+  AUTO.on=false; clearTimeout(AUTO.idle); clearInterval(AUTO.watch);
+  autoFreeze();
   S.scrollTimer=null;
-  try{ [].forEach.call(document.querySelectorAll('.rd'), function(r){ r.style.transform=''; r.style.willChange=''; }); }catch(e){}
+  renderScrollCtl();
+}
+/* a finger on the page holds it still */
+try{
+  document.addEventListener('touchstart', function(ev){
+    if(AUTO.on&&!S.immersive&&ev.target&&ev.target.closest&&ev.target.closest('.pv')) autoPause();
+  }, {passive:true, capture:true});
+  document.addEventListener('touchend', function(){ if(AUTO.on&&!S.immersive) autoResumeSoon(1400); }, {passive:true, capture:true});
+  document.addEventListener('wheel', function(){ if(AUTO.on&&!S.immersive){ autoPause(); autoResumeSoon(1400); } }, {passive:true, capture:true});
+}catch(e){}
+
+/* While the page scrolls itself outside full screen, a small control sits
+   above the player: slower, the pace, faster, and stop. */
+function renderScrollCtl(){
+  try{
+    var el=document.getElementById('scrollctl');
+    var show=AUTO.on&&!S.immersive&&S.reading!==null;
+    if(!show){ if(el) el.parentNode.removeChild(el); return; }
+    if(!el){ el=document.createElement('div'); el.id='scrollctl'; el.setAttribute('role','group'); el.setAttribute('aria-label','Scrolling'); document.body.appendChild(el); }
+    var k=S.scrollSpeed||0, names=['Off','Slow','Steady','Brisk','Fast'];
+    el.innerHTML='<button data-scrollstep="-1" aria-label="Slower"'+(k<=1?' disabled':'')+'>−</button>'+
+      '<span>'+names[k]+'</span>'+
+      '<button data-scrollstep="1" aria-label="Faster"'+(k>=4?' disabled':'')+'>+</button>'+
+      '<button class="scstop" data-scrollspeed="0" aria-label="Stop scrolling">Stop</button>';
+  }catch(e){}
+}
+function setScrollSpeed(k, start){
+  S.scrollSpeed=Math.max(0,Math.min(4,k)); Store.set('strata:scrollspeed',S.scrollSpeed);
+  if(!S.scrollSpeed){ stopAutoScroll(); return; }
+  if(AUTO.on){ autoFreeze(); autoChunk(); renderScrollCtl(); }
+  else if(start) startAutoScroll();
 }
 
 
@@ -10708,7 +10747,7 @@ document.addEventListener('click',inPane(function(ev){
     '[data-kvoice],[data-svoice],[data-read],[data-userbook],[data-delbook],'+
     '[data-cat],[data-apoc],[data-size],[data-markread],[data-vq],[data-page],'+
     '[data-mapera],[data-mapframe],[data-plate],[data-platezoom],[data-settheme],'+
-    '[data-scrollspeed],[data-rsgroup],[data-savestab],[data-notefilter],[data-wordmark],'+
+    '[data-scrollspeed],[data-scrollstep],[data-rsgroup],[data-savestab],[data-notefilter],[data-wordmark],'+
     '[data-dellink],[data-deltag],[data-bmfolder],[data-bmf],[data-sfilter],'+
     '[data-delref],[data-snap],[data-snapdl],[data-search],[data-forget],[data-smode],[data-doc],[data-docch],'+
     '[data-filenote],[data-gw],[data-pick],[data-pcolor],[data-word],[data-strong],'+
@@ -11427,10 +11466,16 @@ document.addEventListener('click',inPane(function(ev){
     announce(S.wordMeanings?(wordMark()==='glow'?'Old words glow softly.':'Old words are underlined.'):'Old words are no longer marked.');
     S.keepScroll=true; render(); return; }
   if(d.a==='immersive'){ immersiveOn(); return; }
-  if(d.scrollspeed){
-    S.scrollSpeed=+d.scrollspeed; Store.set('strata:scrollspeed',S.scrollSpeed);
-    if(S.immersive) startAutoScroll();
-    S.keepScroll=true; render(); return; }
+  if(d.scrollspeed!=null&&d.scrollspeed!==''){
+    /* picking a pace starts the page moving now, under the words, and the
+       sheet gets out of the way; Off (or Stop) stops it */
+    var spd=+d.scrollspeed;
+    if(spd&&S.readerOpts){ S.readerOpts=false; S.keepScroll=true; render(); }
+    setScrollSpeed(spd, true);
+    if(S.readerOpts){ S.keepScroll=true; render(); }
+    announce(spd?'Scrolling, '+['Off','slow','steady','brisk','fast'][spd]+'. Touch the page to hold it.':'Scrolling stopped.');
+    return; }
+  if(d.scrollstep){ setScrollSpeed((S.scrollSpeed||0)+(+d.scrollstep), true); return; }
   if(d.a==='navback'){
     if(navBack()) return;
     /* nowhere recorded to go back to (a tablet side opens straight onto a

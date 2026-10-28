@@ -3189,17 +3189,13 @@ body.focusing .pane[data-screen="reader"]::after{content:'';position:absolute;le
 html body:not(.lay-tablet):not(.lay-split) .pane.pg-paper[data-screen="reader"]>.pv,
 html[data-theme="dark"] body:not(.lay-tablet):not(.lay-split) .pane.pg-paper[data-screen="reader"]>.pv{
   --bg:#F1ECE0;
-  background-color:#FBF6EC !important;
-  background-image:
-    radial-gradient(ellipse 30% 9% at 12% 6%,  rgba(150,116,64,.08), transparent 70%),
-    radial-gradient(ellipse 24% 7% at 88% 22%, rgba(150,116,64,.07), transparent 70%),
-    radial-gradient(ellipse 34% 8% at 74% 90%, rgba(140,106,58,.08), transparent 70%),
-    radial-gradient(ellipse 22% 6% at 22% 64%, rgba(150,116,64,.06), transparent 70%),
-    linear-gradient(90deg, rgba(140,106,56,.09), transparent 4%, transparent 96%, rgba(140,106,56,.09)),
-    url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=) !important;
-  background-repeat:no-repeat,no-repeat,no-repeat,no-repeat,no-repeat,repeat !important;
-  background-attachment:local,local,local,local,local,local !important;
-  background-blend-mode:multiply,multiply,multiply,multiply,multiply,multiply !important}
+  /* the grain and a darker fall-off at the two long edges, painted on the
+     scroller's own box: it stays put while the words move over it. (Painting
+     it to scroll with the words, background-attachment:local, made the phone
+     repaint the whole page on every frame of scrolling.) */
+  background:linear-gradient(90deg, rgba(140,106,56,.09), transparent 4%, transparent 96%, rgba(140,106,56,.09)),
+    #FBF6EC url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACq0lEQVR42s1aW1LEMAwzHvHHGTgDB+D+l1p98MNC6ca27IaBzOzs0G3zcCRZMX16f3t9MTPad8Phb3x+H38/XrfT71hci1r0TNT3cW5f8/LFQCwmDqsbhXtWfSF5fhkcFyZEcWJIdkhZMJO+ooWaJ5DAYOAKHmzshhQoF7b72PlV+HR3phwLjYlAxWVw/87JfyHET9HFRqLSfq89cEAZlI3oWxN2EIi75B4KYlmQH86ajECOO5CIYJL1C086Y6EcFDUbwaeCBxTuIYhuds0CzUYj6lmmp4r/uwpN1OI88LOZ3cRkRnEhUnPBPmQRuj9zE+DFBBoTLwUFbxAhsFsiVSdgPhxgpTxMiHgWBhSiIOchL5SmS8hKSo8Lr+z0aAdUCVVd6DlXWOI6R9nYBV1n4Car65E4rCC4cq1UcsY5MthANjTPEyzEIrUUvhiAge9AgxMTlYqydDY2vOHhKURV6ScjKRdQS/utbqJIVgq2JIooCu5ZBSETjn9o4DOqLLCAZcdOL61EpsFs2oOODGfRLxfiiTSq59oJUTPFaRm7iZVQyQ3BnSocS88jECNNoRqnZFg2rkEIIBUZ7cIJgRyq5Uku+rAqD2SajEaSUs0chKwtq1An+UyOi1XiqxLaWBUqAkHgAwqCorDjv6pCmfx1SIyu9o+PbxcPPFPepIHbsQNoVOzYtCtlUHBholmEmWA9wn+3KjE60k0KuhAgnIlAVvqkQhiIBERi/pAkp27Uf5hO3xB1peSYyXaUHKXSijeZj4VkUqjvqJFtn8u90XllJVhkVA7GKnnrF8m8Mmq4AEl0hQY2T2K8wBnb9eyORDZNfFf+jfunC+CGnepJ1ZAnu/tZvs8Bq1+w+A8tfJ/DF3jjBbx2BINDxCCqC3XgVVmCLH9EtVclTzyc7D4AwpUzvNRmeYEAAAAASUVORK5CYII=) repeat !important;
+  background-blend-mode:multiply,multiply !important}
 body:not(.lay-tablet):not(.lay-split) .rd.paper,
 [data-theme="dark"] body:not(.lay-tablet):not(.lay-split) .rd.paper{
   background:transparent !important;box-shadow:none !important;border-radius:0 !important;
@@ -3237,3 +3233,15 @@ body.immersive .pane.pg-paper[data-screen="reader"]::after{content:'';position:a
 .nshare.ined{width:auto;margin:0 14px 0 auto;padding:8px 12px;color:var(--blue);font-size:15px;font-weight:600}
 .nedbar .nsaved{margin-left:auto}
 .nedbar .nshare.ined{margin-left:12px;margin-right:14px}
+
+/* ---------- the scrolling control, while the page moves by itself ---------- */
+#scrollctl{position:fixed;left:50%;transform:translateX(-50%);z-index:60;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 168px);
+  display:flex;align-items:center;gap:2px;padding:4px;border-radius:24px;
+  background:rgba(29,24,20,.86);color:#F4EEE5;box-shadow:0 6px 20px rgba(0,0,0,.25);
+  -webkit-backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);font-size:14px;font-weight:600}
+#scrollctl button{min-width:40px;height:36px;min-height:0;border-radius:18px;color:inherit;font-size:20px;line-height:1}
+#scrollctl button:disabled{opacity:.35}
+#scrollctl span{min-width:58px;text-align:center}
+#scrollctl .scstop{font-size:14px;padding:0 14px;background:rgba(255,255,255,.12)}
+body.immersive #scrollctl{display:none}
