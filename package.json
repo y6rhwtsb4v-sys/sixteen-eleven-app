@@ -1,6 +1,6 @@
 {
   "name": "sixteen-eleven-app",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Sixteen Eleven Bible for the App Store and Google Play, built with Capacitor around the web app in www/.",
   "scripts": {

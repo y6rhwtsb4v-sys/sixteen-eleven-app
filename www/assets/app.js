@@ -2216,9 +2216,11 @@ var Speech=(function(){
       stopEst();
       var why=e&&e.error;
       if(why==='interrupted'||why==='canceled') return;
-      if(++sysErrs>=3){ sysErrs=0; stop();
+      /* ...and a failure on the last passage is not the chapter read to its
+         end: that marked the chapter read and moved on to the next one. */
+      if(++sysErrs>=3||i+1>=queue.length){ sysErrs=0; stop();
         setTimeout(function(){ try{ stopSpeaking();
-          announce('The voice could not read this. Choose another voice in Read aloud.'); }catch(_){} },0);
+          toast('The voice could not read this. Choose another voice in Read aloud.'); }catch(_){} },0);
         return; }
       if(playing&&!paused) sysAt(i+1); };
     try{ synth.speak(u); }catch(e){ stop(); }
@@ -2335,7 +2337,7 @@ var Speech=(function(){
         index: idx, fraction: startFrac||0, rate: eff(), varispeed: tape(), artist: 'Sixteen Eleven'
       }).catch(function(){ nat=false; playing=false; if(onState) onState();
         /* the player could not start: the page stops thinking it is reading */
-        setTimeout(function(){ try{ stopSpeaking(); announce('The narration could not start. Try again in a moment.'); }catch(_){} },0); });
+        setTimeout(function(){ try{ stopSpeaking(); toast('The narration could not start. Try again in a moment.'); }catch(_){} },0); });
       if(onTick) onTick(idx);
       return true;
     }
@@ -2795,7 +2797,7 @@ function speakFrom(v){
   } else {
     S.speaking=false; S.speakAt=-1; S.speakVerse=0;
     if(!S.voiceNotice) S.voiceNotice='Read aloud could not start on this device.';
-    announce(S.voiceNotice);
+    toast(S.voiceNotice);
   }
   renderSpeakBar();
 }
@@ -3768,9 +3770,30 @@ function syncSeal(keys, obj){
 function syncOpen(keys, buf){
   var u=new Uint8Array(buf);
   return crypto.subtle.decrypt({name:'AES-GCM', iv:u.slice(1,13)}, keys.key, u.slice(13)).then(function(pt){
-    if(u[0]===2) return new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    if(u[0]===2){
+      /* A phone that can compress writes the copy gzipped. An iPhone or iPad
+         before iOS 16.4 has no DecompressionStream, so joining from one failed
+         with "could not be opened with this code" although the code was right.
+         The app's own inflater (the one that opens EPUBs) reads it there. */
+      if(typeof DecompressionStream!=='undefined')
+        return new Response(new Blob([pt]).stream().pipeThrough(new DecompressionStream('gzip'))).text()
+          .catch(function(){ return new TextDecoder().decode(gunzip(new Uint8Array(pt))); });
+      return new TextDecoder().decode(gunzip(new Uint8Array(pt)));
+    }
     return new TextDecoder().decode(pt);
   }).then(function(t){ return JSON.parse(t); });
+}
+
+/* a gzip file is a short header, raw deflate data and eight bytes of check */
+function gunzip(b){
+  if(b[0]!==0x1f||b[1]!==0x8b||b[2]!==8) throw new Error('not gzip');
+  var flg=b[3], p=10;
+  if(flg&4) p+=2+(b[p]|(b[p+1]<<8));
+  if(flg&8){ while(b[p++]); }
+  if(flg&16){ while(b[p++]); }
+  if(flg&2) p+=2;
+  var n=b.length, size=(b[n-4]|(b[n-3]<<8)|(b[n-2]<<16))+b[n-1]*16777216;
+  return Unzip.inflate(b.subarray(p, n-8), size>0&&size<64*1024*1024?size:0);
 }
 
 /* ---------- the flat map ---------- */
@@ -4572,7 +4595,7 @@ function vProfile(){
     tog('Words of Christ in red','As in red-letter editions','togglered',S.redLetters!==false)+
     tog('Word meanings',(wordMark()==='glow'?'Old words glow softly':'A dotted line under old words')+'; tap one for its meaning','togglewords',S.wordMeanings!==false)+
     (S.wordMeanings!==false?seg('Mark old words',[['glow','Soft glow'],['line','Underline']].map(function(o){
-      return '<button data-wordmark="'+o[0]+'" aria-selected="'+(wordMark()===o[0])+'">'+o[1]+'</button>';}).join('')):'')+
+      return '<button data-setwordmark="'+o[0]+'" aria-selected="'+(wordMark()===o[0])+'">'+o[1]+'</button>';}).join('')):'')+
     tog('Focus while listening','Dim every verse but the one being read','togglefocus',S.focus!==false)+
     tog('Keep the reader upright','Ignore device rotation','togglerotate',!!S.lockRotate)+
     '</div>';
@@ -4632,8 +4655,12 @@ function vProfile(){
      (S.notesMsg?'<p class="vnote" style="margin:9px 2px 0">'+esc(S.notesMsg)+'</p>':'')+
      '</div>';
   h+='<div class="h2">Privacy</div><div class="card about">'+
-    '<p>Nothing you do here is collected, uploaded or tracked. Everything stays '+
-    'on this device.</p>'+
+    '<p>'+(SYNC.on
+      ?'Nothing you do here is tracked. Your notes, highlights and progress stay on this device; '+
+       'because sync is on, a copy encrypted with your sync code is also kept for your other devices, '+
+       'and nobody else can read it, us included.'
+      :'Nothing you do here is collected, uploaded or tracked. Everything stays on this device '+
+       'unless you turn on sync, which sends an encrypted copy to your other devices.')+'</p>'+
     '<a class="btn sec" href="privacy.html" target="_blank" rel="noopener" '+
     'style="display:block;text-decoration:none">Read the privacy policy</a></div>';
   h+='<div class="h2">What this is</div><div class="card about">'+
@@ -4660,8 +4687,8 @@ function vProfile(){
     'on the new maps, and the marks for the places a verse names, are from OpenBible.info\u2019s '+
     'Bible geocoding data (CC BY 4.0). Coastlines and rivers checked against Natural Earth '+
     '(public domain). Map lettering in PT Sans and PT Serif (SIL Open Font License).</p>'+
-    '<p><b>Your highlights and notes</b> are stored on this device only. Nothing is uploaded. '+
-    'If you open this file somewhere else, they will not follow you.</p>'+
+    '<p><b>Your highlights and notes</b> are stored on this device. Nothing is uploaded unless '+
+    'you turn on sync, which keeps an encrypted copy for your other devices.</p>'+
     '<p><b>Word meanings.</b> The plain meanings are written for this app. The big words of the faith '+
     'also show a line from Noah Webster\u2019s <em>American Dictionary of the English Language</em> (1828), '+
     'which is in the public domain; the lines are taken from the transcription at '+
@@ -4672,7 +4699,7 @@ function vProfile(){
   h+='<p class="setver">Sixteen Eleven '+esc(APP_STAMP)+'</p>';
   return h;
 }
-var APP_STAMP='v107 · Oct 25 10:26';
+var APP_STAMP='v108 · Nov 14';
 
 /* ================= SEARCH ================= */
 
@@ -6044,7 +6071,7 @@ function shareNote(id){
   if(!n) return Promise.resolve(false);
   var text=noteForSharing(n), title=n.title||(n.b!=null?vRef(n.b,n.c,n.v):'A note');
   var copied=function(){
-    var done=function(ok){ announce(ok?'Copied the note. Paste it anywhere.':'Could not share the note.'); return ok; };
+    var done=function(ok){ toast(ok?'Copied the note. Paste it anywhere.':'Could not share the note.'); return ok; };
     if(navigator.clipboard&&navigator.clipboard.writeText)
       return navigator.clipboard.writeText(text).then(function(){ return done(true); }).catch(function(){ return done(legacyCopy(text)); });
     return Promise.resolve(done(legacyCopy(text)));
@@ -7588,7 +7615,7 @@ function immersiveOn(){
   S.immersive=true; S.readerOpts=false; S.speakOpts=false;
   try{ document.body.classList.add('immersive'); }catch(e){}
   render(); startAutoScroll();
-  announce('Full screen reading. Tap anywhere to come back.');
+  toast('Full screen reading. Tap anywhere to come back.');
 }
 function immersiveOff(){
   if(!S.immersive) return false;
@@ -8045,6 +8072,27 @@ function announce(msg){
   try{
     var el=document.getElementById('live');
     if(el){ el.textContent=''; setTimeout(function(){ el.textContent=msg; },30); }
+  }catch(e){}
+}
+/* The same message, and on the screen as well. announce() alone reaches a
+   screen reader only, so "the voice could not read this" and "copied the
+   note" were said to nobody who was looking: the button simply did nothing.
+   A short line above the bar, gone after a few seconds or at a tap. */
+var toastTimer=null;
+function toast(msg){
+  announce(msg);
+  try{
+    var t=document.getElementById('toast');
+    if(!t){
+      t=document.createElement('div'); t.id='toast'; t.setAttribute('aria-hidden','true');
+      t.addEventListener('click',function(){ t.classList.remove('on'); });
+      document.body.appendChild(t);
+    }
+    t.innerHTML='<span>'+esc(msg)+'</span>';
+    /* next frame, so the fade runs even when one message follows another */
+    t.classList.remove('on'); void t.offsetWidth; t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ t.classList.remove('on'); }, Math.max(3200, 60*String(msg||'').length));
   }catch(e){}
 }
 
@@ -10769,7 +10817,7 @@ document.addEventListener('click',inPane(function(ev){
     '[data-kvoice],[data-svoice],[data-read],[data-userbook],[data-delbook],'+
     '[data-cat],[data-apoc],[data-size],[data-markread],[data-vq],[data-page],'+
     '[data-mapera],[data-mapframe],[data-plate],[data-platezoom],[data-settheme],'+
-    '[data-scrollspeed],[data-scrollstep],[data-tone],[data-rsgroup],[data-savestab],[data-notefilter],[data-wordmark],'+
+    '[data-scrollspeed],[data-scrollstep],[data-tone],[data-rsgroup],[data-savestab],[data-notefilter],[data-setwordmark],'+
     '[data-dellink],[data-deltag],[data-bmfolder],[data-bmf],[data-sfilter],'+
     '[data-delref],[data-snap],[data-snapdl],[data-search],[data-forget],[data-smode],[data-doc],[data-docch],'+
     '[data-filenote],[data-gw],[data-pick],[data-pcolor],[data-word],[data-strong],'+
@@ -10786,7 +10834,8 @@ document.addEventListener('click',inPane(function(ev){
     if(tv&&tv!==popWas&&/(^|\s)v(\s|$)/.test(t.className||'')){ openPop(tv); return; }
     if(tv===popWas||inText) return;
   }
-  if(!t) return;
+  /* never the page itself: its data- attributes are for the stylesheet */
+  if(!t||t===document.documentElement||t===document.body) return;
   var d=t.dataset;
   /* a tap that takes you somewhere else (a search result, a chapter, another
      side) puts the keyboard away: the field it was typing in is left behind */
@@ -11198,7 +11247,13 @@ document.addEventListener('click',inPane(function(ev){
     return; }
   if(d.size!==undefined&&d.size!==''){S.keepScroll=true; S.textSize=+d.size; savePlace(); render(); return; }
   if(d.page){ return; }   /* Plain is retired: the page is always paper */
-  if(d.wordmark){ S.wordMark=d.wordmark==='line'?'line':'glow'; Store.set('strata:wordmark',S.wordMark); applyWordMark();
+  /* data-setwordmark, not data-wordmark: the page itself carries
+     data-wordmark="glow" for the stylesheet, so every tap that landed on no
+     control at all (a text box, an empty part of the screen) was taken for
+     this button and redrew the whole app. A box being typed in was replaced
+     under the finger: a study sheet could not be named, nor a sync code
+     entered. The same trap as data-theme, below. */
+  if(d.setwordmark){ S.wordMark=d.setwordmark==='line'?'line':'glow'; Store.set('strata:wordmark',S.wordMark); applyWordMark();
     announce(S.wordMark==='glow'?'Old words glow softly.':'Old words are underlined.');
     S.keepScroll=true; render(); return; }
   /* data-settheme, not data-theme: the root's own data-theme="dark" selector

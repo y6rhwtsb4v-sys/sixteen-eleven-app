@@ -675,12 +675,9 @@ button.ref:hover{background:var(--blue);color:#fff}
 /* the shelf of imported books uses the library panel without the night sky */
 .libplain::before{display:none}
 .libplain::after{background:linear-gradient(180deg,#1B1714,#14110F)}
-.minewrap .item,.minewrap .card{background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.08);box-shadow:none}
-.minewrap .tt,.minewrap .lab{color:#F3F1EF}
-.minewrap .dd,.minewrap .vnote{color:#C1B5AA}
-.minewrap .ic{background:rgba(255,255,255,.10);color:#E0776A}
-.minewrap .empty{color:#C1B5AA}
+/* Your own reading once sat on a dark panel and wrote its list in near-white.
+   The panel went with the redesign and the colours stayed, so by day the
+   book titles were white on cream. The list now takes the theme's own ink. */
 
 /* ================= THE PAGE =================
    A printed Bible is warm paper, brown-black ink and an old-style serif, set
@@ -3245,3 +3242,20 @@ body.immersive .pane.pg-paper[data-screen="reader"]::after{content:'';position:a
 #scrollctl span{min-width:58px;text-align:center}
 #scrollctl .scstop{font-size:14px;padding:0 14px;background:rgba(255,255,255,.12)}
 body.immersive #scrollctl{display:none}
+
+/* ================= A MESSAGE ON THE SCREEN =================
+   toast() in app.js: one line above the tab bar, for things that otherwise
+   only a screen reader was told. */
+#toast{position:fixed;left:16px;right:16px;bottom:150px;bottom:calc(env(safe-area-inset-bottom, 0px) + 150px);
+  text-align:center;z-index:400;opacity:0;pointer-events:none;
+  -webkit-transform:translateY(8px);transform:translateY(8px);
+  -webkit-transition:opacity .22s ease,-webkit-transform .22s ease;transition:opacity .22s ease,transform .22s ease}
+#toast span{display:inline-block;max-width:440px;box-sizing:border-box;padding:11px 16px;border-radius:14px;
+  background:#1D1814;color:#F4EEE5;font-family:var(--text);font-size:14px;line-height:1.4;text-align:center;
+  box-shadow:0 8px 28px rgba(0,0,0,.28)}
+#toast.on{opacity:1;-webkit-transform:none;transform:none}
+#toast.on span{pointer-events:auto}
+[data-theme="dark"] #toast span{background:#F4EEE5;color:#1D1814}
+@media (prefers-reduced-motion:reduce){ #toast{-webkit-transition:none;transition:none} }
+
+.minewrap .vnote{color:var(--ink2)}
